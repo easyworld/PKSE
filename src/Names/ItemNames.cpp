@@ -4,2647 +4,539 @@
 namespace Names {
     // Total items: 2635
     static const char* ITEM_NAMES[] = {
-        "None",  // 0
-        "Master Ball",  // 1
-        "Ultra Ball",  // 2
-        "Great Ball",  // 3
-        "Poke Ball",  // 4
-        "Safari Ball",  // 5
-        "Net Ball",  // 6
-        "Dive Ball",  // 7
-        "Nest Ball",  // 8
-        "Repeat Ball",  // 9
-        "Timer Ball",  // 10
-        "Luxury Ball",  // 11
-        "Premier Ball",  // 12
-        "Dusk Ball",  // 13
-        "Heal Ball",  // 14
-        "Quick Ball",  // 15
-        "Cherish Ball",  // 16
-        "Potion",  // 17
-        "Antidote",  // 18
-        "Burn Heal",  // 19
-        "Ice Heal",  // 20
-        "Awakening",  // 21
-        "Paralyze Heal",  // 22
-        "Full Restore",  // 23
-        "Max Potion",  // 24
-        "Hyper Potion",  // 25
-        "Super Potion",  // 26
-        "Full Heal",  // 27
-        "Revive",  // 28
-        "Max Revive",  // 29
-        "Fresh Water",  // 30
-        "Soda Pop",  // 31
-        "Lemonade",  // 32
-        "Moomoo Milk",  // 33
-        "Energy Powder",  // 34
-        "Energy Root",  // 35
-        "Heal Powder",  // 36
-        "Revival Herb",  // 37
-        "Ether",  // 38
-        "Max Ether",  // 39
-        "Elixir",  // 40
-        "Max Elixir",  // 41
-        "Lava Cookie",  // 42
-        "Berry Juice",  // 43
-        "Sacred Ash",  // 44
-        "HP Up",  // 45
-        "Protein",  // 46
-        "Iron",  // 47
-        "Carbos",  // 48
-        "Calcium",  // 49
-        "Rare Candy",  // 50
-        "PP Up",  // 51
-        "Zinc",  // 52
-        "PP Max",  // 53
-        "Old Gateau",  // 54
-        "Guard Spec.",  // 55
-        "Dire Hit",  // 56
-        "X Attack",  // 57
-        "X Defense",  // 58
-        "X Speed",  // 59
-        "X Accuracy",  // 60
-        "X Sp. Atk",  // 61
-        "X Sp. Def",  // 62
-        "Poke Doll",  // 63
-        "Fluffy Tail",  // 64
-        "Blue Flute",  // 65
-        "Yellow Flute",  // 66
-        "Red Flute",  // 67
-        "Black Flute",  // 68
-        "White Flute",  // 69
-        "Shoal Salt",  // 70
-        "Shoal Shell",  // 71
-        "Red Shard",  // 72
-        "Blue Shard",  // 73
-        "Yellow Shard",  // 74
-        "Green Shard",  // 75
-        "Super Repel",  // 76
-        "Max Repel",  // 77
-        "Escape Rope",  // 78
-        "Repel",  // 79
-        "Sun Stone",  // 80
-        "Moon Stone",  // 81
-        "Fire Stone",  // 82
-        "Thunder Stone",  // 83
-        "Water Stone",  // 84
-        "Leaf Stone",  // 85
-        "Tiny Mushroom",  // 86
-        "Big Mushroom",  // 87
-        "Pearl",  // 88
-        "Big Pearl",  // 89
-        "Stardust",  // 90
-        "Star Piece",  // 91
-        "Nugget",  // 92
-        "Heart Scale",  // 93
-        "Honey",  // 94
-        "Growth Mulch",  // 95
-        "Damp Mulch",  // 96
-        "Stable Mulch",  // 97
-        "Gooey Mulch",  // 98
-        "Root Fossil",  // 99
-        "Claw Fossil",  // 100
-        "Helix Fossil",  // 101
-        "Dome Fossil",  // 102
-        "Old Amber",  // 103
-        "Armor Fossil",  // 104
-        "Skull Fossil",  // 105
-        "Rare Bone",  // 106
-        "Shiny Stone",  // 107
-        "Dusk Stone",  // 108
-        "Dawn Stone",  // 109
-        "Oval Stone",  // 110
-        "Odd Keystone",  // 111
-        "Griseous Orb",  // 112
-        "Tea",  // 113
-        "???",  // 114
-        "Autograph",  // 115
-        "Douse Drive",  // 116
-        "Shock Drive",  // 117
-        "Burn Drive",  // 118
-        "Chill Drive",  // 119
-        "???",  // 120
-        "Pokemon Box Link",  // 121
-        "Medicine Pocket",  // 122
-        "TM Case",  // 123
-        "Candy Jar",  // 124
-        "Power-Up Pocket",  // 125
-        "Clothing Trunk",  // 126
-        "Catching Pocket",  // 127
-        "Battle Pocket",  // 128
-        "???",  // 129
-        "???",  // 130
-        "???",  // 131
-        "???",  // 132
-        "???",  // 133
-        "Sweet Heart",  // 134
-        "Adamant Orb",  // 135
-        "Lustrous Orb",  // 136
-        "Greet Mail",  // 137
-        "Favored Mail",  // 138
-        "RSVP Mail",  // 139
-        "Thanks Mail",  // 140
-        "Inquiry Mail",  // 141
-        "Like Mail",  // 142
-        "Reply Mail",  // 143
-        "Bridge Mail S",  // 144
-        "Bridge Mail D",  // 145
-        "Bridge Mail T",  // 146
-        "Bridge Mail V",  // 147
-        "Bridge Mail M",  // 148
-        "Cheri Berry",  // 149
-        "Chesto Berry",  // 150
-        "Pecha Berry",  // 151
-        "Rawst Berry",  // 152
-        "Aspear Berry",  // 153
-        "Leppa Berry",  // 154
-        "Oran Berry",  // 155
-        "Persim Berry",  // 156
-        "Lum Berry",  // 157
-        "Sitrus Berry",  // 158
-        "Figy Berry",  // 159
-        "Wiki Berry",  // 160
-        "Mago Berry",  // 161
-        "Aguav Berry",  // 162
-        "Iapapa Berry",  // 163
-        "Razz Berry",  // 164
-        "Bluk Berry",  // 165
-        "Nanab Berry",  // 166
-        "Wepear Berry",  // 167
-        "Pinap Berry",  // 168
-        "Pomeg Berry",  // 169
-        "Kelpsy Berry",  // 170
-        "Qualot Berry",  // 171
-        "Hondew Berry",  // 172
-        "Grepa Berry",  // 173
-        "Tamato Berry",  // 174
-        "Cornn Berry",  // 175
-        "Magost Berry",  // 176
-        "Rabuta Berry",  // 177
-        "Nomel Berry",  // 178
-        "Spelon Berry",  // 179
-        "Pamtre Berry",  // 180
-        "Watmel Berry",  // 181
-        "Durin Berry",  // 182
-        "Belue Berry",  // 183
-        "Occa Berry",  // 184
-        "Passho Berry",  // 185
-        "Wacan Berry",  // 186
-        "Rindo Berry",  // 187
-        "Yache Berry",  // 188
-        "Chople Berry",  // 189
-        "Kebia Berry",  // 190
-        "Shuca Berry",  // 191
-        "Coba Berry",  // 192
-        "Payapa Berry",  // 193
-        "Tanga Berry",  // 194
-        "Charti Berry",  // 195
-        "Kasib Berry",  // 196
-        "Haban Berry",  // 197
-        "Colbur Berry",  // 198
-        "Babiri Berry",  // 199
-        "Chilan Berry",  // 200
-        "Liechi Berry",  // 201
-        "Ganlon Berry",  // 202
-        "Salac Berry",  // 203
-        "Petaya Berry",  // 204
-        "Apicot Berry",  // 205
-        "Lansat Berry",  // 206
-        "Starf Berry",  // 207
-        "Enigma Berry",  // 208
-        "Micle Berry",  // 209
-        "Custap Berry",  // 210
-        "Jaboca Berry",  // 211
-        "Rowap Berry",  // 212
-        "Bright Powder",  // 213
-        "White Herb",  // 214
-        "Macho Brace",  // 215
-        "Exp. Share",  // 216
-        "Quick Claw",  // 217
-        "Soothe Bell",  // 218
-        "Mental Herb",  // 219
-        "Choice Band",  // 220
-        "King’s Rock",  // 221
-        "Silver Powder",  // 222
-        "Amulet Coin",  // 223
-        "Cleanse Tag",  // 224
-        "Soul Dew",  // 225
-        "Deep Sea Tooth",  // 226
-        "Deep Sea Scale",  // 227
-        "Smoke Ball",  // 228
-        "Everstone",  // 229
-        "Focus Band",  // 230
-        "Lucky Egg",  // 231
-        "Scope Lens",  // 232
-        "Metal Coat",  // 233
-        "Leftovers",  // 234
-        "Dragon Scale",  // 235
-        "Light Ball",  // 236
-        "Soft Sand",  // 237
-        "Hard Stone",  // 238
-        "Miracle Seed",  // 239
-        "Black Glasses",  // 240
-        "Black Belt",  // 241
-        "Magnet",  // 242
-        "Mystic Water",  // 243
-        "Sharp Beak",  // 244
-        "Poison Barb",  // 245
-        "Never-Melt Ice",  // 246
-        "Spell Tag",  // 247
-        "Twisted Spoon",  // 248
-        "Charcoal",  // 249
-        "Dragon Fang",  // 250
-        "Silk Scarf",  // 251
-        "Upgrade",  // 252
-        "Shell Bell",  // 253
-        "Sea Incense",  // 254
-        "Lax Incense",  // 255
-        "Lucky Punch",  // 256
-        "Metal Powder",  // 257
-        "Thick Club",  // 258
-        "Leek",  // 259
-        "Red Scarf",  // 260
-        "Blue Scarf",  // 261
-        "Pink Scarf",  // 262
-        "Green Scarf",  // 263
-        "Yellow Scarf",  // 264
-        "Wide Lens",  // 265
-        "Muscle Band",  // 266
-        "Wise Glasses",  // 267
-        "Expert Belt",  // 268
-        "Light Clay",  // 269
-        "Life Orb",  // 270
-        "Power Herb",  // 271
-        "Toxic Orb",  // 272
-        "Flame Orb",  // 273
-        "Quick Powder",  // 274
-        "Focus Sash",  // 275
-        "Zoom Lens",  // 276
-        "Metronome",  // 277
-        "Iron Ball",  // 278
-        "Lagging Tail",  // 279
-        "Destiny Knot",  // 280
-        "Black Sludge",  // 281
-        "Icy Rock",  // 282
-        "Smooth Rock",  // 283
-        "Heat Rock",  // 284
-        "Damp Rock",  // 285
-        "Grip Claw",  // 286
-        "Choice Scarf",  // 287
-        "Sticky Barb",  // 288
-        "Power Bracer",  // 289
-        "Power Belt",  // 290
-        "Power Lens",  // 291
-        "Power Band",  // 292
-        "Power Anklet",  // 293
-        "Power Weight",  // 294
-        "Shed Shell",  // 295
-        "Big Root",  // 296
-        "Choice Specs",  // 297
-        "Flame Plate",  // 298
-        "Splash Plate",  // 299
-        "Zap Plate",  // 300
-        "Meadow Plate",  // 301
-        "Icicle Plate",  // 302
-        "Fist Plate",  // 303
-        "Toxic Plate",  // 304
-        "Earth Plate",  // 305
-        "Sky Plate",  // 306
-        "Mind Plate",  // 307
-        "Insect Plate",  // 308
-        "Stone Plate",  // 309
-        "Spooky Plate",  // 310
-        "Draco Plate",  // 311
-        "Dread Plate",  // 312
-        "Iron Plate",  // 313
-        "Odd Incense",  // 314
-        "Rock Incense",  // 315
-        "Full Incense",  // 316
-        "Wave Incense",  // 317
-        "Rose Incense",  // 318
-        "Luck Incense",  // 319
-        "Pure Incense",  // 320
-        "Protector",  // 321
-        "Electirizer",  // 322
-        "Magmarizer",  // 323
-        "Dubious Disc",  // 324
-        "Reaper Cloth",  // 325
-        "Razor Claw",  // 326
-        "Razor Fang",  // 327
-        "TM01",  // 328
-        "TM02",  // 329
-        "TM03",  // 330
-        "TM04",  // 331
-        "TM05",  // 332
-        "TM06",  // 333
-        "TM07",  // 334
-        "TM08",  // 335
-        "TM09",  // 336
-        "TM10",  // 337
-        "TM11",  // 338
-        "TM12",  // 339
-        "TM13",  // 340
-        "TM14",  // 341
-        "TM15",  // 342
-        "TM16",  // 343
-        "TM17",  // 344
-        "TM18",  // 345
-        "TM19",  // 346
-        "TM20",  // 347
-        "TM21",  // 348
-        "TM22",  // 349
-        "TM23",  // 350
-        "TM24",  // 351
-        "TM25",  // 352
-        "TM26",  // 353
-        "TM27",  // 354
-        "TM28",  // 355
-        "TM29",  // 356
-        "TM30",  // 357
-        "TM31",  // 358
-        "TM32",  // 359
-        "TM33",  // 360
-        "TM34",  // 361
-        "TM35",  // 362
-        "TM36",  // 363
-        "TM37",  // 364
-        "TM38",  // 365
-        "TM39",  // 366
-        "TM40",  // 367
-        "TM41",  // 368
-        "TM42",  // 369
-        "TM43",  // 370
-        "TM44",  // 371
-        "TM45",  // 372
-        "TM46",  // 373
-        "TM47",  // 374
-        "TM48",  // 375
-        "TM49",  // 376
-        "TM50",  // 377
-        "TM51",  // 378
-        "TM52",  // 379
-        "TM53",  // 380
-        "TM54",  // 381
-        "TM55",  // 382
-        "TM56",  // 383
-        "TM57",  // 384
-        "TM58",  // 385
-        "TM59",  // 386
-        "TM60",  // 387
-        "TM61",  // 388
-        "TM62",  // 389
-        "TM63",  // 390
-        "TM64",  // 391
-        "TM65",  // 392
-        "TM66",  // 393
-        "TM67",  // 394
-        "TM68",  // 395
-        "TM69",  // 396
-        "TM70",  // 397
-        "TM71",  // 398
-        "TM72",  // 399
-        "TM73",  // 400
-        "TM74",  // 401
-        "TM75",  // 402
-        "TM76",  // 403
-        "TM77",  // 404
-        "TM78",  // 405
-        "TM79",  // 406
-        "TM80",  // 407
-        "TM81",  // 408
-        "TM82",  // 409
-        "TM83",  // 410
-        "TM84",  // 411
-        "TM85",  // 412
-        "TM86",  // 413
-        "TM87",  // 414
-        "TM88",  // 415
-        "TM89",  // 416
-        "TM90",  // 417
-        "TM91",  // 418
-        "TM92",  // 419
-        "HM01",  // 420
-        "HM02",  // 421
-        "HM03",  // 422
-        "HM04",  // 423
-        "HM05",  // 424
-        "HM06",  // 425
-        "???",  // 426
-        "???",  // 427
-        "Explorer Kit",  // 428
-        "Loot Sack",  // 429
-        "Rule Book",  // 430
-        "Poke Radar",  // 431
-        "Point Card",  // 432
-        "Guidebook",  // 433
-        "Sticker Case",  // 434
-        "Fashion Case",  // 435
-        "Sticker Bag",  // 436
-        "Pal Pad",  // 437
-        "Works Key",  // 438
-        "Old Charm",  // 439
-        "Galactic Key",  // 440
-        "Red Chain",  // 441
-        "Town Map",  // 442
-        "Vs. Seeker",  // 443
-        "Coin Case",  // 444
-        "Old Rod",  // 445
-        "Good Rod",  // 446
-        "Super Rod",  // 447
-        "Sprayduck",  // 448
-        "Poffin Case",  // 449
-        "Bike",  // 450
-        "Suite Key",  // 451
-        "Oak’s Letter",  // 452
-        "Lunar Feather",  // 453
-        "Member Card",  // 454
-        "Azure Flute",  // 455
-        "S.S. Ticket",  // 456
-        "Contest Pass",  // 457
-        "Magma Stone",  // 458
-        "Parcel",  // 459
-        "Coupon 1",  // 460
-        "Coupon 2",  // 461
-        "Coupon 3",  // 462
-        "Storage Key",  // 463
-        "Secret Medicine",  // 464
-        "Vs. Recorder",  // 465
-        "Gracidea",  // 466
-        "Secret Key",  // 467
-        "Apricorn Box",  // 468
-        "Unown Report",  // 469
-        "Berry Pots",  // 470
-        "Dowsing Machine",  // 471
-        "Blue Card",  // 472
-        "Slowpoke Tail",  // 473
-        "Clear Bell",  // 474
-        "Card Key",  // 475
-        "Basement Key",  // 476
-        "Squirt Bottle",  // 477
-        "Red Scale",  // 478
-        "Lost Item",  // 479
-        "Pass",  // 480
-        "Machine Part",  // 481
-        "Silver Feather",  // 482
-        "Rainbow Feather",  // 483
-        "Mystery Egg",  // 484
-        "Red Apricorn",  // 485
-        "Blue Apricorn",  // 486
-        "Yellow Apricorn",  // 487
-        "Green Apricorn",  // 488
-        "Pink Apricorn",  // 489
-        "White Apricorn",  // 490
-        "Black Apricorn",  // 491
-        "Fast Ball",  // 492
-        "Level Ball",  // 493
-        "Lure Ball",  // 494
-        "Heavy Ball",  // 495
-        "Love Ball",  // 496
-        "Friend Ball",  // 497
-        "Moon Ball",  // 498
-        "Sport Ball",  // 499
-        "Park Ball",  // 500
-        "Photo Album",  // 501
-        "GB Sounds",  // 502
-        "Tidal Bell",  // 503
-        "Rage Candy Bar",  // 504
-        "Data Card 01",  // 505
-        "Data Card 02",  // 506
-        "Data Card 03",  // 507
-        "Data Card 04",  // 508
-        "Data Card 05",  // 509
-        "Data Card 06",  // 510
-        "Data Card 07",  // 511
-        "Data Card 08",  // 512
-        "Data Card 09",  // 513
-        "Data Card 10",  // 514
-        "Data Card 11",  // 515
-        "Data Card 12",  // 516
-        "Data Card 13",  // 517
-        "Data Card 14",  // 518
-        "Data Card 15",  // 519
-        "Data Card 16",  // 520
-        "Data Card 17",  // 521
-        "Data Card 18",  // 522
-        "Data Card 19",  // 523
-        "Data Card 20",  // 524
-        "Data Card 21",  // 525
-        "Data Card 22",  // 526
-        "Data Card 23",  // 527
-        "Data Card 24",  // 528
-        "Data Card 25",  // 529
-        "Data Card 26",  // 530
-        "Data Card 27",  // 531
-        "Jade Orb",  // 532
-        "Lock Capsule",  // 533
-        "Red Orb",  // 534
-        "Blue Orb",  // 535
-        "Enigma Stone",  // 536
-        "Prism Scale",  // 537
-        "Eviolite",  // 538
-        "Float Stone",  // 539
-        "Rocky Helmet",  // 540
-        "Air Balloon",  // 541
-        "Red Card",  // 542
-        "Ring Target",  // 543
-        "Binding Band",  // 544
-        "Absorb Bulb",  // 545
-        "Cell Battery",  // 546
-        "Eject Button",  // 547
-        "Fire Gem",  // 548
-        "Water Gem",  // 549
-        "Electric Gem",  // 550
-        "Grass Gem",  // 551
-        "Ice Gem",  // 552
-        "Fighting Gem",  // 553
-        "Poison Gem",  // 554
-        "Ground Gem",  // 555
-        "Flying Gem",  // 556
-        "Psychic Gem",  // 557
-        "Bug Gem",  // 558
-        "Rock Gem",  // 559
-        "Ghost Gem",  // 560
-        "Dragon Gem",  // 561
-        "Dark Gem",  // 562
-        "Steel Gem",  // 563
-        "Normal Gem",  // 564
-        "Health Feather",  // 565
-        "Muscle Feather",  // 566
-        "Resist Feather",  // 567
-        "Genius Feather",  // 568
-        "Clever Feather",  // 569
-        "Swift Feather",  // 570
-        "Pretty Feather",  // 571
-        "Cover Fossil",  // 572
-        "Plume Fossil",  // 573
-        "Liberty Pass",  // 574
-        "Pass Orb",  // 575
-        "Dream Ball",  // 576
-        "Poke Toy",  // 577
-        "Prop Case",  // 578
-        "Dragon Skull",  // 579
-        "Balm Mushroom",  // 580
-        "Big Nugget",  // 581
-        "Pearl String",  // 582
-        "Comet Shard",  // 583
-        "Relic Copper",  // 584
-        "Relic Silver",  // 585
-        "Relic Gold",  // 586
-        "Relic Vase",  // 587
-        "Relic Band",  // 588
-        "Relic Statue",  // 589
-        "Relic Crown",  // 590
-        "Casteliacone",  // 591
-        "Dire Hit 2",  // 592
-        "X Speed 2",  // 593
-        "X Sp. Atk 2",  // 594
-        "X Sp. Def 2",  // 595
-        "X Defense 2",  // 596
-        "X Attack 2",  // 597
-        "X Accuracy 2",  // 598
-        "X Speed 3",  // 599
-        "X Sp. Atk 3",  // 600
-        "X Sp. Def 3",  // 601
-        "X Defense 3",  // 602
-        "X Attack 3",  // 603
-        "X Accuracy 3",  // 604
-        "X Speed 6",  // 605
-        "X Sp. Atk 6",  // 606
-        "X Sp. Def 6",  // 607
-        "X Defense 6",  // 608
-        "X Attack 6",  // 609
-        "X Accuracy 6",  // 610
-        "Ability Urge",  // 611
-        "Item Drop",  // 612
-        "Item Urge",  // 613
-        "Reset Urge",  // 614
-        "Dire Hit 3",  // 615
-        "Light Stone",  // 616
-        "Dark Stone",  // 617
-        "TM93",  // 618
-        "TM94",  // 619
-        "TM95",  // 620
-        "Xtransceiver",  // 621
-        "???",  // 622
-        "Gram 1",  // 623
-        "Gram 2",  // 624
-        "Gram 3",  // 625
-        "Xtransceiver",  // 626
-        "Medal Box",  // 627
-        "DNA Splicers",  // 628
-        "DNA Splicers",  // 629
-        "Permit",  // 630
-        "Oval Charm",  // 631
-        "Shiny Charm",  // 632
-        "Plasma Card",  // 633
-        "Grubby Hanky",  // 634
-        "Colress Machine",  // 635
-        "Dropped Item",  // 636
-        "Dropped Item",  // 637
-        "Reveal Glass",  // 638
-        "Weakness Policy",  // 639
-        "Assault Vest",  // 640
-        "Holo Caster",  // 641
-        "Prof’s Letter",  // 642
-        "Roller Skates",  // 643
-        "Pixie Plate",  // 644
-        "Ability Capsule",  // 645
-        "Whipped Dream",  // 646
-        "Sachet",  // 647
-        "Luminous Moss",  // 648
-        "Snowball",  // 649
-        "Safety Goggles",  // 650
-        "Poke Flute",  // 651
-        "Rich Mulch",  // 652
-        "Surprise Mulch",  // 653
-        "Boost Mulch",  // 654
-        "Amaze Mulch",  // 655
-        "Gengarite",  // 656
-        "Gardevoirite",  // 657
-        "Ampharosite",  // 658
-        "Venusaurite",  // 659
-        "Charizardite X",  // 660
-        "Blastoisinite",  // 661
-        "Mewtwonite X",  // 662
-        "Mewtwonite Y",  // 663
-        "Blazikenite",  // 664
-        "Medichamite",  // 665
-        "Houndoominite",  // 666
-        "Aggronite",  // 667
-        "Banettite",  // 668
-        "Tyranitarite",  // 669
-        "Scizorite",  // 670
-        "Pinsirite",  // 671
-        "Aerodactylite",  // 672
-        "Lucarionite",  // 673
-        "Abomasite",  // 674
-        "Kangaskhanite",  // 675
-        "Gyaradosite",  // 676
-        "Absolite",  // 677
-        "Charizardite Y",  // 678
-        "Alakazite",  // 679
-        "Heracronite",  // 680
-        "Mawilite",  // 681
-        "Manectite",  // 682
-        "Garchompite",  // 683
-        "Latiasite",  // 684
-        "Latiosite",  // 685
-        "Roseli Berry",  // 686
-        "Kee Berry",  // 687
-        "Maranga Berry",  // 688
-        "Sprinklotad",  // 689
-        "TM96",  // 690
-        "TM97",  // 691
-        "TM98",  // 692
-        "TM99",  // 693
-        "TM100",  // 694
-        "Power Plant Pass",  // 695
-        "Mega Ring",  // 696
-        "Intriguing Stone",  // 697
-        "Common Stone",  // 698
-        "Discount Coupon",  // 699
-        "Elevator Key",  // 700
-        "TMV Pass",  // 701
-        "Honor of Kalos",  // 702
-        "Adventure Guide",  // 703
-        "Strange Souvenir",  // 704
-        "Lens Case",  // 705
-        "Makeup Bag",  // 706
-        "Travel Trunk",  // 707
-        "Lumiose Galette",  // 708
-        "Shalour Sable",  // 709
-        "Jaw Fossil",  // 710
-        "Sail Fossil",  // 711
-        "Looker Ticket",  // 712
-        "Bike",  // 713
-        "Holo Caster",  // 714
-        "Fairy Gem",  // 715
-        "Mega Charm",  // 716
-        "Mega Glove",  // 717
-        "Mach Bike",  // 718
-        "Acro Bike",  // 719
-        "Wailmer Pail",  // 720
-        "Devon Parts",  // 721
-        "Soot Sack",  // 722
-        "Basement Key",  // 723
-        "Pokeblock Kit",  // 724
-        "Letter",  // 725
-        "Eon Ticket",  // 726
-        "Scanner",  // 727
-        "Go-Goggles",  // 728
-        "Meteorite",  // 729
-        "Key to Room 1",  // 730
-        "Key to Room 2",  // 731
-        "Key to Room 4",  // 732
-        "Key to Room 6",  // 733
-        "Storage Key",  // 734
-        "Devon Scope",  // 735
-        "S.S. Ticket",  // 736
-        "HM07",  // 737
-        "Devon Scuba Gear",  // 738
-        "Contest Costume",  // 739
-        "Contest Costume",  // 740
-        "Magma Suit",  // 741
-        "Aqua Suit",  // 742
-        "Pair of Tickets",  // 743
-        "Mega Bracelet",  // 744
-        "Mega Pendant",  // 745
-        "Mega Glasses",  // 746
-        "Mega Anchor",  // 747
-        "Mega Stickpin",  // 748
-        "Mega Tiara",  // 749
-        "Mega Anklet",  // 750
-        "Meteorite",  // 751
-        "Swampertite",  // 752
-        "Sceptilite",  // 753
-        "Sablenite",  // 754
-        "Altarianite",  // 755
-        "Galladite",  // 756
-        "Audinite",  // 757
-        "Metagrossite",  // 758
-        "Sharpedonite",  // 759
-        "Slowbronite",  // 760
-        "Steelixite",  // 761
-        "Pidgeotite",  // 762
-        "Glalitite",  // 763
-        "Diancite",  // 764
-        "Prison Bottle",  // 765
-        "Mega Cuff",  // 766
-        "Cameruptite",  // 767
-        "Lopunnite",  // 768
-        "Salamencite",  // 769
-        "Beedrillite",  // 770
-        "Meteorite",  // 771
-        "Meteorite",  // 772
-        "Key Stone",  // 773
-        "Meteorite Shard",  // 774
-        "Eon Flute",  // 775
-        "Normalium Z",  // 776
-        "Firium Z",  // 777
-        "Waterium Z",  // 778
-        "Electrium Z",  // 779
-        "Grassium Z",  // 780
-        "Icium Z",  // 781
-        "Fightinium Z",  // 782
-        "Poisonium Z",  // 783
-        "Groundium Z",  // 784
-        "Flyinium Z",  // 785
-        "Psychium Z",  // 786
-        "Buginium Z",  // 787
-        "Rockium Z",  // 788
-        "Ghostium Z",  // 789
-        "Dragonium Z",  // 790
-        "Darkinium Z",  // 791
-        "Steelium Z",  // 792
-        "Fairium Z",  // 793
-        "Pikanium Z",  // 794
-        "Bottle Cap",  // 795
-        "Gold Bottle Cap",  // 796
-        "Z-Ring",  // 797
-        "Decidium Z",  // 798
-        "Incinium Z",  // 799
-        "Primarium Z",  // 800
-        "Tapunium Z",  // 801
-        "Marshadium Z",  // 802
-        "Aloraichium Z",  // 803
-        "Snorlium Z",  // 804
-        "Eevium Z",  // 805
-        "Mewnium Z",  // 806
-        "Normalium Z",  // 807
-        "Firium Z",  // 808
-        "Waterium Z",  // 809
-        "Electrium Z",  // 810
-        "Grassium Z",  // 811
-        "Icium Z",  // 812
-        "Fightinium Z",  // 813
-        "Poisonium Z",  // 814
-        "Groundium Z",  // 815
-        "Flyinium Z",  // 816
-        "Psychium Z",  // 817
-        "Buginium Z",  // 818
-        "Rockium Z",  // 819
-        "Ghostium Z",  // 820
-        "Dragonium Z",  // 821
-        "Darkinium Z",  // 822
-        "Steelium Z",  // 823
-        "Fairium Z",  // 824
-        "Pikanium Z",  // 825
-        "Decidium Z",  // 826
-        "Incinium Z",  // 827
-        "Primarium Z",  // 828
-        "Tapunium Z",  // 829
-        "Marshadium Z",  // 830
-        "Aloraichium Z",  // 831
-        "Snorlium Z",  // 832
-        "Eevium Z",  // 833
-        "Mewnium Z",  // 834
-        "Pikashunium Z",  // 835
-        "Pikashunium Z",  // 836
-        "???",  // 837
-        "???",  // 838
-        "???",  // 839
-        "???",  // 840
-        "Forage Bag",  // 841
-        "Fishing Rod",  // 842
-        "Professor’s Mask",  // 843
-        "Festival Ticket",  // 844
-        "Sparkling Stone",  // 845
-        "Adrenaline Orb",  // 846
-        "Zygarde Cube",  // 847
-        "???",  // 848
-        "Ice Stone",  // 849
-        "Ride Pager",  // 850
-        "Beast Ball",  // 851
-        "Big Malasada",  // 852
-        "Red Nectar",  // 853
-        "Yellow Nectar",  // 854
-        "Pink Nectar",  // 855
-        "Purple Nectar",  // 856
-        "Sun Flute",  // 857
-        "Moon Flute",  // 858
-        "???",  // 859
-        "Enigmatic Card",  // 860
-        "Silver Razz Berry",  // 861
-        "Golden Razz Berry",  // 862
-        "Silver Nanab Berry",  // 863
-        "Golden Nanab Berry",  // 864
-        "Silver Pinap Berry",  // 865
-        "Golden Pinap Berry",  // 866
-        "???",  // 867
-        "???",  // 868
-        "???",  // 869
-        "???",  // 870
-        "???",  // 871
-        "Secret Key",  // 872
-        "S.S. Ticket",  // 873
-        "Silph Scope",  // 874
-        "Parcel",  // 875
-        "Card Key",  // 876
-        "Gold Teeth",  // 877
-        "Lift Key",  // 878
-        "Terrain Extender",  // 879
-        "Protective Pads",  // 880
-        "Electric Seed",  // 881
-        "Psychic Seed",  // 882
-        "Misty Seed",  // 883
-        "Grassy Seed",  // 884
-        "Stretchy Spring",  // 885
-        "Chalky Stone",  // 886
-        "Marble",  // 887
-        "Lone Earring",  // 888
-        "Beach Glass",  // 889
-        "Gold Leaf",  // 890
-        "Silver Leaf",  // 891
-        "Polished Mud Ball",  // 892
-        "Tropical Shell",  // 893
-        "Leaf Letter",  // 894
-        "Leaf Letter",  // 895
-        "Small Bouquet",  // 896
-        "???",  // 897
-        "???",  // 898
-        "???",  // 899
-        "Lure",  // 900
-        "Super Lure",  // 901
-        "Max Lure",  // 902
-        "Pewter Crunchies",  // 903
-        "Fighting Memory",  // 904
-        "Flying Memory",  // 905
-        "Poison Memory",  // 906
-        "Ground Memory",  // 907
-        "Rock Memory",  // 908
-        "Bug Memory",  // 909
-        "Ghost Memory",  // 910
-        "Steel Memory",  // 911
-        "Fire Memory",  // 912
-        "Water Memory",  // 913
-        "Grass Memory",  // 914
-        "Electric Memory",  // 915
-        "Psychic Memory",  // 916
-        "Ice Memory",  // 917
-        "Dragon Memory",  // 918
-        "Dark Memory",  // 919
-        "Fairy Memory",  // 920
-        "Solganium Z",  // 921
-        "Lunalium Z",  // 922
-        "Ultranecrozium Z",  // 923
-        "Mimikium Z",  // 924
-        "Lycanium Z",  // 925
-        "Kommonium Z",  // 926
-        "Solganium Z",  // 927
-        "Lunalium Z",  // 928
-        "Ultranecrozium Z",  // 929
-        "Mimikium Z",  // 930
-        "Lycanium Z",  // 931
-        "Kommonium Z",  // 932
-        "Z-Power Ring",  // 933
-        "Pink Petal",  // 934
-        "Orange Petal",  // 935
-        "Blue Petal",  // 936
-        "Red Petal",  // 937
-        "Green Petal",  // 938
-        "Yellow Petal",  // 939
-        "Purple Petal",  // 940
-        "Rainbow Flower",  // 941
-        "Surge Badge",  // 942
-        "N-Solarizer",  // 943
-        "N-Lunarizer",  // 944
-        "N-Solarizer",  // 945
-        "N-Lunarizer",  // 946
-        "Ilima’s Normalium Z",  // 947
-        "Left Poke Ball",  // 948
-        "Roto Hatch",  // 949
-        "Roto Bargain",  // 950
-        "Roto Prize Money",  // 951
-        "Roto Exp. Points",  // 952
-        "Roto Friendship",  // 953
-        "Roto Encounter",  // 954
-        "Roto Stealth",  // 955
-        "Roto HP Restore",  // 956
-        "Roto PP Restore",  // 957
-        "Roto Boost",  // 958
-        "Roto Catch",  // 959
-        "Health Candy",  // 960
-        "Mighty Candy",  // 961
-        "Tough Candy",  // 962
-        "Smart Candy",  // 963
-        "Courage Candy",  // 964
-        "Quick Candy",  // 965
-        "Health Candy L",  // 966
-        "Mighty Candy L",  // 967
-        "Tough Candy L",  // 968
-        "Smart Candy L",  // 969
-        "Courage Candy L",  // 970
-        "Quick Candy L",  // 971
-        "Health Candy XL",  // 972
-        "Mighty Candy XL",  // 973
-        "Tough Candy XL",  // 974
-        "Smart Candy XL",  // 975
-        "Courage Candy XL",  // 976
-        "Quick Candy XL",  // 977
-        "Bulbasaur Candy",  // 978
-        "Charmander Candy",  // 979
-        "Squirtle Candy",  // 980
-        "Caterpie Candy",  // 981
-        "Weedle Candy",  // 982
-        "Pidgey Candy",  // 983
-        "Rattata Candy",  // 984
-        "Spearow Candy",  // 985
-        "Ekans Candy",  // 986
-        "Pikachu Candy",  // 987
-        "Sandshrew Candy",  // 988
-        "Nidoran♀ Candy",  // 989
-        "Nidoran♂ Candy",  // 990
-        "Clefairy Candy",  // 991
-        "Vulpix Candy",  // 992
-        "Jigglypuff Candy",  // 993
-        "Zubat Candy",  // 994
-        "Oddish Candy",  // 995
-        "Paras Candy",  // 996
-        "Venonat Candy",  // 997
-        "Diglett Candy",  // 998
-        "Meowth Candy",  // 999
-        "Psyduck Candy",  // 1000
-        "Mankey Candy",  // 1001
-        "Growlithe Candy",  // 1002
-        "Poliwag Candy",  // 1003
-        "Abra Candy",  // 1004
-        "Machop Candy",  // 1005
-        "Bellsprout Candy",  // 1006
-        "Tentacool Candy",  // 1007
-        "Geodude Candy",  // 1008
-        "Ponyta Candy",  // 1009
-        "Slowpoke Candy",  // 1010
-        "Magnemite Candy",  // 1011
-        "Farfetch’d Candy",  // 1012
-        "Doduo Candy",  // 1013
-        "Seel Candy",  // 1014
-        "Grimer Candy",  // 1015
-        "Shellder Candy",  // 1016
-        "Gastly Candy",  // 1017
-        "Onix Candy",  // 1018
-        "Drowzee Candy",  // 1019
-        "Krabby Candy",  // 1020
-        "Voltorb Candy",  // 1021
-        "Exeggcute Candy",  // 1022
-        "Cubone Candy",  // 1023
-        "Hitmonlee Candy",  // 1024
-        "Hitmonchan Candy",  // 1025
-        "Lickitung Candy",  // 1026
-        "Koffing Candy",  // 1027
-        "Rhyhorn Candy",  // 1028
-        "Chansey Candy",  // 1029
-        "Tangela Candy",  // 1030
-        "Kangaskhan Candy",  // 1031
-        "Horsea Candy",  // 1032
-        "Goldeen Candy",  // 1033
-        "Staryu Candy",  // 1034
-        "Mr. Mime Candy",  // 1035
-        "Scyther Candy",  // 1036
-        "Jynx Candy",  // 1037
-        "Electabuzz Candy",  // 1038
-        "Pinsir Candy",  // 1039
-        "Tauros Candy",  // 1040
-        "Magikarp Candy",  // 1041
-        "Lapras Candy",  // 1042
-        "Ditto Candy",  // 1043
-        "Eevee Candy",  // 1044
-        "Porygon Candy",  // 1045
-        "Omanyte Candy",  // 1046
-        "Kabuto Candy",  // 1047
-        "Aerodactyl Candy",  // 1048
-        "Snorlax Candy",  // 1049
-        "Articuno Candy",  // 1050
-        "Zapdos Candy",  // 1051
-        "Moltres Candy",  // 1052
-        "Dratini Candy",  // 1053
-        "Mewtwo Candy",  // 1054
-        "Mew Candy",  // 1055
-        "Meltan Candy",  // 1056
-        "Magmar Candy",  // 1057
-        "???",  // 1058
-        "???",  // 1059
-        "???",  // 1060
-        "???",  // 1061
-        "???",  // 1062
-        "???",  // 1063
-        "???",  // 1064
-        "???",  // 1065
-        "???",  // 1066
-        "???",  // 1067
-        "???",  // 1068
-        "???",  // 1069
-        "???",  // 1070
-        "???",  // 1071
-        "???",  // 1072
-        "???",  // 1073
-        "Endorsement",  // 1074
-        "Pokemon Box Link",  // 1075
-        "Wishing Star",  // 1076
-        "Dynamax Band",  // 1077
-        "???",  // 1078
-        "???",  // 1079
-        "Fishing Rod",  // 1080
-        "Rotom Bike",  // 1081
-        "???",  // 1082
-        "???",  // 1083
-        "Sausages",  // 1084
-        "Bob’s Food Tin",  // 1085
-        "Bach’s Food Tin",  // 1086
-        "Tin of Beans",  // 1087
-        "Bread",  // 1088
-        "Pasta",  // 1089
-        "Mixed Mushrooms",  // 1090
-        "Smoke-Poke Tail",  // 1091
-        "Large Leek",  // 1092
-        "Fancy Apple",  // 1093
-        "Brittle Bones",  // 1094
-        "Pack of Potatoes",  // 1095
-        "Pungent Root",  // 1096
-        "Salad Mix",  // 1097
-        "Fried Food",  // 1098
-        "Boiled Egg",  // 1099
-        "Camping Gear",  // 1100
-        "???",  // 1101
-        "???",  // 1102
-        "Rusted Sword",  // 1103
-        "Rusted Shield",  // 1104
-        "Fossilized Bird",  // 1105
-        "Fossilized Fish",  // 1106
-        "Fossilized Drake",  // 1107
-        "Fossilized Dino",  // 1108
-        "Strawberry Sweet",  // 1109
-        "Love Sweet",  // 1110
-        "Berry Sweet",  // 1111
-        "Clover Sweet",  // 1112
-        "Flower Sweet",  // 1113
-        "Star Sweet",  // 1114
-        "Ribbon Sweet",  // 1115
-        "Sweet Apple",  // 1116
-        "Tart Apple",  // 1117
-        "Throat Spray",  // 1118
-        "Eject Pack",  // 1119
-        "Heavy-Duty Boots",  // 1120
-        "Blunder Policy",  // 1121
-        "Room Service",  // 1122
-        "Utility Umbrella",  // 1123
-        "Exp. Candy XS",  // 1124
-        "Exp. Candy S",  // 1125
-        "Exp. Candy M",  // 1126
-        "Exp. Candy L",  // 1127
-        "Exp. Candy XL",  // 1128
-        "Dynamax Candy",  // 1129
-        "TR00",  // 1130
-        "TR01",  // 1131
-        "TR02",  // 1132
-        "TR03",  // 1133
-        "TR04",  // 1134
-        "TR05",  // 1135
-        "TR06",  // 1136
-        "TR07",  // 1137
-        "TR08",  // 1138
-        "TR09",  // 1139
-        "TR10",  // 1140
-        "TR11",  // 1141
-        "TR12",  // 1142
-        "TR13",  // 1143
-        "TR14",  // 1144
-        "TR15",  // 1145
-        "TR16",  // 1146
-        "TR17",  // 1147
-        "TR18",  // 1148
-        "TR19",  // 1149
-        "TR20",  // 1150
-        "TR21",  // 1151
-        "TR22",  // 1152
-        "TR23",  // 1153
-        "TR24",  // 1154
-        "TR25",  // 1155
-        "TR26",  // 1156
-        "TR27",  // 1157
-        "TR28",  // 1158
-        "TR29",  // 1159
-        "TR30",  // 1160
-        "TR31",  // 1161
-        "TR32",  // 1162
-        "TR33",  // 1163
-        "TR34",  // 1164
-        "TR35",  // 1165
-        "TR36",  // 1166
-        "TR37",  // 1167
-        "TR38",  // 1168
-        "TR39",  // 1169
-        "TR40",  // 1170
-        "TR41",  // 1171
-        "TR42",  // 1172
-        "TR43",  // 1173
-        "TR44",  // 1174
-        "TR45",  // 1175
-        "TR46",  // 1176
-        "TR47",  // 1177
-        "TR48",  // 1178
-        "TR49",  // 1179
-        "TR50",  // 1180
-        "TR51",  // 1181
-        "TR52",  // 1182
-        "TR53",  // 1183
-        "TR54",  // 1184
-        "TR55",  // 1185
-        "TR56",  // 1186
-        "TR57",  // 1187
-        "TR58",  // 1188
-        "TR59",  // 1189
-        "TR60",  // 1190
-        "TR61",  // 1191
-        "TR62",  // 1192
-        "TR63",  // 1193
-        "TR64",  // 1194
-        "TR65",  // 1195
-        "TR66",  // 1196
-        "TR67",  // 1197
-        "TR68",  // 1198
-        "TR69",  // 1199
-        "TR70",  // 1200
-        "TR71",  // 1201
-        "TR72",  // 1202
-        "TR73",  // 1203
-        "TR74",  // 1204
-        "TR75",  // 1205
-        "TR76",  // 1206
-        "TR77",  // 1207
-        "TR78",  // 1208
-        "TR79",  // 1209
-        "TR80",  // 1210
-        "TR81",  // 1211
-        "TR82",  // 1212
-        "TR83",  // 1213
-        "TR84",  // 1214
-        "TR85",  // 1215
-        "TR86",  // 1216
-        "TR87",  // 1217
-        "TR88",  // 1218
-        "TR89",  // 1219
-        "TR90",  // 1220
-        "TR91",  // 1221
-        "TR92",  // 1222
-        "TR93",  // 1223
-        "TR94",  // 1224
-        "TR95",  // 1225
-        "TR96",  // 1226
-        "TR97",  // 1227
-        "TR98",  // 1228
-        "TR99",  // 1229
-        "TM00",  // 1230
-        "Lonely Mint",  // 1231
-        "Adamant Mint",  // 1232
-        "Naughty Mint",  // 1233
-        "Brave Mint",  // 1234
-        "Bold Mint",  // 1235
-        "Impish Mint",  // 1236
-        "Lax Mint",  // 1237
-        "Relaxed Mint",  // 1238
-        "Modest Mint",  // 1239
-        "Mild Mint",  // 1240
-        "Rash Mint",  // 1241
-        "Quiet Mint",  // 1242
-        "Calm Mint",  // 1243
-        "Gentle Mint",  // 1244
-        "Careful Mint",  // 1245
-        "Sassy Mint",  // 1246
-        "Timid Mint",  // 1247
-        "Hasty Mint",  // 1248
-        "Jolly Mint",  // 1249
-        "Naive Mint",  // 1250
-        "Serious Mint",  // 1251
-        "Wishing Piece",  // 1252
-        "Cracked Pot",  // 1253
-        "Chipped Pot",  // 1254
-        "Hi-tech Earbuds",  // 1255
-        "Fruit Bunch",  // 1256
-        "Moomoo Cheese",  // 1257
-        "Spice Mix",  // 1258
-        "Fresh Cream",  // 1259
-        "Packaged Curry",  // 1260
-        "Coconut Milk",  // 1261
-        "Instant Noodles",  // 1262
-        "Precooked Burger",  // 1263
-        "Gigantamix",  // 1264
-        "Wishing Chip",  // 1265
-        "Rotom Bike",  // 1266
-        "Catching Charm",  // 1267
-        "???",  // 1268
-        "Old Letter",  // 1269
-        "Band Autograph",  // 1270
-        "Sonia’s Book",  // 1271
-        "???",  // 1272
-        "???",  // 1273
-        "???",  // 1274
-        "???",  // 1275
-        "???",  // 1276
-        "???",  // 1277
-        "Rotom Catalog",  // 1278
-        "★And458",  // 1279
-        "★And15",  // 1280
-        "★And337",  // 1281
-        "★And603",  // 1282
-        "★And390",  // 1283
-        "★Sgr6879",  // 1284
-        "★Sgr6859",  // 1285
-        "★Sgr6913",  // 1286
-        "★Sgr7348",  // 1287
-        "★Sgr7121",  // 1288
-        "★Sgr6746",  // 1289
-        "★Sgr7194",  // 1290
-        "★Sgr7337",  // 1291
-        "★Sgr7343",  // 1292
-        "★Sgr6812",  // 1293
-        "★Sgr7116",  // 1294
-        "★Sgr7264",  // 1295
-        "★Sgr7597",  // 1296
-        "★Del7882",  // 1297
-        "★Del7906",  // 1298
-        "★Del7852",  // 1299
-        "★Psc596",  // 1300
-        "★Psc361",  // 1301
-        "★Psc510",  // 1302
-        "★Psc437",  // 1303
-        "★Psc8773",  // 1304
-        "★Lep1865",  // 1305
-        "★Lep1829",  // 1306
-        "★Boo5340",  // 1307
-        "★Boo5506",  // 1308
-        "★Boo5435",  // 1309
-        "★Boo5602",  // 1310
-        "★Boo5733",  // 1311
-        "★Boo5235",  // 1312
-        "★Boo5351",  // 1313
-        "★Hya3748",  // 1314
-        "★Hya3903",  // 1315
-        "★Hya3418",  // 1316
-        "★Hya3482",  // 1317
-        "★Hya3845",  // 1318
-        "★Eri1084",  // 1319
-        "★Eri472",  // 1320
-        "★Eri1666",  // 1321
-        "★Eri897",  // 1322
-        "★Eri1231",  // 1323
-        "★Eri874",  // 1324
-        "★Eri1298",  // 1325
-        "★Eri1325",  // 1326
-        "★Eri984",  // 1327
-        "★Eri1464",  // 1328
-        "★Eri1393",  // 1329
-        "★Eri850",  // 1330
-        "★Tau1409",  // 1331
-        "★Tau1457",  // 1332
-        "★Tau1165",  // 1333
-        "★Tau1791",  // 1334
-        "★Tau1910",  // 1335
-        "★Tau1346",  // 1336
-        "★Tau1373",  // 1337
-        "★Tau1412",  // 1338
-        "★CMa2491",  // 1339
-        "★CMa2693",  // 1340
-        "★CMa2294",  // 1341
-        "★CMa2827",  // 1342
-        "★CMa2282",  // 1343
-        "★CMa2618",  // 1344
-        "★CMa2657",  // 1345
-        "★CMa2646",  // 1346
-        "★UMa4905",  // 1347
-        "★UMa4301",  // 1348
-        "★UMa5191",  // 1349
-        "★UMa5054",  // 1350
-        "★UMa4295",  // 1351
-        "★UMa4660",  // 1352
-        "★UMa4554",  // 1353
-        "★UMa4069",  // 1354
-        "★UMa3569",  // 1355
-        "★UMa3323",  // 1356
-        "★UMa4033",  // 1357
-        "★UMa4377",  // 1358
-        "★UMa4375",  // 1359
-        "★UMa4518",  // 1360
-        "★UMa3594",  // 1361
-        "★Vir5056",  // 1362
-        "★Vir4825",  // 1363
-        "★Vir4932",  // 1364
-        "★Vir4540",  // 1365
-        "★Vir4689",  // 1366
-        "★Vir5338",  // 1367
-        "★Vir4910",  // 1368
-        "★Vir5315",  // 1369
-        "★Vir5359",  // 1370
-        "★Vir5409",  // 1371
-        "★Vir5107",  // 1372
-        "★Ari617",  // 1373
-        "★Ari553",  // 1374
-        "★Ari546",  // 1375
-        "★Ari951",  // 1376
-        "★Ori1713",  // 1377
-        "★Ori2061",  // 1378
-        "★Ori1790",  // 1379
-        "★Ori1903",  // 1380
-        "★Ori1948",  // 1381
-        "★Ori2004",  // 1382
-        "★Ori1852",  // 1383
-        "★Ori1879",  // 1384
-        "★Ori1899",  // 1385
-        "★Ori1543",  // 1386
-        "★Cas21",  // 1387
-        "★Cas168",  // 1388
-        "★Cas403",  // 1389
-        "★Cas153",  // 1390
-        "★Cas542",  // 1391
-        "★Cas219",  // 1392
-        "★Cas265",  // 1393
-        "★Cnc3572",  // 1394
-        "★Cnc3208",  // 1395
-        "★Cnc3461",  // 1396
-        "★Cnc3449",  // 1397
-        "★Cnc3429",  // 1398
-        "★Cnc3627",  // 1399
-        "★Cnc3268",  // 1400
-        "★Cnc3249",  // 1401
-        "★Com4968",  // 1402
-        "★Crv4757",  // 1403
-        "★Crv4623",  // 1404
-        "★Crv4662",  // 1405
-        "★Crv4786",  // 1406
-        "★Aur1708",  // 1407
-        "★Aur2088",  // 1408
-        "★Aur1605",  // 1409
-        "★Aur2095",  // 1410
-        "★Aur1577",  // 1411
-        "★Aur1641",  // 1412
-        "★Aur1612",  // 1413
-        "★Pav7790",  // 1414
-        "★Cet911",  // 1415
-        "★Cet681",  // 1416
-        "★Cet188",  // 1417
-        "★Cet539",  // 1418
-        "★Cet804",  // 1419
-        "★Cep8974",  // 1420
-        "★Cep8162",  // 1421
-        "★Cep8238",  // 1422
-        "★Cep8417",  // 1423
-        "★Cen5267",  // 1424
-        "★Cen5288",  // 1425
-        "★Cen551",  // 1426
-        "★Cen5459",  // 1427
-        "★Cen5460",  // 1428
-        "★CMi2943",  // 1429
-        "★CMi2845",  // 1430
-        "★Equ8131",  // 1431
-        "★Vul7405",  // 1432
-        "★UMi424",  // 1433
-        "★UMi5563",  // 1434
-        "★UMi5735",  // 1435
-        "★UMi6789",  // 1436
-        "★Crt4287",  // 1437
-        "★Lyr7001",  // 1438
-        "★Lyr7178",  // 1439
-        "★Lyr7106",  // 1440
-        "★Lyr7298",  // 1441
-        "★Ara6585",  // 1442
-        "★Sco6134",  // 1443
-        "★Sco6527",  // 1444
-        "★Sco6553",  // 1445
-        "★Sco5953",  // 1446
-        "★Sco5984",  // 1447
-        "★Sco6508",  // 1448
-        "★Sco6084",  // 1449
-        "★Sco5944",  // 1450
-        "★Sco6630",  // 1451
-        "★Sco6027",  // 1452
-        "★Sco6247",  // 1453
-        "★Sco6252",  // 1454
-        "★Sco5928",  // 1455
-        "★Sco6241",  // 1456
-        "★Sco6165",  // 1457
-        "★Tri544",  // 1458
-        "★Leo3982",  // 1459
-        "★Leo4534",  // 1460
-        "★Leo4357",  // 1461
-        "★Leo4057",  // 1462
-        "★Leo4359",  // 1463
-        "★Leo4031",  // 1464
-        "★Leo3852",  // 1465
-        "★Leo3905",  // 1466
-        "★Leo3773",  // 1467
-        "★Gru8425",  // 1468
-        "★Gru8636",  // 1469
-        "★Gru8353",  // 1470
-        "★Lib5685",  // 1471
-        "★Lib5531",  // 1472
-        "★Lib5787",  // 1473
-        "★Lib5603",  // 1474
-        "★Pup3165",  // 1475
-        "★Pup3185",  // 1476
-        "★Pup3045",  // 1477
-        "★Cyg7924",  // 1478
-        "★Cyg7417",  // 1479
-        "★Cyg7796",  // 1480
-        "★Cyg8301",  // 1481
-        "★Cyg7949",  // 1482
-        "★Cyg7528",  // 1483
-        "★Oct7228",  // 1484
-        "★Col1956",  // 1485
-        "★Col2040",  // 1486
-        "★Col2177",  // 1487
-        "★Gem2990",  // 1488
-        "★Gem2891",  // 1489
-        "★Gem2421",  // 1490
-        "★Gem2473",  // 1491
-        "★Gem2216",  // 1492
-        "★Gem2777",  // 1493
-        "★Gem2650",  // 1494
-        "★Gem2286",  // 1495
-        "★Gem2484",  // 1496
-        "★Gem2930",  // 1497
-        "★Peg8775",  // 1498
-        "★Peg8781",  // 1499
-        "★Peg39",  // 1500
-        "★Peg8308",  // 1501
-        "★Peg8650",  // 1502
-        "★Peg8634",  // 1503
-        "★Peg8684",  // 1504
-        "★Peg8450",  // 1505
-        "★Peg8880",  // 1506
-        "★Peg8905",  // 1507
-        "★Oph6556",  // 1508
-        "★Oph6378",  // 1509
-        "★Oph6603",  // 1510
-        "★Oph6149",  // 1511
-        "★Oph6056",  // 1512
-        "★Oph6075",  // 1513
-        "★Ser5854",  // 1514
-        "★Ser7141",  // 1515
-        "★Ser5879",  // 1516
-        "★Her6406",  // 1517
-        "★Her6148",  // 1518
-        "★Her6410",  // 1519
-        "★Her6526",  // 1520
-        "★Her6117",  // 1521
-        "★Her6008",  // 1522
-        "★Per936",  // 1523
-        "★Per1017",  // 1524
-        "★Per1131",  // 1525
-        "★Per1228",  // 1526
-        "★Per834",  // 1527
-        "★Per941",  // 1528
-        "★Phe99",  // 1529
-        "★Phe338",  // 1530
-        "★Vel3634",  // 1531
-        "★Vel3485",  // 1532
-        "★Vel3734",  // 1533
-        "★Aqr8232",  // 1534
-        "★Aqr8414",  // 1535
-        "★Aqr8709",  // 1536
-        "★Aqr8518",  // 1537
-        "★Aqr7950",  // 1538
-        "★Aqr8499",  // 1539
-        "★Aqr8610",  // 1540
-        "★Aqr8264",  // 1541
-        "★Cru4853",  // 1542
-        "★Cru4730",  // 1543
-        "★Cru4763",  // 1544
-        "★Cru4700",  // 1545
-        "★Cru4656",  // 1546
-        "★PsA8728",  // 1547
-        "★TrA6217",  // 1548
-        "★Cap7776",  // 1549
-        "★Cap7754",  // 1550
-        "★Cap8278",  // 1551
-        "★Cap8322",  // 1552
-        "★Cap7773",  // 1553
-        "★Sge7479",  // 1554
-        "★Car2326",  // 1555
-        "★Car3685",  // 1556
-        "★Car3307",  // 1557
-        "★Car3699",  // 1558
-        "★Dra5744",  // 1559
-        "★Dra5291",  // 1560
-        "★Dra6705",  // 1561
-        "★Dra6536",  // 1562
-        "★Dra7310",  // 1563
-        "★Dra6688",  // 1564
-        "★Dra4434",  // 1565
-        "★Dra6370",  // 1566
-        "★Dra7462",  // 1567
-        "★Dra6396",  // 1568
-        "★Dra6132",  // 1569
-        "★Dra6636",  // 1570
-        "★CVn4915",  // 1571
-        "★CVn4785",  // 1572
-        "★CVn4846",  // 1573
-        "★Aql7595",  // 1574
-        "★Aql7557",  // 1575
-        "★Aql7525",  // 1576
-        "★Aql7602",  // 1577
-        "★Aql7235",  // 1578
-        "Max Honey",  // 1579
-        "Max Mushrooms",  // 1580
-        "Galarica Twig",  // 1581
-        "Galarica Cuff",  // 1582
-        "Style Card",  // 1583
-        "Armor Pass",  // 1584
-        "Rotom Bike",  // 1585
-        "Rotom Bike",  // 1586
-        "Exp. Charm",  // 1587
-        "Armorite Ore",  // 1588
-        "Mark Charm",  // 1589
-        "Reins of Unity",  // 1590
-        "Reins of Unity",  // 1591
-        "Galarica Wreath",  // 1592
-        "Legendary Clue 1",  // 1593
-        "Legendary Clue 2",  // 1594
-        "Legendary Clue 3",  // 1595
-        "Legendary Clue?",  // 1596
-        "Crown Pass",  // 1597
-        "Wooden Crown",  // 1598
-        "Radiant Petal",  // 1599
-        "White Mane Hair",  // 1600
-        "Black Mane Hair",  // 1601
-        "Iceroot Carrot",  // 1602
-        "Shaderoot Carrot",  // 1603
-        "Dynite Ore",  // 1604
-        "Carrot Seeds",  // 1605
-        "Ability Patch",  // 1606
-        "Reins of Unity",  // 1607
-        "Time Balm",  // 1608
-        "Space Balm",  // 1609
-        "Mysterious Balm",  // 1610
-        "Linking Cord",  // 1611
-        "Hometown Muffin",  // 1612
-        "Apricorn",  // 1613
-        "Jubilife Muffin",  // 1614
-        "Aux Powerguard",  // 1615
-        "Dire Hit",  // 1616
-        "Choice Dumpling",  // 1617
-        "Twice-Spiced Radish",  // 1618
-        "Swap Snack",  // 1619
-        "Caster Fern",  // 1620
-        "Seed of Mastery",  // 1621
-        "Poke Ball",  // 1622
-        "???",  // 1623
-        "Eternal Ice",  // 1624
-        "Uxie’s Claw",  // 1625
-        "Azelf’s Fang",  // 1626
-        "Mesprit’s Plume",  // 1627
-        "Tumblestone",  // 1628
-        "Celestica Flute",  // 1629
-        "Remedy",  // 1630
-        "Fine Remedy",  // 1631
-        "Dazzling Honey",  // 1632
-        "Hearty Grains",  // 1633
-        "Plump Beans",  // 1634
-        "Springy Mushroom",  // 1635
-        "Crunchy Salt",  // 1636
-        "Wood",  // 1637
-        "King’s Leaf",  // 1638
-        "Marsh Balm",  // 1639
-        "Poke Ball",  // 1640
-        "Great Ball",  // 1641
-        "Ultra Ball",  // 1642
-        "Feather Ball",  // 1643
-        "Pokeshi Doll",  // 1644
-        "???",  // 1645
-        "Smoke Bomb",  // 1646
-        "Scatter Bang",  // 1647
-        "Sticky Glob",  // 1648
-        "Star Piece",  // 1649
-        "Mushroom Cake",  // 1650
-        "Bugwort",  // 1651
-        "Honey Cake",  // 1652
-        "Grain Cake",  // 1653
-        "Bean Cake",  // 1654
-        "Salt Cake",  // 1655
-        "Potion",  // 1656
-        "Super Potion",  // 1657
-        "Hyper Potion",  // 1658
-        "Max Potion",  // 1659
-        "Full Restore",  // 1660
-        "Remedy",  // 1661
-        "Fine Remedy",  // 1662
-        "Superb Remedy",  // 1663
-        "Old Gateau",  // 1664
-        "Jubilife Muffin",  // 1665
-        "Full Heal",  // 1666
-        "Revive",  // 1667
-        "Max Revive",  // 1668
-        "Max Ether",  // 1669
-        "Max Elixir",  // 1670
-        "Stealth Spray",  // 1671
-        "???",  // 1672
-        "Aux Power",  // 1673
-        "Aux Guard",  // 1674
-        "Dire Hit",  // 1675
-        "Aux Evasion",  // 1676
-        "Aux Powerguard",  // 1677
-        "Forest Balm",  // 1678
-        "Iron Chunk",  // 1679
-        "???",  // 1680
-        "Black Tumblestone",  // 1681
-        "Sky Tumblestone",  // 1682
-        "???",  // 1683
-        "Ball of Mud",  // 1684
-        "???",  // 1685
-        "Pop Pod",  // 1686
-        "Sootfoot Root",  // 1687
-        "Spoiled Apricorn",  // 1688
-        "Snowball",  // 1689
-        "Sticky Glob",  // 1690
-        "Black Augurite",  // 1691
-        "Peat Block",  // 1692
-        "Stealth Spray",  // 1693
-        "Medicinal Leek",  // 1694
-        "Vivichoke",  // 1695
-        "Pep-Up Plant",  // 1696
-        "???",  // 1697
-        "???",  // 1698
-        "Tempting Charm B",  // 1699
-        "Tempting Charm P",  // 1700
-        "Swordcap",  // 1701
-        "Iron Barktongue",  // 1702
-        "Doppel Bonnets",  // 1703
-        "Direshroom",  // 1704
-        "Sand Radish",  // 1705
-        "Tempting Charm T",  // 1706
-        "Tempting Charm Y",  // 1707
-        "Candy Truffle",  // 1708
-        "Cake-Lure Base",  // 1709
-        "Poke Ball",  // 1710
-        "Great Ball",  // 1711
-        "Ultra Ball",  // 1712
-        "Feather Ball",  // 1713
-        "???",  // 1714
-        "???",  // 1715
-        "Scatter Bang",  // 1716
-        "Smoke Bomb",  // 1717
-        "???",  // 1718
-        "???",  // 1719
-        "Pokeshi Doll",  // 1720
-        "Volcano Balm",  // 1721
-        "Mountain Balm",  // 1722
-        "Snow Balm",  // 1723
-        "Honey Cake",  // 1724
-        "Grain Cake",  // 1725
-        "Bean Cake",  // 1726
-        "Mushroom Cake",  // 1727
-        "Salt Cake",  // 1728
-        "Swap Snack",  // 1729
-        "Choice Dumpling",  // 1730
-        "Twice-Spiced Radish",  // 1731
-        "Survival Charm R",  // 1732
-        "Survival Charm B",  // 1733
-        "Survival Charm P",  // 1734
-        "Survival Charm T",  // 1735
-        "Survival Charm Y",  // 1736
-        "Torn Journal",  // 1737
-        "Warding Charm R",  // 1738
-        "Warding Charm B",  // 1739
-        "Warding Charm P",  // 1740
-        "Warding Charm T",  // 1741
-        "Warding Charm Y",  // 1742
-        "Wall Fragment",  // 1743
-        "Basculegion Food",  // 1744
-        "Old Journal",  // 1745
-        "Wing Ball",  // 1746
-        "Jet Ball",  // 1747
-        "Heavy Ball",  // 1748
-        "Leaden Ball",  // 1749
-        "Gigaton Ball",  // 1750
-        "Wing Ball",  // 1751
-        "Jet Ball",  // 1752
-        "Heavy Ball",  // 1753
-        "Hopo Berry",  // 1754
-        "Superb Remedy",  // 1755
-        "Aux Power",  // 1756
-        "Aux Guard",  // 1757
-        "Aux Evasion",  // 1758
-        "Grit Dust",  // 1759
-        "Grit Gravel",  // 1760
-        "Grit Pebble",  // 1761
-        "Grit Rock",  // 1762
-        "Secret Medicine",  // 1763
-        "Tempting Charm R",  // 1764
-        "Lost Satchel",  // 1765
-        "Lost Satchel",  // 1766
-        "Lost Satchel",  // 1767
-        "Lost Satchel",  // 1768
-        "Lost Satchel",  // 1769
-        "???",  // 1770
-        "Origin Ball",  // 1771
-        "???",  // 1772
-        "???",  // 1773
-        "???",  // 1774
-        "???",  // 1775
-        "Origin Ore",  // 1776
-        "Adamant Crystal",  // 1777
-        "Lustrous Globe",  // 1778
-        "Griseous Core",  // 1779
-        "Blank Plate",  // 1780
-        "???",  // 1781
-        "Crafting Kit",  // 1782
-        "Leaden Ball",  // 1783
-        "Gigaton Ball",  // 1784
-        "Strange Ball",  // 1785
-        "Pokedex",  // 1786
-        "Old Verse 1",  // 1787
-        "Old Verse 2",  // 1788
-        "Old Verse 3",  // 1789
-        "Old Verse 4",  // 1790
-        "???",  // 1791
-        "Old Verse 5",  // 1792
-        "Old Verse 6",  // 1793
-        "Old Verse 7",  // 1794
-        "Old Verse 8",  // 1795
-        "Old Verse 9",  // 1796
-        "Old Verse 10",  // 1797
-        "Old Verse 11",  // 1798
-        "Old Verse 12",  // 1799
-        "Old Verse 13",  // 1800
-        "Old Verse 14",  // 1801
-        "Old Verse 15",  // 1802
-        "Old Verse 16",  // 1803
-        "Old Verse 17",  // 1804
-        "Old Verse 18",  // 1805
-        "Old Verse 19",  // 1806
-        "Old Verse 20",  // 1807
-        "Mysterious Shard S",  // 1808
-        "Mysterious Shard L",  // 1809
-        "Digger Drill",  // 1810
-        "Kanto Slate",  // 1811
-        "Johto Slate",  // 1812
-        "Soul Slate",  // 1813
-        "Rainbow Slate",  // 1814
-        "Squall Slate",  // 1815
-        "Oceanic Slate",  // 1816
-        "Tectonic Slate",  // 1817
-        "Stratospheric Slate",  // 1818
-        "Genome Slate",  // 1819
-        "Discovery Slate",  // 1820
-        "Distortion Slate",  // 1821
-        "DS Sounds",  // 1822
-        "",  // 1823
-        "",  // 1824
-        "",  // 1825
-        "",  // 1826
-        "",  // 1827
-        "Legend Plate",  // 1828
-        "Rotom Phone",  // 1829
-        "Sandwich",  // 1830
-        "Koraidon’s Poke Ball",  // 1831
-        "Miraidon’s Poke Ball",  // 1832
-        "Tera Orb",  // 1833
-        "Scarlet Book",  // 1834
-        "Violet Book",  // 1835
-        "Kofu’s Wallet",  // 1836
-        "",  // 1837
-        "",  // 1838
-        "",  // 1839
-        "",  // 1840
-        "",  // 1841
-        "Tiny Bamboo Shoot",  // 1842
-        "Big Bamboo Shoot",  // 1843
-        "",  // 1844
-        "",  // 1845
-        "",  // 1846
-        "",  // 1847
-        "",  // 1848
-        "",  // 1849
-        "",  // 1850
-        "",  // 1851
-        "",  // 1852
-        "",  // 1853
-        "",  // 1854
-        "",  // 1855
-        "",  // 1856
-        "Scroll of Darkness",  // 1857
-        "Scroll of Waters",  // 1858
-        "",  // 1859
-        "",  // 1860
-        "Malicious Armor",  // 1861
-        "Normal Tera Shard",  // 1862
-        "Fire Tera Shard",  // 1863
-        "Water Tera Shard",  // 1864
-        "Electric Tera Shard",  // 1865
-        "Grass Tera Shard",  // 1866
-        "Ice Tera Shard",  // 1867
-        "Fighting Tera Shard",  // 1868
-        "Poison Tera Shard",  // 1869
-        "Ground Tera Shard",  // 1870
-        "Flying Tera Shard",  // 1871
-        "Psychic Tera Shard",  // 1872
-        "Bug Tera Shard",  // 1873
-        "Rock Tera Shard",  // 1874
-        "Ghost Tera Shard",  // 1875
-        "Dragon Tera Shard",  // 1876
-        "Dark Tera Shard",  // 1877
-        "Steel Tera Shard",  // 1878
-        "Fairy Tera Shard",  // 1879
-        "Booster Energy",  // 1880
-        "Ability Shield",  // 1881
-        "Clear Amulet",  // 1882
-        "Mirror Herb",  // 1883
-        "Punching Glove",  // 1884
-        "Covert Cloak",  // 1885
-        "Loaded Dice",  // 1886
-        "",  // 1887
-        "Baguette",  // 1888
-        "Mayonnaise",  // 1889
-        "Ketchup",  // 1890
-        "Mustard",  // 1891
-        "Butter",  // 1892
-        "Peanut Butter",  // 1893
-        "Chili Sauce",  // 1894
-        "Salt",  // 1895
-        "Pepper",  // 1896
-        "Yogurt",  // 1897
-        "Whipped Cream",  // 1898
-        "Cream Cheese",  // 1899
-        "Jam",  // 1900
-        "Marmalade",  // 1901
-        "Olive Oil",  // 1902
-        "Vinegar",  // 1903
-        "Sweet Herba Mystica",  // 1904
-        "Salty Herba Mystica",  // 1905
-        "Sour Herba Mystica",  // 1906
-        "Bitter Herba Mystica",  // 1907
-        "Spicy Herba Mystica",  // 1908
-        "Lettuce",  // 1909
-        "Tomato",  // 1910
-        "Cherry Tomatoes",  // 1911
-        "Cucumber",  // 1912
-        "Pickle",  // 1913
-        "Onion",  // 1914
-        "Red Onion",  // 1915
-        "Green Bell Pepper",  // 1916
-        "Red Bell Pepper",  // 1917
-        "Yellow Bell Pepper",  // 1918
-        "Avocado",  // 1919
-        "Bacon",  // 1920
-        "Ham",  // 1921
-        "Prosciutto",  // 1922
-        "Chorizo",  // 1923
-        "Herbed Sausage",  // 1924
-        "Hamburger",  // 1925
-        "Klawf Stick",  // 1926
-        "Smoked Fillet",  // 1927
-        "Fried Fillet",  // 1928
-        "Egg",  // 1929
-        "Potato Tortilla",  // 1930
-        "Tofu",  // 1931
-        "Rice",  // 1932
-        "Noodles",  // 1933
-        "Potato Salad",  // 1934
-        "Cheese",  // 1935
-        "Banana",  // 1936
-        "Strawberry",  // 1937
-        "Apple",  // 1938
-        "Kiwi",  // 1939
-        "Pineapple",  // 1940
-        "Jalapeño",  // 1941
-        "Horseradish",  // 1942
-        "Curry Powder",  // 1943
-        "Wasabi",  // 1944
-        "Watercress",  // 1945
-        "Basil",  // 1946
-        "",  // 1947
-        "",  // 1948
-        "",  // 1949
-        "",  // 1950
-        "",  // 1951
-        "",  // 1952
-        "",  // 1953
-        "",  // 1954
-        "",  // 1955
-        "Venonat Fang",  // 1956
-        "Diglett Dirt",  // 1957
-        "Meowth Fur",  // 1958
-        "Psyduck Down",  // 1959
-        "Mankey Fur",  // 1960
-        "Growlithe Fur",  // 1961
-        "Slowpoke Claw",  // 1962
-        "Magnemite Screw",  // 1963
-        "Grimer Toxin",  // 1964
-        "Shellder Pearl",  // 1965
-        "Gastly Gas",  // 1966
-        "Drowzee Fur",  // 1967
-        "Voltorb Sparks",  // 1968
-        "Scyther Claw",  // 1969
-        "Tauros Hair",  // 1970
-        "Magikarp Scales",  // 1971
-        "Ditto Goo",  // 1972
-        "Eevee Fur",  // 1973
-        "Dratini Scales",  // 1974
-        "Pichu Fur",  // 1975
-        "Igglybuff Fluff",  // 1976
-        "Mareep Wool",  // 1977
-        "Hoppip Leaf",  // 1978
-        "Sunkern Leaf",  // 1979
-        "Murkrow Bauble",  // 1980
-        "Misdreavus Tears",  // 1981
-        "Girafarig Fur",  // 1982
-        "Pineco Husk",  // 1983
-        "Dunsparce Scales",  // 1984
-        "Qwilfish Spines",  // 1985
-        "Heracross Claw",  // 1986
-        "Sneasel Claw",  // 1987
-        "Teddiursa Claw",  // 1988
-        "Delibird Parcel",  // 1989
-        "Houndour Fang",  // 1990
-        "Phanpy Nail",  // 1991
-        "Stantler Hair",  // 1992
-        "Larvitar Claw",  // 1993
-        "Wingull Feather",  // 1994
-        "Ralts Dust",  // 1995
-        "Surskit Syrup",  // 1996
-        "Shroomish Spores",  // 1997
-        "Slakoth Fur",  // 1998
-        "Makuhita Sweat",  // 1999
-        "Azurill Fur",  // 2000
-        "Sableye Gem",  // 2001
-        "Meditite Sweat",  // 2002
-        "Gulpin Mucus",  // 2003
-        "Numel Lava",  // 2004
-        "Torkoal Coal",  // 2005
-        "Spoink Pearl",  // 2006
-        "Cacnea Needle",  // 2007
-        "Swablu Fluff",  // 2008
-        "Zangoose Claw",  // 2009
-        "Seviper Fang",  // 2010
-        "Barboach Slime",  // 2011
-        "Shuppet Scrap",  // 2012
-        "Tropius Leaf",  // 2013
-        "Snorunt Fur",  // 2014
-        "Luvdisc Scales",  // 2015
-        "Bagon Scales",  // 2016
-        "Starly Feather",  // 2017
-        "Kricketot Shell",  // 2018
-        "Shinx Fang",  // 2019
-        "Combee Honey",  // 2020
-        "Pachirisu Fur",  // 2021
-        "Buizel Fur",  // 2022
-        "Shellos Mucus",  // 2023
-        "Drifloon Gas",  // 2024
-        "Stunky Fur",  // 2025
-        "Bronzor Fragment",  // 2026
-        "Bonsly Tears",  // 2027
-        "Happiny Dust",  // 2028
-        "Spiritomb Fragment",  // 2029
-        "Gible Scales",  // 2030
-        "Riolu Fur",  // 2031
-        "Hippopotas Sand",  // 2032
-        "Croagunk Poison",  // 2033
-        "Finneon Scales",  // 2034
-        "Snover Berries",  // 2035
-        "Rotom Sparks",  // 2036
-        "Petilil Leaf",  // 2037
-        "Basculin Fang",  // 2038
-        "Sandile Claw",  // 2039
-        "Zorua Fur",  // 2040
-        "Gothita Eyelash",  // 2041
-        "Deerling Hair",  // 2042
-        "Foongus Spores",  // 2043
-        "Alomomola Mucus",  // 2044
-        "Tynamo Slime",  // 2045
-        "Axew Scales",  // 2046
-        "Cubchoo Fur",  // 2047
-        "Cryogonal Ice",  // 2048
-        "Pawniard Blade",  // 2049
-        "Rufflet Feather",  // 2050
-        "Deino Scales",  // 2051
-        "Larvesta Fuzz",  // 2052
-        "Fletchling Feather",  // 2053
-        "Scatterbug Powder",  // 2054
-        "Litleo Tuft",  // 2055
-        "Flabebe Pollen",  // 2056
-        "Skiddo Leaf",  // 2057
-        "Skrelp Kelp",  // 2058
-        "Clauncher Claw",  // 2059
-        "Hawlucha Down",  // 2060
-        "Dedenne Fur",  // 2061
-        "Goomy Goo",  // 2062
-        "Klefki Key",  // 2063
-        "Bergmite Ice",  // 2064
-        "Noibat Fur",  // 2065
-        "Yungoos Fur",  // 2066
-        "Crabrawler Shell",  // 2067
-        "Oricorio Feather",  // 2068
-        "Rockruff Rock",  // 2069
-        "Mareanie Spike",  // 2070
-        "Mudbray Mud",  // 2071
-        "Fomantis Leaf",  // 2072
-        "Salandit Gas",  // 2073
-        "Bounsweet Sweat",  // 2074
-        "Oranguru Fur",  // 2075
-        "Passimian Fur",  // 2076
-        "Sandygast Sand",  // 2077
-        "Komala Claw",  // 2078
-        "Mimikyu Scrap",  // 2079
-        "Bruxish Tooth",  // 2080
-        "Chewtle Claw",  // 2081
-        "Skwovet Fur",  // 2082
-        "Arrokuda Scales",  // 2083
-        "Rookidee Feather",  // 2084
-        "Toxel Sparks",  // 2085
-        "Falinks Sweat",  // 2086
-        "Cufant Tarnish",  // 2087
-        "Rolycoly Coal",  // 2088
-        "Silicobra Sand",  // 2089
-        "Indeedee Fur",  // 2090
-        "Pincurchin Spines",  // 2091
-        "Snom Thread",  // 2092
-        "Impidimp Hair",  // 2093
-        "Applin Juice",  // 2094
-        "Sinistea Chip",  // 2095
-        "Hatenna Dust",  // 2096
-        "Stonjourner Stone",  // 2097
-        "Eiscue Down",  // 2098
-        "Dreepy Powder",  // 2099
-        "",  // 2100
-        "",  // 2101
-        "",  // 2102
-        "Lechonk Hair",  // 2103
-        "Tarountula Thread",  // 2104
-        "Nymble Claw",  // 2105
-        "Rellor Mud",  // 2106
-        "Greavard Wax",  // 2107
-        "Flittle Down",  // 2108
-        "Wiglett Sand",  // 2109
-        "Dondozo Whisker",  // 2110
-        "Veluza Fillet",  // 2111
-        "Finizen Mucus",  // 2112
-        "Smoliv Oil",  // 2113
-        "Capsakid Seed",  // 2114
-        "Tadbulb Mucus",  // 2115
-        "Varoom Fume",  // 2116
-        "Orthworm Tarnish",  // 2117
-        "Tandemaus Fur",  // 2118
-        "Cetoddle Grease",  // 2119
-        "Frigibax Scales",  // 2120
-        "Tatsugiri Scales",  // 2121
-        "Cyclizar Scales",  // 2122
-        "Pawmi Fur",  // 2123
-        "",  // 2124
-        "",  // 2125
-        "Wattrel Feather",  // 2126
-        "Bombirdier Feather",  // 2127
-        "Squawkabilly Feather",  // 2128
-        "Flamigo Down",  // 2129
-        "Klawf Claw",  // 2130
-        "Nacli Salt",  // 2131
-        "Glimmet Crystal",  // 2132
-        "Shroodle Ink",  // 2133
-        "Fidough Fur",  // 2134
-        "Maschiff Fang",  // 2135
-        "Bramblin Twig",  // 2136
-        "Gimmighoul Coin",  // 2137
-        "",  // 2138
-        "",  // 2139
-        "",  // 2140
-        "",  // 2141
-        "",  // 2142
-        "",  // 2143
-        "",  // 2144
-        "",  // 2145
-        "",  // 2146
-        "",  // 2147
-        "",  // 2148
-        "",  // 2149
-        "",  // 2150
-        "",  // 2151
-        "",  // 2152
-        "",  // 2153
-        "",  // 2154
-        "",  // 2155
-        "Tinkatink Hair",  // 2156
-        "Charcadet Soot",  // 2157
-        "Toedscool Flaps",  // 2158
-        "Wooper Slime",  // 2159
-        "TM100",  // 2160
-        "TM101",  // 2161
-        "TM102",  // 2162
-        "TM103",  // 2163
-        "TM104",  // 2164
-        "TM105",  // 2165
-        "TM106",  // 2166
-        "TM107",  // 2167
-        "TM108",  // 2168
-        "TM109",  // 2169
-        "TM110",  // 2170
-        "TM111",  // 2171
-        "TM112",  // 2172
-        "TM113",  // 2173
-        "TM114",  // 2174
-        "TM115",  // 2175
-        "TM116",  // 2176
-        "TM117",  // 2177
-        "TM118",  // 2178
-        "TM119",  // 2179
-        "TM120",  // 2180
-        "TM121",  // 2181
-        "TM122",  // 2182
-        "TM123",  // 2183
-        "TM124",  // 2184
-        "TM125",  // 2185
-        "TM126",  // 2186
-        "TM127",  // 2187
-        "TM128",  // 2188
-        "TM129",  // 2189
-        "TM130",  // 2190
-        "TM131",  // 2191
-        "TM132",  // 2192
-        "TM133",  // 2193
-        "TM134",  // 2194
-        "TM135",  // 2195
-        "TM136",  // 2196
-        "TM137",  // 2197
-        "TM138",  // 2198
-        "TM139",  // 2199
-        "TM140",  // 2200
-        "TM141",  // 2201
-        "TM142",  // 2202
-        "TM143",  // 2203
-        "TM144",  // 2204
-        "TM145",  // 2205
-        "TM146",  // 2206
-        "TM147",  // 2207
-        "TM148",  // 2208
-        "TM149",  // 2209
-        "TM150",  // 2210
-        "TM151",  // 2211
-        "TM152",  // 2212
-        "TM153",  // 2213
-        "TM154",  // 2214
-        "TM155",  // 2215
-        "TM156",  // 2216
-        "TM157",  // 2217
-        "TM158",  // 2218
-        "TM159",  // 2219
-        "TM160",  // 2220
-        "TM161",  // 2221
-        "TM162",  // 2222
-        "TM163",  // 2223
-        "TM164",  // 2224
-        "TM165",  // 2225
-        "TM166",  // 2226
-        "TM167",  // 2227
-        "TM168",  // 2228
-        "TM169",  // 2229
-        "TM170",  // 2230
-        "TM171",  // 2231
-        "TM172",  // 2232
-        "TM173",  // 2233
-        "TM174",  // 2234
-        "TM175",  // 2235
-        "TM176",  // 2236
-        "TM177",  // 2237
-        "TM178",  // 2238
-        "TM179",  // 2239
-        "TM180",  // 2240
-        "TM181",  // 2241
-        "TM182",  // 2242
-        "TM183",  // 2243
-        "TM184",  // 2244
-        "TM185",  // 2245
-        "TM186",  // 2246
-        "TM187",  // 2247
-        "TM188",  // 2248
-        "TM189",  // 2249
-        "TM190",  // 2250
-        "TM191",  // 2251
-        "TM192",  // 2252
-        "TM193",  // 2253
-        "TM194",  // 2254
-        "TM195",  // 2255
-        "TM196",  // 2256
-        "TM197",  // 2257
-        "TM198",  // 2258
-        "TM199",  // 2259
-        "TM200",  // 2260
-        "TM201",  // 2261
-        "TM202",  // 2262
-        "TM203",  // 2263
-        "TM204",  // 2264
-        "TM205",  // 2265
-        "TM206",  // 2266
-        "TM207",  // 2267
-        "TM208",  // 2268
-        "TM209",  // 2269
-        "TM210",  // 2270
-        "TM211",  // 2271
-        "TM212",  // 2272
-        "TM213",  // 2273
-        "TM214",  // 2274
-        "TM215",  // 2275
-        "TM216",  // 2276
-        "TM217",  // 2277
-        "TM218",  // 2278
-        "TM219",  // 2279
-        "TM220",  // 2280
-        "TM221",  // 2281
-        "TM222",  // 2282
-        "TM223",  // 2283
-        "TM224",  // 2284
-        "TM225",  // 2285
-        "TM226",  // 2286
-        "TM227",  // 2287
-        "TM228",  // 2288
-        "TM229",  // 2289
-        "",  // 2290
-        "",  // 2291
-        "",  // 2292
-        "",  // 2293
-        "",  // 2294
-        "",  // 2295
-        "",  // 2296
-        "",  // 2297
-        "",  // 2298
-        "",  // 2299
-        "",  // 2300
-        "",  // 2301
-        "",  // 2302
-        "",  // 2303
-        "",  // 2304
-        "",  // 2305
-        "",  // 2306
-        "",  // 2307
-        "",  // 2308
-        "",  // 2309
-        "",  // 2310
-        "Picnic Set",  // 2311
-        "",  // 2312
-        "Academy Bottle",  // 2313
-        "Academy Bottle",  // 2314
-        "Polka-Dot Bottle",  // 2315
-        "Striped Bottle",  // 2316
-        "Diamond Bottle",  // 2317
-        "Academy Cup",  // 2318
-        "Academy Cup",  // 2319
-        "Striped Cup",  // 2320
-        "Polka-Dot Cup",  // 2321
-        "Flower Pattern Cup",  // 2322
-        "Academy Tablecloth",  // 2323
-        "Academy Tablecloth",  // 2324
-        "Whimsical Tablecloth",  // 2325
-        "Leafy Tablecloth",  // 2326
-        "Spooky Tablecloth",  // 2327
-        "",  // 2328
-        "Academy Ball",  // 2329
-        "Academy Ball",  // 2330
-        "Marill Ball",  // 2331
-        "Yarn Ball",  // 2332
-        "Cyber Ball",  // 2333
-        "Gold Pick",  // 2334
-        "Silver Pick",  // 2335
-        "Red-Flag Pick",  // 2336
-        "Blue-Flag Pick",  // 2337
-        "Pika-Pika Pick",  // 2338
-        "Winking Pika Pick",  // 2339
-        "Vee-Vee Pick",  // 2340
-        "Smiling Vee Pick",  // 2341
-        "Blue Poke Ball Pick",  // 2342
-        "",  // 2343
-        "Auspicious Armor",  // 2344
-        "Leader’s Crest",  // 2345
-        "",  // 2346
-        "",  // 2347
-        "Pink Bottle",  // 2348
-        "Blue Bottle",  // 2349
-        "Yellow Bottle",  // 2350
-        "Steel Bottle (R)",  // 2351
-        "Steel Bottle (Y)",  // 2352
-        "Steel Bottle (B)",  // 2353
-        "Silver Bottle",  // 2354
-        "Barred Cup",  // 2355
-        "Diamond Pattern Cup",  // 2356
-        "Fire Pattern Cup",  // 2357
-        "Pink Cup",  // 2358
-        "Blue Cup",  // 2359
-        "Yellow Cup",  // 2360
-        "Pikachu Cup",  // 2361
-        "Eevee Cup",  // 2362
-        "Slowpoke Cup",  // 2363
-        "Silver Cup",  // 2364
-        "Exercise Ball",  // 2365
-        "Plaid Tablecloth (Y)",  // 2366
-        "Plaid Tablecloth (B)",  // 2367
-        "Plaid Tablecloth (R)",  // 2368
-        "B&W Grass Tablecloth",  // 2369
-        "Battle Tablecloth",  // 2370
-        "Monstrous Tablecloth",  // 2371
-        "Striped Tablecloth",  // 2372
-        "Diamond Tablecloth",  // 2373
-        "Polka-Dot Tablecloth",  // 2374
-        "Lilac Tablecloth",  // 2375
-        "Mint Tablecloth",  // 2376
-        "Peach Tablecloth",  // 2377
-        "Yellow Tablecloth",  // 2378
-        "Blue Tablecloth",  // 2379
-        "Pink Tablecloth",  // 2380
-        "Gold Bottle",  // 2381
-        "Bronze Bottle",  // 2382
-        "Gold Cup",  // 2383
-        "Bronze Cup",  // 2384
-        "Green Poke Ball Pick",  // 2385
-        "Red Poke Ball Pick",  // 2386
-        "Party Sparkler Pick",  // 2387
-        "Heroic Sword Pick",  // 2388
-        "Magical Star Pick",  // 2389
-        "Magical Heart Pick",  // 2390
-        "Parasol Pick",  // 2391
-        "Blue-Sky Flower Pick",  // 2392
-        "Sunset Flower Pick",  // 2393
-        "Sunrise Flower Pick",  // 2394
-        "Blue Dish",  // 2395
-        "Green Dish",  // 2396
-        "Orange Dish",  // 2397
-        "Red Dish",  // 2398
-        "White Dish",  // 2399
-        "Yellow Dish",  // 2400
-        "Fairy Feather",  // 2401
-        "Syrupy Apple",  // 2402
-        "Unremarkable Teacup",  // 2403
-        "Masterpiece Teacup",  // 2404
-        "Teal Mask",  // 2405
-        "Cornerstone Mask",  // 2406
-        "Wellspring Mask",  // 2407
-        "Hearthflame Mask",  // 2408
-        "Teal Style Card",  // 2409
-        "Crystal Cluster",  // 2410
-        "Health Mochi",  // 2411
-        "Muscle Mochi",  // 2412
-        "Resist Mochi",  // 2413
-        "Genius Mochi",  // 2414
-        "Clever Mochi",  // 2415
-        "Swift Mochi",  // 2416
-        "Simple Chairs",  // 2417
-        "Academy Chairs",  // 2418
-        "Academy Chairs",  // 2419
-        "Whimsical Chairs",  // 2420
-        "Leafy Chairs",  // 2421
-        "Spooky Chairs",  // 2422
-        "Plaid Chairs (Y)",  // 2423
-        "Plaid Chairs (B)",  // 2424
-        "Plaid Chairs (R)",  // 2425
-        "B&W Grass Chairs",  // 2426
-        "Battle Chairs",  // 2427
-        "Monstrous Chairs",  // 2428
-        "Striped Chairs",  // 2429
-        "Diamond Chairs",  // 2430
-        "Polka-Dot Chairs",  // 2431
-        "Lilac Chairs",  // 2432
-        "Mint Chairs",  // 2433
-        "Peach Chairs",  // 2434
-        "Yellow Chairs",  // 2435
-        "Blue Chairs",  // 2436
-        "Pink Chairs",  // 2437
-        "Ekans Fang",  // 2438
-        "Sandshrew Claw",  // 2439
-        "Cleffa Fur",  // 2440
-        "Vulpix Fur",  // 2441
-        "Poliwag Slime",  // 2442
-        "Bellsprout Vine",  // 2443
-        "Geodude Fragment",  // 2444
-        "Koffing Gas",  // 2445
-        "Munchlax Fang",  // 2446
-        "Sentret Fur",  // 2447
-        "Hoothoot Feather",  // 2448
-        "Spinarak Thread",  // 2449
-        "Aipom Hair",  // 2450
-        "Yanma Spike",  // 2451
-        "Gligar Fang",  // 2452
-        "Slugma Lava",  // 2453
-        "Swinub Hair",  // 2454
-        "Poochyena Fang",  // 2455
-        "Lotad Leaf",  // 2456
-        "Seedot Stem",  // 2457
-        "Nosepass Fragment",  // 2458
-        "Volbeat Fluid",  // 2459
-        "Illumise Fluid",  // 2460
-        "Corphish Shell",  // 2461
-        "Feebas Scales",  // 2462
-        "Duskull Fragment",  // 2463
-        "Chingling Fragment",  // 2464
-        "Timburr Sweat",  // 2465
-        "Sewaddle Leaf",  // 2466
-        "Ducklett Feather",  // 2467
-        "Litwick Soot",  // 2468
-        "Mienfoo Claw",  // 2469
-        "Vullaby Feather",  // 2470
-        "Carbink Jewel",  // 2471
-        "Phantump Twig",  // 2472
-        "Grubbin Thread",  // 2473
-        "Cutiefly Powder",  // 2474
-        "Jangmo-o Scales",  // 2475
-        "Cramorant Down",  // 2476
-        "Morpeko Snack",  // 2477
-        "Poltchageist Powder",  // 2478
-        "Fresh-Start Mochi",  // 2479
-        "Roto-Stick",  // 2480
-        "Glimmering Charm",  // 2481
-        "Metal Alloy",  // 2482
-        "Indigo Style Card",  // 2483
-        "Oddish Leaf",  // 2484
-        "Tentacool Stinger",  // 2485
-        "Doduo Down",  // 2486
-        "Seel Fur",  // 2487
-        "Exeggcute Shell",  // 2488
-        "Tyrogue Sweat",  // 2489
-        "Rhyhorn Fang",  // 2490
-        "Horsea Ink",  // 2491
-        "Elekid Fur",  // 2492
-        "Magby Hair",  // 2493
-        "Lapras Teardrop",  // 2494
-        "Porygon Fragment",  // 2495
-        "Chinchou Sparks",  // 2496
-        "Snubbull Hair",  // 2497
-        "Skarmory Feather",  // 2498
-        "Smeargle Paint",  // 2499
-        "Plusle Fur",  // 2500
-        "Minun Fur",  // 2501
-        "Trapinch Shell",  // 2502
-        "Beldum Claw",  // 2503
-        "Cranidos Spike",  // 2504
-        "Shieldon Claw",  // 2505
-        "Blitzle Mane Hair",  // 2506
-        "Drilbur Claw",  // 2507
-        "Cottonee Fluff",  // 2508
-        "Scraggy Sweat",  // 2509
-        "Minccino Fur",  // 2510
-        "Solosis Gel",  // 2511
-        "Joltik Thread",  // 2512
-        "Golett Shard",  // 2513
-        "Espurr Fur",  // 2514
-        "Inkay Ink",  // 2515
-        "Pikipek Feather",  // 2516
-        "Dewpider Thread",  // 2517
-        "Comfey Flower",  // 2518
-        "Minior Shell",  // 2519
-        "Milcery Cream",  // 2520
-        "Duraludon Tarnish",  // 2521
-        "Articuno Treat",  // 2522
-        "Zapdos Treat",  // 2523
-        "Moltres Treat",  // 2524
-        "Raikou Treat",  // 2525
-        "Entei Treat",  // 2526
-        "Suicune Treat",  // 2527
-        "Lugia Treat",  // 2528
-        "Ho-Oh Treat",  // 2529
-        "Latias Treat",  // 2530
-        "Latios Treat",  // 2531
-        "Kyogre Treat",  // 2532
-        "Groudon Treat",  // 2533
-        "Rayquaza Treat",  // 2534
-        "Cobalion Treat",  // 2535
-        "Terrakion Treat",  // 2536
-        "Virizion Treat",  // 2537
-        "Reshiram Treat",  // 2538
-        "Zekrom Treat",  // 2539
-        "Kyurem Treat",  // 2540
-        "Solgaleo Treat",  // 2541
-        "Lunala Treat",  // 2542
-        "Necrozma Treat",  // 2543
-        "Kubfu Treat",  // 2544
-        "Glastrier Treat",  // 2545
-        "Spectrier Treat",  // 2546
-        "Indigo Disk",  // 2547
-        "Fiery Pick",  // 2548
-        "Stellar Tera Shard",  // 2549
-        "Mythical Pecha Berry",  // 2550
-        "Blueberry Tablecloth",  // 2551
-        "Blueberry Chairs",  // 2552
-        "Synchro Machine",  // 2553
-        "Meteorite",  // 2554
-        "Scarlet Book",  // 2555
-        "Violet Book",  // 2556
-        "Briar’s Book",  // 2557
-        "Seed of Mastery",  // 2558
-        "Clefablite",  // 2559
-        "Victreebelite",  // 2560
-        "Starminite",  // 2561
-        "Dragoninite",  // 2562
-        "Meganiumite",  // 2563
-        "Feraligite",  // 2564
-        "Skarmorite",  // 2565
-        "Froslassite",  // 2566
-        "",  // 2567
-        "",  // 2568
-        "Emboarite",  // 2569
-        "Excadrite",  // 2570
-        "Scolipite",  // 2571
-        "Scraftinite",  // 2572
-        "Eelektrossite",  // 2573
-        "Chandelurite",  // 2574
-        "Chesnaughtite",  // 2575
-        "Delphoxite",  // 2576
-        "Greninjite",  // 2577
-        "Pyroarite",  // 2578
-        "Floettite",  // 2579
-        "Malamarite",  // 2580
-        "Barbaracite",  // 2581
-        "Dragalgite",  // 2582
-        "Hawluchanite",  // 2583
-        "Zygardite",  // 2584
-        "Drampanite",  // 2585
-        "",  // 2586
-        "Falinksite",  // 2587
-        "Key to Room 202",  // 2588
-        "Super Lumiose Galette",  // 2589
-        "Lab Key Card A",  // 2590
-        "Lab Key Card B",  // 2591
-        "Lab Key Card C",  // 2592
-        "",  // 2593
-        "",  // 2594
-        "Pebble",  // 2595
-        "Cherished Ring",  // 2596
-        "Autographed Plush",  // 2597
-        "Tasty Trash",  // 2598
-        "Revitalizing Twig",  // 2599
-        "Lida’s Things",  // 2600
-        "",  // 2601
-        "",  // 2602
-        "",  // 2603
-        "",  // 2604
-        "",  // 2605
-        "",  // 2606
-        "",  // 2607
-        "",  // 2608
-        "",  // 2609
-        "",  // 2610
-        "",  // 2611
-        "",  // 2612
-        "",  // 2613
-        "",  // 2614
-        "",  // 2615
-        "",  // 2616
-        "",  // 2617
-        "Mega Shard",  // 2618
-        "Colorful Screw",  // 2619
-        "Red Canari Plush",  // 2620
-        "Red Canari Plush",  // 2621
-        "Red Canari Plush",  // 2622
-        "Gold Canari Plush",  // 2623
-        "Gold Canari Plush",  // 2624
-        "Gold Canari Plush",  // 2625
-        "Pink Canari Plush",  // 2626
-        "Pink Canari Plush",  // 2627
-        "Pink Canari Plush",  // 2628
-        "Green Canari Plush",  // 2629
-        "Green Canari Plush",  // 2630
-        "Green Canari Plush",  // 2631
-        "Blue Canari Plush",  // 2632
-        "Blue Canari Plush",  // 2633
-        "Blue Canari Plush"  // 2634
+        "无", "大师球", "高级球", "超级球", "Poke Ball",
+        "狩猎球", "捕网球", "潜水球", "巢穴球", "重复球",
+        "计时球", "豪华球", "纪念球", "黑暗球", "治愈球",
+        "先机球", "贵重球", "伤药", "解毒药", "灼伤药",
+        "解冻药", "解眠药", "解麻药", "全复药", "全满药",
+        "厉害伤药", "好伤药", "万灵药", "活力碎片", "活力块",
+        "美味之水", "劲爽汽水", "果汁牛奶", "哞哞鲜奶", "元气粉",
+        "元气根", "万能粉", "复活草", "ＰＰ单项小补剂", "ＰＰ单项全补剂",
+        "ＰＰ多项小补剂", "ＰＰ多项全补剂", "釜炎仙贝", "树果汁", "圣灰",
+        "ＨＰ增强剂", "攻击增强剂", "防御增强剂", "速度增强剂", "特攻增强剂",
+        "神奇糖果", "ＰＰ提升剂", "特防增强剂", "ＰＰ极限提升剂", "森之羊羹",
+        "能力防守", "要害攻击", "力量强化", "防御强化", "速度强化",
+        "命中强化", "特攻强化", "特防强化", "Poke Doll", "向尾喵的尾巴",
+        "蓝色玻璃哨", "黄色玻璃哨", "红色玻璃哨", "黑色玻璃哨", "白色玻璃哨",
+        "浅滩海盐", "浅滩贝壳", "红色碎片", "蓝色碎片", "黄色碎片",
+        "绿色碎片", "白银喷雾", "黄金喷雾", "离洞绳", "除虫喷雾",
+        "日之石", "月之石", "火之石", "雷之石", "水之石",
+        "叶之石", "小蘑菇", "大蘑菇", "珍珠", "大珍珠",
+        "星星沙子", "星星碎片", "金珠", "心之鳞片", "甜甜蜜",
+        "速速肥", "湿湿肥", "久久肥", "粘粘肥", "根状化石",
+        "爪子化石", "贝壳化石", "甲壳化石", "秘密琥珀", "盾甲化石",
+        "头盖化石", "贵重骨头", "光之石", "暗之石", "觉醒之石",
+        "浑圆之石", "楔石", "白金宝珠", "茶", "？？？",
+        "马志士的签名", "水流卡带", "闪电卡带", "火焰卡带", "冰冻卡带",
+        "？？？", "Pokemon Box Link", "回复口袋", "招式学习器盒", "糖果罐",
+        "强化口袋", "换装箱", "捕捉口袋", "对战口袋", "？？？",
+        "？？？", "？？？", "？？？", "？？？", "心形甜点",
+        "金刚宝珠", "白玉宝珠", "初次邮件", "喜爱邮件", "邀请邮件",
+        "感谢邮件", "询问邮件", "推荐邮件", "回复邮件", "桥梁邮件Ｓ",
+        "桥梁邮件Ｈ", "桥梁邮件Ｃ", "桥梁邮件Ｖ", "桥梁邮件Ｗ", "樱子果",
+        "零余果", "桃桃果", "莓莓果", "利木果", "苹野果",
+        "橙橙果", "柿仔果", "木子果", "文柚果", "勿花果",
+        "异奇果", "芒芒果", "乐芭果", "芭亚果", "蔓莓果",
+        "墨莓果", "蕉香果", "西梨果", "凰梨果", "榴石果",
+        "藻根果", "比巴果", "哈密果", "萄葡果", "茄番果",
+        "玉黍果", "岳竹果", "茸丹果", "檬柠果", "刺角果",
+        "椰木果", "瓜西果", "金枕果", "靛莓果", "巧可果",
+        "千香果", "烛木果", "罗子果", "番荔果", "莲蒲果",
+        "通通果", "腰木果", "棱瓜果", "福禄果", "扁樱果",
+        "草蚕果", "佛柑果", "莓榴果", "刺耳果", "霹霹果",
+        "灯浆果", "枝荔果", "龙睛果", "沙鳞果", "龙火果",
+        "杏仔果", "兰萨果", "星桃果", "谜芝果", "奇秘果",
+        "释陀果", "嘉珍果", "雾莲果", "光粉", "白色香草",
+        "强制锻炼器", "学习装置", "先制之爪", "安抚之铃", "心灵香草",
+        "讲究头带", "王者之证", "银粉", "护符金币", "洁净之符",
+        "心之水滴", "深海之牙", "深海鳞片", "烟雾球", "不变之石",
+        "气势头带", "幸运蛋", "焦点镜", "金属膜", "吃剩的东西",
+        "龙之鳞片", "电气球", "柔软沙子", "硬石头", "奇迹种子",
+        "黑色眼镜", "黑带", "磁铁", "神秘水滴", "锐利鸟嘴",
+        "毒针", "不融冰", "咒术之符", "弯曲的汤匙", "木炭",
+        "龙之牙", "丝绸围巾", "升级数据", "贝壳之铃", "海潮薰香",
+        "悠闲薰香", "吉利拳", "金属粉", "粗骨头", "大葱",
+        "红色头巾", "蓝色头巾", "粉红头巾", "绿色头巾", "黄色头巾",
+        "广角镜", "力量头带", "博识眼镜", "达人带", "光之黏土",
+        "生命宝珠", "强力香草", "剧毒宝珠", "火焰宝珠", "速度粉",
+        "气势披带", "对焦镜", "节拍器", "黑色铁球", "后攻之尾",
+        "红线", "黑色污泥", "冰冷岩石", "沙沙岩石", "炽热岩石",
+        "潮湿岩石", "紧缠钩爪", "讲究围巾", "附着针", "力量护腕",
+        "力量腰带", "力量镜", "力量束带", "力量护踝", "力量负重",
+        "美丽空壳", "大根茎", "讲究眼镜", "火球石板", "水滴石板",
+        "雷电石板", "碧绿石板", "冰柱石板", "拳头石板", "剧毒石板",
+        "大地石板", "蓝天石板", "神奇石板", "玉虫石板", "岩石石板",
+        "妖怪石板", "龙之石板", "恶颜石板", "钢铁石板", "奇异薰香",
+        "岩石薰香", "饱腹薰香", "涟漪薰香", "花朵薰香", "幸运薰香",
+        "洁净薰香", "护具", "电力增幅器", "熔岩增幅器", "可疑补丁",
+        "灵界之布", "锐利之爪", "锐利之牙", "招式学习器０１", "招式学习器０２",
+        "招式学习器０３", "招式学习器０４", "招式学习器０５", "招式学习器０６", "招式学习器０７",
+        "招式学习器０８", "招式学习器０９", "招式学习器１０", "招式学习器１１", "招式学习器１２",
+        "招式学习器１３", "招式学习器１４", "招式学习器１５", "招式学习器１６", "招式学习器１７",
+        "招式学习器１８", "招式学习器１９", "招式学习器２０", "招式学习器２１", "招式学习器２２",
+        "招式学习器２３", "招式学习器２４", "招式学习器２５", "招式学习器２６", "招式学习器２７",
+        "招式学习器２８", "招式学习器２９", "招式学习器３０", "招式学习器３１", "招式学习器３２",
+        "招式学习器３３", "招式学习器３４", "招式学习器３５", "招式学习器３６", "招式学习器３７",
+        "招式学习器３８", "招式学习器３９", "招式学习器４０", "招式学习器４１", "招式学习器４２",
+        "招式学习器４３", "招式学习器４４", "招式学习器４５", "招式学习器４６", "招式学习器４７",
+        "招式学习器４８", "招式学习器４９", "招式学习器５０", "招式学习器５１", "招式学习器５２",
+        "招式学习器５３", "招式学习器５４", "招式学习器５５", "招式学习器５６", "招式学习器５７",
+        "招式学习器５８", "招式学习器５９", "招式学习器６０", "招式学习器６１", "招式学习器６２",
+        "招式学习器６３", "招式学习器６４", "招式学习器６５", "招式学习器６６", "招式学习器６７",
+        "招式学习器６８", "招式学习器６９", "招式学习器７０", "招式学习器７１", "招式学习器７２",
+        "招式学习器７３", "招式学习器７４", "招式学习器７５", "招式学习器７６", "招式学习器７７",
+        "招式学习器７８", "招式学习器７９", "招式学习器８０", "招式学习器８１", "招式学习器８２",
+        "招式学习器８３", "招式学习器８４", "招式学习器８５", "招式学习器８６", "招式学习器８７",
+        "招式学习器８８", "招式学习器８９", "招式学习器９０", "招式学习器９１", "招式学习器９２",
+        "秘传学习器０１", "秘传学习器０２", "秘传学习器０３", "秘传学习器０４", "秘传学习器０５",
+        "秘传学习器０６", "？？？", "？？？", "探险套装", "宝物袋",
+        "规则书", "Poke Radar", "点数卡", "冒险笔记", "贴纸盒",
+        "饰品盒", "贴纸袋", "朋友手册", "发电厂钥匙", "古代护符",
+        "银河队钥匙", "红色锁链", "城镇地图", "对战搜寻器", "代币盒",
+        "破旧钓竿", "好钓竿", "厉害钓竿", "可达鸭喷壶", "宝芬盒",
+        "自行车", "房间钥匙", "大木的信", "新月之羽", "会员卡",
+        "天界之笛", "船票", "华丽大赛参加证", "火山镇石", "包裹",
+        "兑换券１", "兑换券２", "兑换券３", "仓库钥匙", "秘传之药",
+        "对战记录器", "葛拉西蒂亚花", "秘密钥匙", "球果盒", "未知图腾笔记",
+        "树果种植盆", "探宝器", "蓝卡", "美味尾巴", "透明铃铛",
+        "钥匙卡", "地下钥匙", "杰尼龟喷壶", "红色鳞片", "遗失物",
+        "磁浮列车自由票", "机械零件", "银色之羽", "虹色之羽", "神奇蛋",
+        "红球果", "蓝球果", "黄球果", "绿球果", "粉球果",
+        "白球果", "黑球果", "速度球", "等级球", "诱饵球",
+        "沉重球", "甜蜜球", "友友球", "月亮球", "竞赛球",
+        "公园球", "相册", "ＧＢ播放器", "海声铃铛", "愤怒馒头",
+        "数据卡０１", "数据卡０２", "数据卡０３", "数据卡０４", "数据卡０５",
+        "数据卡０６", "数据卡０７", "数据卡０８", "数据卡０９", "数据卡１０",
+        "数据卡１１", "数据卡１２", "数据卡１３", "数据卡１４", "数据卡１５",
+        "数据卡１６", "数据卡１７", "数据卡１８", "数据卡１９", "数据卡２０",
+        "数据卡２１", "数据卡２２", "数据卡２３", "数据卡２４", "数据卡２５",
+        "数据卡２６", "数据卡２７", "草绿色宝珠", "上锁的容器", "朱红色宝珠",
+        "靛蓝色宝珠", "谜之水晶", "美丽鳞片", "进化奇石", "轻石",
+        "凸凸头盔", "气球", "红牌", "标靶", "紧绑束带",
+        "球根", "充电电池", "逃脱按键", "火之宝石", "水之宝石",
+        "电之宝石", "草之宝石", "冰之宝石", "格斗宝石", "毒之宝石",
+        "地面宝石", "飞行宝石", "超能力宝石", "虫之宝石", "岩石宝石",
+        "幽灵宝石", "龙之宝石", "恶之宝石", "钢之宝石", "一般宝石",
+        "体力之羽", "肌力之羽", "抵抗之羽", "智力之羽", "精神之羽",
+        "瞬发之羽", "美丽之羽", "背盖化石", "羽毛化石", "自由船票",
+        "释出之玉", "梦境球", "Poke Toy", "物品箱", "龙之骨",
+        "芳香蘑菇", "巨大金珠", "丸子珍珠", "彗星碎片", "古代铜币",
+        "古代银币", "古代金币", "古代之壶", "古代手镯", "古代石像",
+        "古代王冠", "飞云冰淇淋", "要害攻击２", "速度强化２", "特攻强化２",
+        "特防强化２", "防御强化２", "力量强化２", "命中强化２", "速度强化３",
+        "特攻强化３", "特防强化３", "防御强化３", "力量强化３", "命中强化３",
+        "速度强化６", "特攻强化６", "特防强化６", "防御强化６", "力量强化６",
+        "命中强化６", "？？？", "？？？", "？？？", "？？？",
+        "要害攻击３", "光明石", "黑暗石", "招式学习器９３", "招式学习器９４",
+        "招式学习器９５", "即时通讯器", "？？？", "配送物品１", "配送物品２",
+        "配送物品３", "即时通讯器", "奖牌盒", "基因之楔", "基因之楔",
+        "许可证", "圆形护符", "闪耀护符", "等离子卡", "脏手帕",
+        "阿克罗玛机器", "遗忘物", "遗忘物", "现形镜", "弱点保险",
+        "突击背心", "全息影像通讯器", "博士的信", "轮滑鞋", "妖精石板",
+        "特性胶囊", "泡沫奶油", "香袋", "光苔", "雪丸",
+        "防尘护目镜", "Poke Flute", "硕果肥", "吃惊肥", "劲劲肥",
+        "超效肥", "耿鬼进化石", "沙奈朵进化石", "电龙进化石", "妙蛙花进化石",
+        "喷火龙进化石Ｘ", "水箭龟进化石", "超梦进化石Ｘ", "超梦进化石Ｙ", "火焰鸡进化石",
+        "恰雷姆进化石", "黑鲁加进化石", "波士可多拉进化石", "诅咒娃娃进化石", "班基拉斯进化石",
+        "巨钳螳螂进化石", "凯罗斯进化石", "化石翼龙进化石", "路卡利欧进化石", "暴雪王进化石",
+        "袋兽进化石", "暴鲤龙进化石", "阿勃梭鲁进化石", "喷火龙进化石Ｙ", "胡地进化石",
+        "赫拉克罗斯进化石", "大嘴娃进化石", "雷电兽进化石", "烈咬陆鲨进化石", "拉帝亚斯进化石",
+        "拉帝欧斯进化石", "洛玫果", "亚开果", "香罗果", "莲叶童子喷壶",
+        "招式学习器９６", "招式学习器９７", "招式学习器９８", "招式学习器９９", "招式学习器１００",
+        "发电厂通行证", "超级环", "似珍石", "常见石", "折价券",
+        "电梯钥匙", "ＴＭＶ自由票", "卡洛斯勋章", "探险心得", "神秘摆设",
+        "隐形眼镜盒", "化妆包", "衣物箱", "密阿雷格雷派饼", "娑罗沙布蕾",
+        "颚之化石", "鳍之化石", "帅哥券", "自行车", "全息影像通讯器",
+        "妖精宝石", "超级坠饰", "超级手套", "音速自行车", "越野自行车",
+        "吼吼鲸喷壶", "得文的物品", "集灰袋", "地下钥匙", "Pokeblock Kit",
+        "给大吾的信", "无限船票", "探测器", "ＧＯＧＯ护目镜", "陨石",
+        "１号客房的钥匙", "２号客房的钥匙", "４号客房的钥匙", "６号客房的钥匙", "仓库钥匙",
+        "得文侦测镜", "船票", "秘传学习器０７", "得文潜水装备", "演出礼裙",
+        "演出礼裙", "熔岩装", "海洋装", "双人票", "超级手镯",
+        "超级吊坠", "超级眼镜", "超级船锚", "超级领针", "超级头冠",
+        "超级脚镯", "陨石", "巨沼怪进化石", "蜥蜴王进化石", "勾魂眼进化石",
+        "七夕青鸟进化石", "艾路雷朵进化石", "差不多娃娃进化石", "巨金怪进化石", "巨牙鲨进化石",
+        "呆壳兽进化石", "大钢蛇进化石", "大比鸟进化石", "冰鬼护进化石", "蒂安希进化石",
+        "惩戒之壶", "超级护腕", "喷火驼进化石", "长耳兔进化石", "暴飞龙进化石",
+        "大针蜂进化石", "陨石", "陨石", "钥石", "陨石碎片",
+        "无限之笛", "一般Ｚ", "火Ｚ", "水Ｚ", "电Ｚ",
+        "草Ｚ", "冰Ｚ", "格斗Ｚ", "毒Ｚ", "地面Ｚ",
+        "飞行Ｚ", "超能力Ｚ", "虫Ｚ", "岩石Ｚ", "幽灵Ｚ",
+        "龙Ｚ", "恶Ｚ", "钢Ｚ", "妖精Ｚ", "皮卡丘Ｚ",
+        "银色王冠", "金色王冠", "Ｚ手环", "狙射树枭Ｚ", "炽焰咆哮虎Ｚ",
+        "西狮海壬Ｚ", "卡璞Ｚ", "玛夏多Ｚ", "阿罗雷Ｚ", "卡比兽Ｚ",
+        "伊布Ｚ", "梦幻Ｚ", "一般Ｚ", "火Ｚ", "水Ｚ",
+        "电Ｚ", "草Ｚ", "冰Ｚ", "格斗Ｚ", "毒Ｚ",
+        "地面Ｚ", "飞行Ｚ", "超能力Ｚ", "虫Ｚ", "岩石Ｚ",
+        "幽灵Ｚ", "龙Ｚ", "恶Ｚ", "钢Ｚ", "妖精Ｚ",
+        "皮卡丘Ｚ", "狙射树枭Ｚ", "炽焰咆哮虎Ｚ", "西狮海壬Ｚ", "卡璞Ｚ",
+        "玛夏多Ｚ", "阿罗雷Ｚ", "卡比兽Ｚ", "伊布Ｚ", "梦幻Ｚ",
+        "智皮卡Ｚ", "智皮卡Ｚ", "？？？", "？？？", "？？？",
+        "？？？", "材料袋", "钓竿", "博士的面罩", "圆庆票",
+        "光辉石", "胆怯球", "基格尔德多面体", "？？？", "冰之石",
+        "骑行装置", "究极球", "大马拉萨达", "朱红色花蜜", "金黄色花蜜",
+        "桃粉色花蜜", "兰紫色花蜜", "太阳之笛", "月亮之笛", "？？？",
+        "奇异卡片", "银色蔓莓果", "金色蔓莓果", "银色蕉香果", "金色蕉香果",
+        "银色凰梨果", "金色凰梨果", "？？？", "？？？", "？？？",
+        "？？？", "？？？", "秘密钥匙", "船票", "西尔佛检视镜",
+        "包裹", "钥匙卡", "金假牙", "电梯钥匙", "大地膜",
+        "部位护具", "电气种子", "精神种子", "薄雾种子", "青草种子",
+        "松掉的弹簧", "粉笔石", "弹珠", "一边的耳环", "海边的玻璃",
+        "金色叶子", "银色叶子", "光滑泥球", "南国贝壳", "树叶信",
+        "树叶信", "小小花束", "？？？", "？？？", "？？？",
+        "引虫香水", "白银香水", "黄金香水", "深灰米果", "战斗存储碟",
+        "飞翔存储碟", "毒存储碟", "大地存储碟", "岩石存储碟", "虫子存储碟",
+        "幽灵存储碟", "钢铁存储碟", "火焰存储碟", "清水存储碟", "青草存储碟",
+        "电子存储碟", "精神存储碟", "冰雪存储碟", "龙存储碟", "黑暗存储碟",
+        "妖精存储碟", "索尔迦雷欧Ｚ", "露奈雅拉Ｚ", "究极奈克洛Ｚ", "谜拟丘Ｚ",
+        "鬃岩狼人Ｚ", "杖尾鳞甲龙Ｚ", "索尔迦雷欧Ｚ", "露奈雅拉Ｚ", "究极奈克洛Ｚ",
+        "谜拟丘Ｚ", "鬃岩狼人Ｚ", "杖尾鳞甲龙Ｚ", "Ｚ强力手环", "粉红花瓣",
+        "橙色花瓣", "蓝色花瓣", "红色花瓣", "绿色花瓣", "黄色花瓣",
+        "紫色花瓣", "虹色之花", "桔色徽章", "奈克洛索尔合体器", "奈克洛露奈合体器",
+        "奈克洛索尔合体器", "奈克洛露奈合体器", "伊利马一般Ｚ", "Left Poke Ball", "孵蛋碰碰",
+        "优惠碰碰", "零花钱碰碰", "经验碰碰", "亲密碰碰", "相遇碰碰",
+        "隐身碰碰", "ＨＰ回复碰碰", "ＰＰ回复碰碰", "加油碰碰", "捕捉碰碰",
+        "元气糖果", "力量糖果", "守护糖果", "知识糖果", "心灵糖果",
+        "敏捷糖果", "元气糖果Ｌ", "力量糖果Ｌ", "守护糖果Ｌ", "知识糖果Ｌ",
+        "心灵糖果Ｌ", "敏捷糖果Ｌ", "元气糖果ＸＬ", "力量糖果ＸＬ", "守护糖果ＸＬ",
+        "知识糖果ＸＬ", "心灵糖果ＸＬ", "敏捷糖果ＸＬ", "妙蛙种子的糖果", "小火龙的糖果",
+        "杰尼龟的糖果", "绿毛虫的糖果", "独角虫的糖果", "波波的糖果", "小拉达的糖果",
+        "烈雀的糖果", "阿柏蛇的糖果", "皮卡丘的糖果", "穿山鼠的糖果", "尼多兰的糖果",
+        "尼多朗的糖果", "皮皮的糖果", "六尾的糖果", "胖丁的糖果", "超音蝠的糖果",
+        "走路草的糖果", "派拉斯的糖果", "毛球的糖果", "地鼠的糖果", "喵喵的糖果",
+        "可达鸭的糖果", "猴怪的糖果", "卡蒂狗的糖果", "蚊香蝌蚪的糖果", "凯西的糖果",
+        "腕力的糖果", "喇叭芽的糖果", "玛瑙水母的糖果", "小拳石的糖果", "小火马的糖果",
+        "呆呆兽的糖果", "小磁怪的糖果", "大葱鸭的糖果", "嘟嘟的糖果", "小海狮的糖果",
+        "臭泥的糖果", "大舌贝的糖果", "鬼斯的糖果", "大岩蛇的糖果", "催眠貘的糖果",
+        "大钳蟹的糖果", "霹雳电球的糖果", "蛋蛋的糖果", "卡拉卡拉的糖果", "飞腿郎的糖果",
+        "快拳郎的糖果", "大舌头的糖果", "瓦斯弹的糖果", "独角犀牛的糖果", "吉利蛋的糖果",
+        "蔓藤怪的糖果", "袋兽的糖果", "墨海马的糖果", "角金鱼的糖果", "海星星的糖果",
+        "魔墙人偶的糖果", "飞天螳螂的糖果", "迷唇姐的糖果", "电击兽的糖果", "凯罗斯的糖果",
+        "肯泰罗的糖果", "鲤鱼王的糖果", "拉普拉斯的糖果", "百变怪的糖果", "伊布的糖果",
+        "多边兽的糖果", "菊石兽的糖果", "化石盔的糖果", "化石翼龙的糖果", "卡比兽的糖果",
+        "急冻鸟的糖果", "闪电鸟的糖果", "火焰鸟的糖果", "迷你龙的糖果", "超梦的糖果",
+        "梦幻的糖果", "美录坦的糖果", "鸭嘴火兽的糖果", "？？？", "？？？",
+        "？？？", "？？？", "？？？", "？？？", "？？？",
+        "？？？", "？？？", "？？？", "？？？", "？？？",
+        "？？？", "？？？", "？？？", "？？？", "推荐函",
+        "Pokemon Box Link", "许愿星", "极巨腕带", "？？？", "？？？",
+        "钓竿", "洛托姆自行车", "？？？", "？？？", "粗绞肉香肠",
+        "饱伯罐头", "巴哈罐头", "豆子罐头", "吐司面包", "通心粉",
+        "袋装蕈菇", "烟熏尾巴", "粗枝大葱", "特选苹果", "细骨",
+        "袋装土豆", "水边香草", "袋装蔬菜", "炸物拼盘", "水煮蛋",
+        "露营组合", "？？？", "？？？", "腐朽的剑", "腐朽的盾",
+        "化石鸟", "化石鱼", "化石龙", "化石海兽", "草莓糖饰",
+        "爱心糖饰", "野莓糖饰", "幸运草糖饰", "花朵糖饰", "星星糖饰",
+        "蝴蝶结糖饰", "甜甜苹果", "酸酸苹果", "爽喉喷雾", "避难背包",
+        "厚底靴", "打空保险", "客房服务", "万能伞", "经验糖果ＸＳ",
+        "经验糖果Ｓ", "经验糖果Ｍ", "经验糖果Ｌ", "经验糖果ＸＬ", "极巨糖果",
+        "招式记录００", "招式记录０１", "招式记录０２", "招式记录０３", "招式记录０４",
+        "招式记录０５", "招式记录０６", "招式记录０７", "招式记录０８", "招式记录０９",
+        "招式记录１０", "招式记录１１", "招式记录１２", "招式记录１３", "招式记录１４",
+        "招式记录１５", "招式记录１６", "招式记录１７", "招式记录１８", "招式记录１９",
+        "招式记录２０", "招式记录２１", "招式记录２２", "招式记录２３", "招式记录２４",
+        "招式记录２５", "招式记录２６", "招式记录２７", "招式记录２８", "招式记录２９",
+        "招式记录３０", "招式记录３１", "招式记录３２", "招式记录３３", "招式记录３４",
+        "招式记录３５", "招式记录３６", "招式记录３７", "招式记录３８", "招式记录３９",
+        "招式记录４０", "招式记录４１", "招式记录４２", "招式记录４３", "招式记录４４",
+        "招式记录４５", "招式记录４６", "招式记录４７", "招式记录４８", "招式记录４９",
+        "招式记录５０", "招式记录５１", "招式记录５２", "招式记录５３", "招式记录５４",
+        "招式记录５５", "招式记录５６", "招式记录５７", "招式记录５８", "招式记录５９",
+        "招式记录６０", "招式记录６１", "招式记录６２", "招式记录６３", "招式记录６４",
+        "招式记录６５", "招式记录６６", "招式记录６７", "招式记录６８", "招式记录６９",
+        "招式记录７０", "招式记录７１", "招式记录７２", "招式记录７３", "招式记录７４",
+        "招式记录７５", "招式记录７６", "招式记录７７", "招式记录７８", "招式记录７９",
+        "招式记录８０", "招式记录８１", "招式记录８２", "招式记录８３", "招式记录８４",
+        "招式记录８５", "招式记录８６", "招式记录８７", "招式记录８８", "招式记录８９",
+        "招式记录９０", "招式记录９１", "招式记录９２", "招式记录９３", "招式记录９４",
+        "招式记录９５", "招式记录９６", "招式记录９７", "招式记录９８", "招式记录９９",
+        "招式学习器００", "怕寂寞薄荷", "固执薄荷", "顽皮薄荷", "勇敢薄荷",
+        "大胆薄荷", "淘气薄荷", "乐天薄荷", "悠闲薄荷", "内敛薄荷",
+        "慢吞吞薄荷", "马虎薄荷", "冷静薄荷", "温和薄荷", "温顺薄荷",
+        "慎重薄荷", "自大薄荷", "胆小薄荷", "急躁薄荷", "爽朗薄荷",
+        "天真薄荷", "认真薄荷", "许愿星块", "破裂的茶壶", "缺损的茶壶",
+        "厉害耳塞", "袋装果实", "哞哞乳酪", "香料组合", "鲜鲜奶油",
+        "即食咖喱", "椰奶", "即食面", "即食肉排", "超极粉",
+        "许愿星碎片", "洛托姆自行车", "防晃护符", "？？？", "陈旧的信",
+        "乐队的签名", "索妮亚的书", "？？？", "？？？", "？？？",
+        "？？？", "？？？", "？？？", "洛托姆型录", "★And458",
+        "★And15", "★And337", "★And603", "★And390", "★Sgr6879",
+        "★Sgr6859", "★Sgr6913", "★Sgr7348", "★Sgr7121", "★Sgr6746",
+        "★Sgr7194", "★Sgr7337", "★Sgr7343", "★Sgr6812", "★Sgr7116",
+        "★Sgr7264", "★Sgr7597", "★Del7882", "★Del7906", "★Del7852",
+        "★Psc596", "★Psc361", "★Psc510", "★Psc437", "★Psc8773",
+        "★Lep1865", "★Lep1829", "★Boo5340", "★Boo5506", "★Boo5435",
+        "★Boo5602", "★Boo5733", "★Boo5235", "★Boo5351", "★Hya3748",
+        "★Hya3903", "★Hya3418", "★Hya3482", "★Hya3845", "★Eri1084",
+        "★Eri472", "★Eri1666", "★Eri897", "★Eri1231", "★Eri874",
+        "★Eri1298", "★Eri1325", "★Eri984", "★Eri1464", "★Eri1393",
+        "★Eri850", "★Tau1409", "★Tau1457", "★Tau1165", "★Tau1791",
+        "★Tau1910", "★Tau1346", "★Tau1373", "★Tau1412", "★CMa2491",
+        "★CMa2693", "★CMa2294", "★CMa2827", "★CMa2282", "★CMa2618",
+        "★CMa2657", "★CMa2646", "★UMa4905", "★UMa4301", "★UMa5191",
+        "★UMa5054", "★UMa4295", "★UMa4660", "★UMa4554", "★UMa4069",
+        "★UMa3569", "★UMa3323", "★UMa4033", "★UMa4377", "★UMa4375",
+        "★UMa4518", "★UMa3594", "★Vir5056", "★Vir4825", "★Vir4932",
+        "★Vir4540", "★Vir4689", "★Vir5338", "★Vir4910", "★Vir5315",
+        "★Vir5359", "★Vir5409", "★Vir5107", "★Ari617", "★Ari553",
+        "★Ari546", "★Ari951", "★Ori1713", "★Ori2061", "★Ori1790",
+        "★Ori1903", "★Ori1948", "★Ori2004", "★Ori1852", "★Ori1879",
+        "★Ori1899", "★Ori1543", "★Cas21", "★Cas168", "★Cas403",
+        "★Cas153", "★Cas542", "★Cas219", "★Cas265", "★Cnc3572",
+        "★Cnc3208", "★Cnc3461", "★Cnc3449", "★Cnc3429", "★Cnc3627",
+        "★Cnc3268", "★Cnc3249", "★Com4968", "★Crv4757", "★Crv4623",
+        "★Crv4662", "★Crv4786", "★Aur1708", "★Aur2088", "★Aur1605",
+        "★Aur2095", "★Aur1577", "★Aur1641", "★Aur1612", "★Pav7790",
+        "★Cet911", "★Cet681", "★Cet188", "★Cet539", "★Cet804",
+        "★Cep8974", "★Cep8162", "★Cep8238", "★Cep8417", "★Cen5267",
+        "★Cen5288", "★Cen551", "★Cen5459", "★Cen5460", "★CMi2943",
+        "★CMi2845", "★Equ8131", "★Vul7405", "★UMi424", "★UMi5563",
+        "★UMi5735", "★UMi6789", "★Crt4287", "★Lyr7001", "★Lyr7178",
+        "★Lyr7106", "★Lyr7298", "★Ara6585", "★Sco6134", "★Sco6527",
+        "★Sco6553", "★Sco5953", "★Sco5984", "★Sco6508", "★Sco6084",
+        "★Sco5944", "★Sco6630", "★Sco6027", "★Sco6247", "★Sco6252",
+        "★Sco5928", "★Sco6241", "★Sco6165", "★Tri544", "★Leo3982",
+        "★Leo4534", "★Leo4357", "★Leo4057", "★Leo4359", "★Leo4031",
+        "★Leo3852", "★Leo3905", "★Leo3773", "★Gru8425", "★Gru8636",
+        "★Gru8353", "★Lib5685", "★Lib5531", "★Lib5787", "★Lib5603",
+        "★Pup3165", "★Pup3185", "★Pup3045", "★Cyg7924", "★Cyg7417",
+        "★Cyg7796", "★Cyg8301", "★Cyg7949", "★Cyg7528", "★Oct7228",
+        "★Col1956", "★Col2040", "★Col2177", "★Gem2990", "★Gem2891",
+        "★Gem2421", "★Gem2473", "★Gem2216", "★Gem2777", "★Gem2650",
+        "★Gem2286", "★Gem2484", "★Gem2930", "★Peg8775", "★Peg8781",
+        "★Peg39", "★Peg8308", "★Peg8650", "★Peg8634", "★Peg8684",
+        "★Peg8450", "★Peg8880", "★Peg8905", "★Oph6556", "★Oph6378",
+        "★Oph6603", "★Oph6149", "★Oph6056", "★Oph6075", "★Ser5854",
+        "★Ser7141", "★Ser5879", "★Her6406", "★Her6148", "★Her6410",
+        "★Her6526", "★Her6117", "★Her6008", "★Per936", "★Per1017",
+        "★Per1131", "★Per1228", "★Per834", "★Per941", "★Phe99",
+        "★Phe338", "★Vel3634", "★Vel3485", "★Vel3734", "★Aqr8232",
+        "★Aqr8414", "★Aqr8709", "★Aqr8518", "★Aqr7950", "★Aqr8499",
+        "★Aqr8610", "★Aqr8264", "★Cru4853", "★Cru4730", "★Cru4763",
+        "★Cru4700", "★Cru4656", "★PsA8728", "★TrA6217", "★Cap7776",
+        "★Cap7754", "★Cap8278", "★Cap8322", "★Cap7773", "★Sge7479",
+        "★Car2326", "★Car3685", "★Car3307", "★Car3699", "★Dra5744",
+        "★Dra5291", "★Dra6705", "★Dra6536", "★Dra7310", "★Dra6688",
+        "★Dra4434", "★Dra6370", "★Dra7462", "★Dra6396", "★Dra6132",
+        "★Dra6636", "★CVn4915", "★CVn4785", "★CVn4846", "★Aql7595",
+        "★Aql7557", "★Aql7525", "★Aql7602", "★Aql7235", "极巨甜蜜",
+        "极巨菇菇", "伽勒豆蔻枝", "伽勒豆蔻手环", "时尚名人卡", "铠甲车票",
+        "洛托姆自行车", "洛托姆自行车", "经验护符", "铠甲矿石", "证章护符",
+        "牵绊缰绳", "牵绊缰绳", "伽勒豆蔻花圈", "传说笔记１", "传说笔记２",
+        "传说笔记３", "传说笔记？", "王冠车票", "木雕王冠", "光辉花瓣",
+        "白色鬃毛", "黑色鬃毛", "冰萝卜", "黑萝卜", "极矿石",
+        "萝卜种子", "特性膏药", "牵绊缰绳", "时之镇宝", "空之镇宝",
+        "镇宝", "联系绳", "家乡玛芬", "球果果", "祝庆玛芬",
+        "多重强化", "要害攻击", "讲究粽", "双倍腌菜", "颠倒烧",
+        "弹子萁", "精通种子", "Poke Ball", "？？？", "永恒之冰",
+        "由克希之爪", "亚克诺姆之牙", "艾姆利多之翅", "玉石", "神阖之笛",
+        "中药", "好中药", "晶晶蜜", "旺旺谷", "滚滚豆",
+        "糯糯菇", "坚坚矿", "木材", "皇叶", "沼之镇宝",
+        "Poke Ball", "超级球", "高级球", "飞羽球", "Pokeshi Doll",
+        "？？？", "烟弹", "声弹", "黏丸", "星星碎片",
+        "菇诱团", "除虫草", "蜜诱团", "谷诱团", "豆诱团",
+        "矿诱团", "伤药", "好伤药", "厉害伤药", "全满药",
+        "全复药", "中药", "好中药", "厉害中药", "森之羊羹",
+        "祝庆玛芬", "万灵药", "活力碎片", "活力块", "ＰＰ单项全补剂",
+        "ＰＰ多项全补剂", "匿声喷雾", "？？？", "进攻药丸", "防守药丸",
+        "要害攻击", "闪避强化", "多重强化", "森之镇宝", "碎铁",
+        "？？？", "黑玉石", "天蓝玉石", "？？？", "泥丸",
+        "？？？", "惊声藻", "烟芋", "蛀球果", "雪丸",
+        "黏丸", "黑奇石", "泥炭块", "匿声喷雾", "疗草",
+        "活力蕾", "ＰＰ草", "？？？", "？？？", "替身护符２",
+        "替身护符３", "剑舞菇", "铁壁木耳", "影分菇", "要害松露",
+        "沙滩萝卜", "替身护符４", "替身护符５", "甜松露", "诱团原料",
+        "Poke Ball", "超级球", "高级球", "飞羽球", "？？？",
+        "？？？", "声弹", "烟弹", "？？？", "？？？",
+        "Pokeshi Doll", "火山镇宝", "山之镇宝", "雪之镇宝", "蜜诱团",
+        "谷诱团", "豆诱团", "菇诱团", "矿诱团", "颠倒烧",
+        "讲究粽", "双倍腌菜", "安全护符１", "安全护符２", "安全护符３",
+        "安全护符４", "安全护符５", "破损日记", "健康护符１", "健康护符２",
+        "健康护符３", "健康护符４", "健康护符５", "石板碎块", "幽尾玄鱼丸",
+        "古老日记", "飞翼球", "飞梭球", "沉重球", "超重球",
+        "巨重球", "飞翼球", "飞梭球", "沉重球", "花啤果",
+        "厉害中药", "进攻药丸", "防守药丸", "闪避强化", "奋斗沙",
+        "奋斗砾", "奋斗石", "奋斗岩", "秘传之药", "替身护符１",
+        "他人的遗失物", "他人的遗失物", "他人的遗失物", "他人的遗失物", "他人的遗失物",
+        "？？？", "起源球", "？？？", "？？？", "？？？",
+        "？？？", "起源矿石", "大金刚宝玉", "大白宝玉", "大白金宝玉",
+        "净空石板", "？？？", "工艺套组", "超重球", "巨重球",
+        "奇异球", "Pokedex", "古老诗文１", "古老诗文２", "古老诗文３",
+        "古老诗文４", "？？？", "古老诗文５", "古老诗文６", "古老诗文７",
+        "古老诗文８", "古老诗文９", "古老诗文１０", "古老诗文１１", "古老诗文１２",
+        "古老诗文１３", "古老诗文１４", "古老诗文１５", "古老诗文１６", "古老诗文１７",
+        "古老诗文１８", "古老诗文１９", "古老诗文２０", "谜之碎片Ｓ", "谜之碎片Ｌ",
+        "挖洞钻", "关都石板", "城都石板", "心之石板", "彩虹石板",
+        "暴风石板", "大海石板", "大陆石板", "天空石板", "基因石板",
+        "引导石板", "毁坏石板", "ＤＳ播放器", "", "",
+        "", "", "", "传说石板", "手机洛托姆",
+        "三明治", "Koraidon’s Poke Ball", "Miraidon’s Poke Ball", "太晶珠", "朱之书",
+        "紫之书", "海岱的钱包", "", "", "",
+        "", "", "小竹笋", "大竹笋", "",
+        "", "", "", "", "",
+        "", "", "", "", "",
+        "", "", "恶之挂轴", "水之挂轴", "",
+        "", "咒术之铠", "一般太晶碎块", "火太晶碎块", "水太晶碎块",
+        "电太晶碎块", "草太晶碎块", "冰太晶碎块", "格斗太晶碎块", "毒太晶碎块",
+        "地面太晶碎块", "飞行太晶碎块", "超能力太晶碎块", "虫太晶碎块", "岩石太晶碎块",
+        "幽灵太晶碎块", "龙太晶碎块", "恶太晶碎块", "钢太晶碎块", "妖精太晶碎块",
+        "驱劲能量", "特性护具", "清净坠饰", "模仿香草", "拳击手套",
+        "密探斗篷", "机变骰子", "", "长棍面包", "蛋黄酱",
+        "番茄酱", "黄芥末酱", "黄油", "花生酱", "辣酱",
+        "盐", "胡椒", "酸奶", "鲜奶油", "奶油芝士",
+        "莓果酱", "橘子酱", "橄榄油", "醋", "秘传：甜味料",
+        "秘传：咸味料", "秘传：酸味料", "秘传：苦味料", "秘传：辣味料", "生菜",
+        "番茄片", "小番茄块", "小黄瓜片", "酸黄瓜片", "洋葱片",
+        "红洋葱", "青椒片", "红椒片", "黄椒片", "牛油果",
+        "煎培根", "火腿片", "生火腿", "煎辣香肠", "香草香肠",
+        "汉堡排", "毛崖蟹棒", "烟熏鱼片", "炸鱼片", "水煮蛋片",
+        "烘蛋", "豆腐", "米饭", "面条", "土豆沙拉",
+        "芝士片", "香蕉片", "草莓片", "苹果片", "奇异果片",
+        "凤梨片", "小辣椒", "辣根", "咖喱粉", "芥末酱",
+        "豆瓣菜", "罗勒", "", "", "",
+        "", "", "", "", "",
+        "", "毛球的牙", "地鼠的土", "喵喵的毛", "可达鸭的羽绒",
+        "猴怪的毛", "卡蒂狗的毛", "呆呆兽的爪子", "小磁怪的螺丝", "臭泥的毒素",
+        "大舌贝的珍珠", "鬼斯的气体", "催眠貘的毛", "霹雳电球的电力", "飞天螳螂的爪子",
+        "肯泰罗的毛", "鲤鱼王的鳞片", "百变怪的黏糊", "伊布的毛", "迷你龙的鳞片",
+        "皮丘的毛", "宝宝丁的毛", "咩利羊的毛球", "毽子草的叶片", "向日种子的叶片",
+        "黑暗鸦的宝物", "梦妖的眼泪", "麒麟奇的毛", "榛果球的壳", "土龙弟弟的鳞片",
+        "千针鱼的刺", "赫拉克罗斯的爪子", "狃拉的爪子", "熊宝宝的爪子", "信使鸟的行李",
+        "戴鲁比的牙", "小小象的爪子", "惊角鹿的毛", "幼基拉斯的爪子", "长翅鸥的羽毛",
+        "拉鲁拉丝的掉落物", "溜溜糖球的蜜", "蘑蘑菇的孢子", "懒人獭的毛", "幕下力士的汗",
+        "露力丽的毛", "勾魂眼的宝石", "玛沙那的汗", "溶食兽的黏液", "呆火驼的熔岩",
+        "煤炭龟的煤炭", "跳跳猪的珍珠", "刺球仙人掌的刺", "青绵鸟的羽毛", "猫鼬斩的爪子",
+        "饭匙蛇的牙", "泥泥鳅的黏液", "怨影娃娃的残片", "热带龙的叶片", "雪童子的毛",
+        "爱心鱼的鳞片", "宝贝龙的鳞片", "姆克儿的羽毛", "圆法师的蜕壳", "小猫怪的牙",
+        "三蜜蜂的蜜", "帕奇利兹的毛", "泳圈鼬的毛", "无壳海兔的黏液", "飘飘球的气体",
+        "臭鼬噗的毛", "铜镜怪的碎片", "盆才怪的眼泪", "小福蛋的掉落物", "花岩怪的碎片",
+        "圆陆鲨的鳞片", "利欧路的毛", "沙河马的沙", "不良蛙的毒素", "荧光鱼的鳞片",
+        "雪笠怪的果实", "洛托姆的电力", "百合根娃娃的叶片", "野蛮鲈鱼的牙", "黑眼鳄的爪子",
+        "索罗亚的毛", "哥德宝宝的睫毛", "四季鹿的毛", "哎呀球菇的孢子", "保姆曼波的黏液",
+        "麻麻小鱼的黏液", "牙牙的鳞片", "喷嚏熊的毛", "几何雪花的冰", "驹刀小兵的刀",
+        "毛头小鹰的羽毛", "单首龙的鳞片", "燃烧虫的毛", "小箭雀的羽毛", "粉蝶虫的粉",
+        "小狮狮的鬃毛", "Flabebe Pollen", "坐骑小羊的叶片", "垃垃藻的碎藻", "铁臂枪虾的钳子",
+        "摔角鹰人的羽绒", "咚咚鼠的毛", "黏黏宝的黏液", "钥圈儿的钥匙", "冰宝的冰",
+        "嗡蝠的毛", "猫鼬少的毛", "好胜蟹的壳", "花舞鸟的羽毛", "岩狗狗的岩石",
+        "好坏星的刺", "泥驴仔的泥巴", "伪螳草的叶片", "夜盗火蜥的气体", "甜竹竹的汗",
+        "智挥猩的毛", "投掷猴的毛", "沙丘娃的沙", "树枕尾熊的爪子", "谜拟丘的残片",
+        "磨牙彩皮鱼的牙齿", "咬咬龟的爪子", "贪心栗鼠的毛", "刺梭鱼的鳞片", "稚山雀的羽毛",
+        "电音婴的电力", "列阵兵的汗", "铜象的锈", "小炭仔的煤炭", "沙包蛇的沙",
+        "爱管侍的毛", "啪嚓海胆的针", "雪吞虫的丝", "捣蛋小妖的毛", "啃果虫的果汁",
+        "来悲茶的碎片", "迷布莉姆的掉落物", "巨石丁的岩石", "冰砌鹅的羽绒", "多龙梅西亚的粉",
+        "", "", "", "爱吃豚的毛", "团珠蛛的丝",
+        "豆蟋蟀的爪子", "虫滚泥的泥巴", "墓仔狗的蜡", "飘飘雏的羽绒", "海地鼠的沙",
+        "吃吼霸的胡须", "轻身鳕的鱼片", "波普海豚的黏液", "迷你芙的油", "热辣娃的种子",
+        "光蚪仔的黏液", "噗隆隆的气体", "拖拖蚓的锈", "一对鼠的毛", "走鲸的油脂",
+        "凉脊龙的鳞片", "米立龙的鳞片", "摩托蜥的鳞片", "布拨的毛", "",
+        "", "电海燕的羽毛", "下石鸟的羽毛", "怒鹦哥的羽毛", "缠红鹤的羽绒",
+        "毛崖蟹的钳子", "盐石宝的盐", "晶光芽的结晶", "滋汁鼹的墨汁", "狗仔包的毛",
+        "偶叫獒的牙", "纳噬草的枝条", "索财灵的硬币", "", "",
+        "", "", "", "", "",
+        "", "", "", "", "",
+        "", "", "", "", "",
+        "", "小锻匠的毛", "炭小侍的煤灰", "原野水母的薄片", "乌波的黏液",
+        "招式学习器１００", "招式学习器１０１", "招式学习器１０２", "招式学习器１０３", "招式学习器１０４",
+        "招式学习器１０５", "招式学习器１０６", "招式学习器１０７", "招式学习器１０８", "招式学习器１０９",
+        "招式学习器１１０", "招式学习器１１１", "招式学习器１１２", "招式学习器１１３", "招式学习器１１４",
+        "招式学习器１１５", "招式学习器１１６", "招式学习器１１７", "招式学习器１１８", "招式学习器１１９",
+        "招式学习器１２０", "招式学习器１２１", "招式学习器１２２", "招式学习器１２３", "招式学习器１２４",
+        "招式学习器１２５", "招式学习器１２６", "招式学习器１２７", "招式学习器１２８", "招式学习器１２９",
+        "招式学习器１３０", "招式学习器１３１", "招式学习器１３２", "招式学习器１３３", "招式学习器１３４",
+        "招式学习器１３５", "招式学习器１３６", "招式学习器１３７", "招式学习器１３８", "招式学习器１３９",
+        "招式学习器１４０", "招式学习器１４１", "招式学习器１４２", "招式学习器１４３", "招式学习器１４４",
+        "招式学习器１４５", "招式学习器１４６", "招式学习器１４７", "招式学习器１４８", "招式学习器１４９",
+        "招式学习器１５０", "招式学习器１５１", "招式学习器１５２", "招式学习器１５３", "招式学习器１５４",
+        "招式学习器１５５", "招式学习器１５６", "招式学习器１５７", "招式学习器１５８", "招式学习器１５９",
+        "招式学习器１６０", "招式学习器１６１", "招式学习器１６２", "招式学习器１６３", "招式学习器１６４",
+        "招式学习器１６５", "招式学习器１６６", "招式学习器１６７", "招式学习器１６８", "招式学习器１６９",
+        "招式学习器１７０", "招式学习器１７１", "招式学习器１７２", "招式学习器１７３", "招式学习器１７４",
+        "招式学习器１７５", "招式学习器１７６", "招式学习器１７７", "招式学习器１７８", "招式学习器１７９",
+        "招式学习器１８０", "招式学习器１８１", "招式学习器１８２", "招式学习器１８３", "招式学习器１８４",
+        "招式学习器１８５", "招式学习器１８６", "招式学习器１８７", "招式学习器１８８", "招式学习器１８９",
+        "招式学习器１９０", "招式学习器１９１", "招式学习器１９２", "招式学习器１９３", "招式学习器１９４",
+        "招式学习器１９５", "招式学习器１９６", "招式学习器１９７", "招式学习器１９８", "招式学习器１９９",
+        "招式学习器２００", "招式学习器２０１", "招式学习器２０２", "招式学习器２０３", "招式学习器２０４",
+        "招式学习器２０５", "招式学习器２０６", "招式学习器２０７", "招式学习器２０８", "招式学习器２０９",
+        "招式学习器２１０", "招式学习器２１１", "招式学习器２１２", "招式学习器２１３", "招式学习器２１４",
+        "招式学习器２１５", "招式学习器２１６", "招式学习器２１７", "招式学习器２１８", "招式学习器２１９",
+        "招式学习器２２０", "招式学习器２２１", "招式学习器２２２", "招式学习器２２３", "招式学习器２２４",
+        "招式学习器２２５", "招式学习器２２６", "招式学习器２２７", "招式学习器２２８", "招式学习器２２９",
+        "", "", "", "", "",
+        "", "", "", "", "",
+        "", "", "", "", "",
+        "", "", "", "", "",
+        "", "野餐组合", "", "校园水壶", "校园水壶",
+        "圆点水壶", "条纹水壶", "菱纹水壶", "校园水杯", "校园水杯",
+        "直条纹水杯", "圆点水杯", "花朵水杯", "校园桌巾", "校园桌巾",
+        "幻彩桌巾", "大自然桌巾", "鬼祟桌巾", "", "校园球",
+        "校园球", "玛力露球", "毛线球", "电竞球", "金色三明治签",
+        "银色三明治签", "红旗子三明治签", "蓝旗子三明治签", "皮卡丘三明治签", "眨眼皮卡丘三明治签",
+        "伊布三明治签", "笑脸伊布三明治签", "Blue Poke Ball Pick", "", "庆祝之铠",
+        "头领凭证", "", "", "粉红水壶", "蓝色水壶",
+        "黄色水壶", "红纹不锈钢水壶", "黄纹不锈钢水壶", "蓝纹不锈钢水壶", "银钛水壶",
+        "横条纹水杯", "菱纹水杯", "火焰水杯", "粉红水杯", "蓝色水杯",
+        "黄色水杯", "皮卡丘水杯", "伊布水杯", "呆呆兽水杯", "银钛水杯",
+        "瑜伽球", "黄色格子桌巾", "蓝色格子桌巾", "红色格子桌巾", "黑白草丛桌巾",
+        "对决桌巾", "怪兽桌巾", "条纹桌巾", "菱纹桌巾", "圆点桌巾",
+        "紫色桌巾", "浅绿桌巾", "米色桌巾", "黄色桌巾", "蓝色桌巾",
+        "粉红桌巾", "金钛水壶", "铜钛水壶", "金钛水杯", "铜钛水杯",
+        "Green Poke Ball Pick", "Red Poke Ball Pick", "烟花祝庆三明治签", "勇者之剑三明治签", "魔法星星三明治签",
+        "魔法甜心三明治签", "阳伞三明治签", "晴空花三明治签", "夕阳花三明治签", "朝霞花三明治签",
+        "蓝色盘子", "绿色盘子", "橘色盘子", "红色盘子", "白色盘子",
+        "黄色盘子", "妖精之羽", "蜜汁苹果", "凡作茶碗", "杰作茶碗",
+        "碧草面具", "础石面具", "水井面具", "火灶面具", "碧之时尚名人卡",
+        "结晶碎片", "体力粘糕", "肌力粘糕", "抵抗粘糕", "智力粘糕",
+        "精神粘糕", "瞬发粘糕", "简约椅子", "校园椅子", "校园椅子",
+        "幻彩椅子", "大自然椅子", "鬼祟椅子", "黄色格子椅子", "蓝色格子椅子",
+        "红色格子椅子", "草丛椅子", "对决椅子", "怪兽椅子", "条纹椅子",
+        "菱纹椅子", "圆点椅子", "紫色椅子", "浅绿椅子", "米色椅子",
+        "黄色椅子", "蓝色椅子", "粉红椅子", "阿柏蛇的牙", "穿山鼠的爪子",
+        "皮宝宝的毛", "六尾的毛", "蚊香蝌蚪的黏液", "喇叭芽的藤蔓", "小拳石的碎片",
+        "瓦斯弹的气体", "小卡比兽的牙", "尾立的毛", "咕咕的羽毛", "圆丝蛛的丝",
+        "长尾怪手的毛", "蜻蜻蜓的刺", "天蝎的牙", "熔岩虫的熔岩", "小山猪的毛",
+        "土狼犬的牙", "莲叶童子的叶片", "橡实果的枝条", "朝北鼻的碎片", "电萤虫的汁液",
+        "甜甜萤的汁液", "龙虾小兵的壳", "丑丑鱼的鳞片", "夜巡灵的碎片", "铃铛响的碎片",
+        "搬运小匠的汗", "虫宝包的叶片", "鸭宝宝的羽毛", "烛光灵的煤灰", "功夫鼬的爪子",
+        "秃鹰丫头的羽毛", "小碎钻的宝石", "小木灵的枝条", "强颚鸡母虫的丝", "萌虻的粉",
+        "心鳞宝的鳞片", "古月鸟的羽绒", "莫鲁贝可的种子", "斯魔茶的粉", "净空粘糕",
+        "洛拍棒", "晶耀护符", "复合金属", "蓝之时尚名人卡", "走路草的叶片",
+        "玛瑙水母的针", "嘟嘟的羽绒", "小海狮的毛", "蛋蛋的壳", "无畏小子的汗",
+        "独角犀牛的牙", "墨海马的墨汁", "电击怪的毛", "鸭嘴宝宝的毛", "拉普拉斯的眼泪",
+        "多边兽的碎片", "灯笼鱼的电力", "布鲁的毛", "盔甲鸟的羽毛", "图图犬的墨汁",
+        "正电拍拍的毛", "负电拍拍的毛", "大颚蚁的壳", "铁哑铃的爪子", "头盖龙的刺",
+        "盾甲龙的爪子", "斑斑马的鬃毛", "螺钉地鼠的爪子", "木棉球的棉絮", "滑滑小子的汗",
+        "泡沫栗鼠的毛", "单卵细胞球的凝胶", "电电虫的丝", "泥偶小人的碎片", "妙喵的毛",
+        "好啦鱿的墨汁", "小笃儿的羽毛", "滴蛛的丝", "花疗环环的花", "小陨星的壳",
+        "小仙奶的奶油", "铝钢龙的锈", "急冻鸟的点心", "闪电鸟的点心", "火焰鸟的点心",
+        "雷公的点心", "炎帝的点心", "水君的点心", "洛奇亚的点心", "凤王的点心",
+        "拉帝亚斯的点心", "拉帝欧斯的点心", "盖欧卡的点心", "固拉多的点心", "烈空坐的点心",
+        "勾帕路翁的点心", "代拉基翁的点心", "毕力吉翁的点心", "莱希拉姆的点心", "捷克罗姆的点心",
+        "酋雷姆的点心", "索尔迦雷欧的点心", "露奈雅拉的点心", "奈克洛兹玛的点心", "熊徒弟的点心",
+        "雪暴马的点心", "灵幽马的点心", "蓝之光碟", "鸭嘴炎兽三明治签", "星晶太晶碎块",
+        "幻之桃桃果", "蓝莓桌巾", "蓝莓椅子", "同步器", "陨石",
+        "朱之书", "紫之书", "零之秘宝", "精通种子", "皮可西进化石",
+        "大食花进化石", "宝石海星进化石", "快龙进化石", "大竺葵进化石", "大力鳄进化石",
+        "盔甲鸟进化石", "雪妖女进化石", "", "", "炎武王进化石",
+        "龙头地鼠进化石", "蜈蚣王进化石", "头巾混混进化石", "麻麻鳗鱼王进化石", "水晶灯火灵进化石",
+        "布里卡隆进化石", "妖火红狐进化石", "甲贺忍蛙进化石", "火炎狮进化石", "花叶蒂进化石",
+        "乌贼王进化石", "龟足巨铠进化石", "毒藻龙进化石", "摔角鹰人进化石", "基格尔德进化石",
+        "老翁龙进化石", "", "列阵兵进化石", "２０２号客房的钥匙", "厉害密阿雷格雷派饼",
+        "研究所的钥匙卡Ａ", "研究所的钥匙卡Ｂ", "研究所的钥匙卡Ｃ", "", "",
+        "小石头", "纪念戒指", "签名玩偶", "美味垃圾", "活力小树枝",
+        "玳萝的遗忘物", "", "", "", "",
+        "", "", "", "", "",
+        "", "", "", "", "",
+        "", "", "", "超级碎片", "彩色螺丝",
+        "红色卡娜莉玩偶", "红色卡娜莉玩偶", "红色卡娜莉玩偶", "金色卡娜莉玩偶", "金色卡娜莉玩偶",
+        "金色卡娜莉玩偶", "粉红色卡娜莉玩偶", "粉红色卡娜莉玩偶", "粉红色卡娜莉玩偶", "绿色卡娜莉玩偶",
+        "绿色卡娜莉玩偶", "绿色卡娜莉玩偶", "蓝色卡娜莉玩偶", "蓝色卡娜莉玩偶", "蓝色卡娜莉玩偶"
     };
 
     /// Get item name by ID
     const char* getItemName(uint16_t itemId) {
         if (itemId >= 2635) {
-            return "???";
+            return "？？？";
         }
         return ITEM_NAMES[itemId];
     }
