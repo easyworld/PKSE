@@ -13,24 +13,24 @@
 namespace Names {
     // Type names indexed by type ID (matches MoveType enum)
     static const char* TYPE_NAMES[] = {
-        "Normal",   // 0
-        "Fighting", // 1
-        "Flying",   // 2
-        "Poison",   // 3
-        "Ground",   // 4
-        "Rock",     // 5
-        "Bug",      // 6
-        "Ghost",    // 7
-        "Steel",    // 8
-        "Fire",     // 9
-        "Water",    // 10
-        "Grass",    // 11
-        "Electric", // 12
-        "Psychic",  // 13
-        "Ice",      // 14
-        "Dragon",   // 15
-        "Dark",     // 16
-        "Fairy"     // 17
+        "一般",   // 0 Normal
+        "格斗",   // 1 Fighting
+        "飞行",   // 2 Flying
+        "毒",     // 3 Poison
+        "地面",   // 4 Ground
+        "岩石",   // 5 Rock
+        "虫",     // 6 Bug
+        "幽灵",   // 7 Ghost
+        "钢",     // 8 Steel
+        "火",     // 9 Fire
+        "水",     // 10 Water
+        "草",     // 11 Grass
+        "电",     // 12 Electric
+        "超能力", // 13 Psychic
+        "冰",     // 14 Ice
+        "龙",     // 15 Dragon
+        "恶",     // 16 Dark
+        "妖精"    // 17 Fairy
     };
 
     const char* getTypeName(uint8_t typeId) {

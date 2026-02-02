@@ -4,38 +4,38 @@
 namespace Names {
     // Nature name lookup table - indexed by Nature ID (0-24)
     static const char* NATURE_NAMES[] = {
-        "Hardy",    // 0
-        "Lonely",   // 1
-        "Brave",    // 2
-        "Adamant",  // 3
-        "Naughty",  // 4
-        "Bold",     // 5
-        "Docile",   // 6
-        "Relaxed",  // 7
-        "Impish",   // 8
-        "Lax",      // 9
-        "Timid",    // 10
-        "Hasty",    // 11
-        "Serious",  // 12
-        "Jolly",    // 13
-        "Naive",    // 14
-        "Modest",   // 15
-        "Mild",     // 16
-        "Quiet",    // 17
-        "Bashful",  // 18
-        "Rash",     // 19
-        "Calm",     // 20
-        "Gentle",   // 21
-        "Sassy",    // 22
-        "Careful",  // 23
-        "Quirky"    // 24
+        "勤奋",    // 0 Hardy
+        "怕寂寞",  // 1 Lonely
+        "勇敢",    // 2 Brave
+        "固执",    // 3 Adamant
+        "顽皮",    // 4 Naughty
+        "大胆",    // 5 Bold
+        "坦率",    // 6 Docile
+        "悠闲",    // 7 Relaxed
+        "淘气",    // 8 Impish
+        "乐天",    // 9 Lax
+        "胆小",    // 10 Timid
+        "急躁",    // 11 Hasty
+        "认真",    // 12 Serious
+        "爽朗",    // 13 Jolly
+        "天真",    // 14 Naive
+        "内敛",    // 15 Modest
+        "慢吞吞",  // 16 Mild
+        "冷静",    // 17 Quiet
+        "害羞",    // 18 Bashful
+        "马虎",    // 19 Rash
+        "沉着",    // 20 Calm
+        "温和",    // 21 Gentle
+        "自大",    // 22 Sassy
+        "慎重",    // 23 Careful
+        "浮躁"     // 24 Quirky
     };
 
     constexpr size_t NATURE_NAMES_COUNT = 25;
 
     const char* getNatureName(uint8_t natureId) {
         if (natureId >= NATURE_NAMES_COUNT) {
-            return "Unknown";
+            return "未知";
         }
         return NATURE_NAMES[natureId];
     }
