@@ -42,7 +42,7 @@ namespace Panels {
             }
 
             if (pokemon->speciesID() == 0) {
-                std::string slotText = "Slot " + std::to_string(i + 1) + ": Empty";
+                std::string slotText = "栏位 " + std::to_string(i + 1) + ": 空";
                 fb.drawText(colX, colY, slotText, Colors::TextDim);
                 continue;
             }
@@ -52,7 +52,7 @@ namespace Panels {
             Sprite* sprite = SpriteManager::getSprite(pokemon->speciesID(), pokemon->form(), isShiny);
 
             // Draw header: "Slot X: Species"
-            std::string headerText = "Slot " + std::to_string(i + 1) + ": " + std::string(pokemon->species());
+            std::string headerText = "栏位 " + std::to_string(i + 1) + ": " + std::string(pokemon->species());
             int textX = colX;
             fb.drawText(colX, colY, headerText, Colors::Text);
             textX += headerText.length() * 8;  // Approximate character width

@@ -18,14 +18,14 @@ namespace Panels {
 
         // Check if we have valid box data
         if (screen.selectedBoxIndex < 0 || screen.selectedBoxIndex >= static_cast<int>(screen.trainer.boxes.size())) {
-            fb.drawText(x + 20, y + 80, "No box data available", Colors::TextDim);
+            fb.drawText(x + 20, y + 80, "无盒子数据", Colors::TextDim);
             return;
         }
 
         // Get current box name
         std::string boxName = screen.selectedBoxIndex < static_cast<int>(screen.trainer.boxNames.size())
             ? screen.trainer.boxNames[screen.selectedBoxIndex]
-            : ("Box " + std::to_string(screen.selectedBoxIndex + 1));
+            : ("盒子 " + std::to_string(screen.selectedBoxIndex + 1));
 
         // Header with box name
         std::string headerText = boxName;
@@ -70,7 +70,7 @@ namespace Panels {
                     // Draw species name
                     std::string speciesName = pokemon->species();
                     if (speciesName == "None") {
-                        speciesName = "Empty";
+                        speciesName = "空";
                         fb.drawText(slotX + 5, slotY + 35, speciesName.c_str(), Colors::TextDim);
                         continue;
                     }
@@ -112,7 +112,7 @@ namespace Panels {
                         fb.drawText(textX, slotY + 10, " ★", Colors::Red);
                     }
 
-                    if (speciesName != "Empty") {
+                    if (speciesName != "空") {
                         // Draw level below species name, to the right of sprite
                         char levelText[16];
                         snprintf(levelText, sizeof(levelText), "Lv.%d", pokemon->level());

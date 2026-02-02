@@ -41,7 +41,7 @@ void drawStatEditDialog(TrainerViewScreen& screen, PKSEFramebuffer& fb) {
         if (!pokemon) return;
 
         // Stat names
-        const char* statNames[] = {"HP", "ATK", "DEF", "SPA", "SPD", "SPE"};
+        const char* statNames[] = {"HP", "攻击", "防御", "特攻", "特防", "速度"};
         const char* currentStatName = statNames[screen.statEditSelectedStat];
 
         // Get current EV value
@@ -61,7 +61,7 @@ void drawStatEditDialog(TrainerViewScreen& screen, PKSEFramebuffer& fb) {
             pokemon->evSPE() + pokemon->evSPA() + pokemon->evSPD();
 
         // Draw title
-        std::string titleText = std::string("Edit Stats - ") + currentStatName;
+        std::string titleText = std::string("编辑能力值 - ") + currentStatName;
         fb.drawText(dialogX + 20, dialogY + 20, titleText, Colors::Text);
         fb.drawFilledRect(dialogX + 20, dialogY + 45, dialogWidth - 40, 2, Colors::Border);
 
@@ -69,12 +69,12 @@ void drawStatEditDialog(TrainerViewScreen& screen, PKSEFramebuffer& fb) {
         int lineHeight = 30;
 
         // Show current stat name
-        fb.drawText(dialogX + 20, lineY, std::string("Stat: ") + currentStatName, Colors::Text);
+        fb.drawText(dialogX + 20, lineY, std::string("能力: ") + currentStatName, Colors::Text);
         lineY += lineHeight;
 
         // Show IV value (always show current edited value)
         char ivText[64];
-        snprintf(ivText, sizeof(ivText), "IV:  %2d  (Min: 0, Max: 31)", screen.statEditCurrentIV);
+        snprintf(ivText, sizeof(ivText), "个体值:  %2d  (最小: 0, 最大: 31)", screen.statEditCurrentIV);
         Color ivColor = screen.statEditMode == StatEditMode::IV ? Colors::Yellow : Colors::Text;
         if (screen.statEditMode == StatEditMode::IV) {
             fb.drawText(dialogX + 15, lineY, "", Colors::Yellow);
@@ -84,7 +84,7 @@ void drawStatEditDialog(TrainerViewScreen& screen, PKSEFramebuffer& fb) {
 
         // Show EV value (always show current edited value)
         char evText[64];
-        snprintf(evText, sizeof(evText), "EV:  %3d (Min: 0, Max: 252)", screen.statEditCurrentEV);
+        snprintf(evText, sizeof(evText), "努力值:  %3d (最小: 0, 最大: 252)", screen.statEditCurrentEV);
         Color evColor = screen.statEditMode == StatEditMode::EV ? Colors::Yellow : Colors::Text;
         if (screen.statEditMode == StatEditMode::EV) {
             fb.drawText(dialogX + 15, lineY, "", Colors::Yellow);
@@ -99,12 +99,12 @@ void drawStatEditDialog(TrainerViewScreen& screen, PKSEFramebuffer& fb) {
         // Calculate what the new total would be using current edited EV
         int projectedTotal = totalEVs - currentEV + screen.statEditCurrentEV;
 
-        snprintf(totalText, sizeof(totalText), "Total EVs: %d/510", projectedTotal);
+        snprintf(totalText, sizeof(totalText), "努力值总和: %d/510", projectedTotal);
         Color totalColor = projectedTotal > 510 ? Colors::Red : Colors::TextDim;
         fb.drawText(dialogX + 20, lineY, totalText, totalColor);
 
         if (projectedTotal > 510) {
-            fb.drawText(dialogX + 220, lineY, "(EXCEEDS LIMIT!)", Colors::Red);
+            fb.drawText(dialogX + 220, lineY, "(超出上限！)", Colors::Red);
         }
         lineY += lineHeight + 15;
     }

@@ -22,11 +22,11 @@ namespace Dialogs {
         fb.drawRect(dialogX, dialogY, dialogWidth, dialogHeight, Colors::Border);
 
         // Draw title
-        fb.drawText(dialogX + 20, dialogY + 20, "Edit Item Amount", Colors::Text);
+        fb.drawText(dialogX + 20, dialogY + 20, "编辑道具数量", Colors::Text);
         fb.drawFilledRect(dialogX + 20, dialogY + 45, dialogWidth - 40, 2, Colors::Border);
 
         // Get item name
-        std::string itemName = "Unknown Item";
+        std::string itemName = "未知道具";
         if (screen.selectedCategory >= 0 && screen.selectedCategory < static_cast<int>(screen.trainer.items.size())) {
             const auto& pouch = screen.trainer.items[screen.selectedCategory];
             if (screen.selectedItemIndex >= 0 && screen.selectedItemIndex < static_cast<int>(pouch.size())) {
@@ -35,11 +35,11 @@ namespace Dialogs {
         }
 
         // Draw item name
-        fb.drawText(dialogX + 20, dialogY + 65, "Item: " + itemName, Colors::Text);
+        fb.drawText(dialogX + 20, dialogY + 65, "道具: " + itemName, Colors::Text);
 
         // Draw current value (large and centered)
         char valueText[32];
-        snprintf(valueText, sizeof(valueText), "Amount: %d", screen.itemEditDialogValue);
+        snprintf(valueText, sizeof(valueText), "数量: %d", screen.itemEditDialogValue);
         fb.drawText(dialogX + 150, dialogY + 95, valueText, Colors::Yellow);
     }
 }

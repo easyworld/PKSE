@@ -33,7 +33,7 @@ namespace UI {
         // Add "Load from Title (Create New Backup)" option
         BackupInfo newBackupOption;
         newBackupOption.timestamp = "";
-        newBackupOption.displayName = "Load from Title (Create New Backup)";
+        newBackupOption.displayName = "从游戏载入（创建新备份）";
         backups.push_back(newBackupOption);
 
         // Add existing backups
@@ -132,16 +132,16 @@ namespace UI {
         fb.clear(Colors::Background);
 
         // Title
-        fb.drawText(LEFT_PANEL_X + 20, 40, "Select Save Backup", Colors::Text);
+        fb.drawText(LEFT_PANEL_X + 20, 40, "选择存档备份", Colors::Text);
         fb.drawText(LEFT_PANEL_X + 20, 70, titleName, Colors::TextDim);
 
         drawBackupList(fb);
 
         // Instructions
         if (selectedIndex > 0) {
-            fb.drawText(LEFT_PANEL_X + 20, 650, "A: Select  X: Delete  B: Back", Colors::TextDim);
+            fb.drawText(LEFT_PANEL_X + 20, 650, "A: 选择  X: 删除  B: 返回", Colors::TextDim);
         } else {
-            fb.drawText(LEFT_PANEL_X + 20, 650, "A: Select  B: Back", Colors::TextDim);
+            fb.drawText(LEFT_PANEL_X + 20, 650, "A: 选择  B: 返回", Colors::TextDim);
         }
 
         // Draw delete confirmation if active
@@ -178,8 +178,8 @@ namespace UI {
         fb.drawRect(modalX, modalY, MODAL_WIDTH, MODAL_HEIGHT, Colors::Border);
 
         // Draw confirmation text
-        fb.drawText(modalX + 30, modalY + 30, "Delete Backup?", Colors::Text);
-        fb.drawText(modalX + 30, modalY + 70, "This action cannot be undone.", Colors::TextDim);
+        fb.drawText(modalX + 30, modalY + 30, "删除备份？", Colors::Text);
+        fb.drawText(modalX + 30, modalY + 70, "此操作无法撤销。", Colors::TextDim);
 
         if (deleteConfirmationIndex >= 0 && deleteConfirmationIndex < (int)backups.size()) {
             std::string backupName = backups[deleteConfirmationIndex].displayName;
@@ -187,7 +187,7 @@ namespace UI {
         }
 
         // Draw buttons
-        fb.drawText(modalX + 30, modalY + 150, "A: Confirm  B: Cancel", Colors::TextDim);
+        fb.drawText(modalX + 30, modalY + 150, "A: 确认  B: 取消", Colors::TextDim);
     }
 
     void BackupSelectionScreen::deleteBackup(int index) {

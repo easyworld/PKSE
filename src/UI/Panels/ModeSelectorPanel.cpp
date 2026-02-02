@@ -10,14 +10,14 @@ namespace Panels {
         fb.drawFilledRect(x, y, width, height, Colors::Panel);
         fb.drawRect(x, y, width, height, Colors::Border);
 
-        fb.drawText(x + 20, y + 20, "View Mode", Colors::Text);
+        fb.drawText(x + 20, y + 20, "查看模式", Colors::Text);
         fb.drawFilledRect(x + 20, y + 45, width - 40, 2, Colors::Border);
 
         int lineY = y + 60;
         int lineHeight = 28;
 
         // Draw mode options
-        const char* modes[] = {"Party Pokemon", "Box Pokemon", "Items"};
+        const char* modes[] = {"队伍宝可梦", "盒子宝可梦", "道具"};
 
         for (int i = 0; i < 3; i++) {
             if (selectedMode == i) {
