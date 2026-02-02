@@ -167,8 +167,8 @@ namespace Names {
 
             // Kyurem - Fusions
             case 646: // Kyurem
-                if (formId == 1) return "白色";
-                if (formId == 2) return "暗黑酋雷姆";
+                if (formId == 1) return "白色酋雷姆";
+                if (formId == 2) return "黑色酋雷姆";
                 break;
 
             // Keldeo - Resolute
@@ -209,7 +209,7 @@ namespace Names {
             case 741: // Oricorio
                 if (formId == 0) return "热辣热辣风格";
                 if (formId == 1) return "啪滋啪滋风格";
-                if (formId == 2) return "Pa'u";
+                if (formId == 2) return "呼拉呼拉风格";
                 if (formId == 3) return "轻盈轻盈风格";
                 break;
 
