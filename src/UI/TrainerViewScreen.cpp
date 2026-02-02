@@ -893,8 +893,9 @@ namespace UI {
                 instructions = "上/下: 选择模式  |  L/R: 类别  |  A: 进入详情  |  B: 返回  |  X: 保存  |  +: 退出";
             } else if (selectedMode == ViewMode::Boxes) {
                 instructions = "上/下: 选择模式  |  L/R: 切换盒子  |  A: 进入详情  |  B: 返回  |  X: 保存  |  +: 退出";
+            } else {
+                instructions = "上/下: 选择模式  |  A: 进入详情  |  B: 返回  |  X: 保存  |  +: 退出";
             }
-            instructions = "上/下: 选择模式  |  A: 进入详情  |  B: 返回  |  X: 保存  |  +: 退出";
         }
         fb.drawText(50, 680, instructions, Colors::TextDim);
 

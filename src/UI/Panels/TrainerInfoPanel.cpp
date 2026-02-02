@@ -35,7 +35,7 @@ namespace Panels {
         fb.drawText(x + 20, lineY, sidText, Colors::Text);
         lineY += lineHeight;
 
-        std::string moneyText = "￥" + std::to_string(trainer.money);
+        std::string moneyText = "金钱: " + std::to_string(trainer.money);
         fb.drawText(x + 20, lineY, moneyText, Colors::Text);
     }
 }
