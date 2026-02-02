@@ -54,7 +54,7 @@ namespace Modals {
         constexpr int CATEGORY_PANEL_WIDTH = 200;
         fb.drawRect(modalX + 10, modalY + 10, CATEGORY_PANEL_WIDTH, MODAL_HEIGHT - 20, Colors::Border);
 
-        const char* categories[] = {"Main", "Met", "Stats", "Moves", "Cosmetic", "OT/Misc"};
+        const char* categories[] = {"主要", "遇见", "能力", "招式", "外观", "OT/其他"};
         int catY = modalY + 30;
         for (int i = 0; i < 6; i++) {
             if (i == screen.pokemonDetailsCategory) {
@@ -101,7 +101,7 @@ namespace Modals {
             int lineY = contentY;
             int lineHeight = 25;
 
-            fb.drawText(contentX, lineY, "=== Main ===", Colors::Text);
+            fb.drawText(contentX, lineY, "=== 主要信息 ===", Colors::Text);
             lineY += lineHeight + 5;
 
             char buffer[128];
@@ -121,10 +121,10 @@ namespace Modals {
             // Display form name
             const char* formName = Names::getFormName(pokemon->speciesID(), pokemon->form());
             if (formName && strlen(formName) > 0) {
-                snprintf(buffer, sizeof(buffer), "Species: %s (%s) (#%d)",
+                snprintf(buffer, sizeof(buffer), "种类: %s (%s) (#%d)",
                     pokemon->species(), formName, pokemon->speciesID());
             } else {
-                snprintf(buffer, sizeof(buffer), "Species: %s (#%d)",
+                snprintf(buffer, sizeof(buffer), "种类: %s (#%d)",
                     pokemon->species(), pokemon->speciesID());
             }
             fb.drawText(contentX, lineY, buffer, Colors::TextDim);
@@ -137,7 +137,7 @@ namespace Modals {
             {
                 // Get Pokemon types for this species and form
                 Pokemon::TypePair types = Pokemon::getPokemonTypes(pokemon->speciesID(), pokemon->form());
-                std::string typeText = "Type: ";
+                std::string typeText = "属性: ";
                 fb.drawText(contentX, lineY, typeText, Colors::TextDim);
 
                 int typeTextWidth = typeText.length() * 8;
@@ -170,11 +170,11 @@ namespace Modals {
                 fb.drawText(contentX - 15, lineY, ">", Colors::Yellow);
             }
             if (genderSymbol == "") {
-                std::string genderText = "Gender: Genderless";
+                std::string genderText = "性别: 无性别";
                 fb.drawText(contentX, lineY, genderText, Colors::TextDim);
             }
             else {
-                std::string genderText = "Gender: ";
+                std::string genderText = "性别: ";
                 Color genderColor = (genderSymbol == "♂") ? Colors::Blue : Colors::Magenta;
                 fb.drawText(contentX, lineY, genderText, Colors::TextDim);
                 fb.drawText(contentX + 55, lineY, genderSymbol, genderColor);
@@ -185,11 +185,11 @@ namespace Modals {
             if (screen.pokemonDetailsEditing && screen.pokemonDetailsSelectedField == 4) {
                 fb.drawText(contentX - 15, lineY, ">", Colors::Yellow);
             }
-            snprintf(buffer, sizeof(buffer), "Shiny: %s", pokemon->isShiny(pokemon->id32(), pokemon->species()) ? "Yes" : "No");
+            snprintf(buffer, sizeof(buffer), "异色: %s", pokemon->isShiny(pokemon->id32(), pokemon->species()) ? "是" : "否");
             Color shinyColor = screen.pokemonDetailsEditing && screen.pokemonDetailsSelectedField == 4 ? Colors::Yellow : Colors::Text;
             fb.drawText(contentX, lineY, buffer, shinyColor);
             if (screen.pokemonDetailsEditing && screen.pokemonDetailsSelectedField == 4) {
-                fb.drawText(contentX + 150, lineY, "(Press A to toggle)", Colors::TextDim);
+                fb.drawText(contentX + 150, lineY, "(按A切换)", Colors::TextDim);
             }
             lineY += lineHeight;
 
@@ -198,7 +198,7 @@ namespace Modals {
                 fb.drawText(contentX - 15, lineY, ">", Colors::Yellow);
             }
             std::string nickname = utf16ToUtf8(pokemon->nickname());
-            snprintf(buffer, sizeof(buffer), "Nickname: %s", nickname.c_str());
+            snprintf(buffer, sizeof(buffer), "昵称: %s", nickname.c_str());
             fb.drawText(contentX, lineY, buffer, Colors::TextDim);
             lineY += lineHeight;
 
@@ -206,7 +206,7 @@ namespace Modals {
             if (screen.pokemonDetailsEditing && screen.pokemonDetailsSelectedField == 6) {
                 fb.drawText(contentX - 15, lineY, ">", Colors::Yellow);
             }
-            snprintf(buffer, sizeof(buffer), "EXP: %u", pokemon->exp());
+            snprintf(buffer, sizeof(buffer), "经验值: %u", pokemon->exp());
             fb.drawText(contentX, lineY, buffer, Colors::TextDim);
             lineY += lineHeight;
 
@@ -214,7 +214,7 @@ namespace Modals {
             if (screen.pokemonDetailsEditing && screen.pokemonDetailsSelectedField == 7) {
                 fb.drawText(contentX - 15, lineY, ">", Colors::Yellow);
             }
-            snprintf(buffer, sizeof(buffer), "Level: %d", pokemon->level());
+            snprintf(buffer, sizeof(buffer), "等级: %d", pokemon->level());
             fb.drawText(contentX, lineY, buffer, Colors::TextDim);
             lineY += lineHeight;
 
@@ -222,7 +222,7 @@ namespace Modals {
             if (screen.pokemonDetailsEditing && screen.pokemonDetailsSelectedField == 8) {
                 fb.drawText(contentX - 15, lineY, ">", Colors::Yellow);
             }
-            snprintf(buffer, sizeof(buffer), "Nature: %s (%d)", getNatureName(pokemon->nature()), pokemon->nature());
+            snprintf(buffer, sizeof(buffer), "性格: %s (%d)", getNatureName(pokemon->nature()), pokemon->nature());
             fb.drawText(contentX, lineY, buffer, Colors::TextDim);
             lineY += lineHeight;
 
@@ -230,7 +230,7 @@ namespace Modals {
             if (screen.pokemonDetailsEditing && screen.pokemonDetailsSelectedField == 9) {
                 fb.drawText(contentX - 15, lineY, ">", Colors::Yellow);
             }
-            snprintf(buffer, sizeof(buffer), "Stat Nature: %s (%d)", getNatureName(pokemon->statNature()), pokemon->statNature());
+            snprintf(buffer, sizeof(buffer), "能力性格: %s (%d)", getNatureName(pokemon->statNature()), pokemon->statNature());
             fb.drawText(contentX, lineY, buffer, Colors::TextDim);
             lineY += lineHeight;
 
@@ -238,7 +238,7 @@ namespace Modals {
             if (screen.pokemonDetailsEditing && screen.pokemonDetailsSelectedField == 10) {
                 fb.drawText(contentX - 15, lineY, ">", Colors::Yellow);
             }
-            snprintf(buffer, sizeof(buffer), "Held Item: %s (%d)", getItemName(pokemon->heldItem()), pokemon->heldItem());
+            snprintf(buffer, sizeof(buffer), "携带道具: %s (%d)", getItemName(pokemon->heldItem()), pokemon->heldItem());
             fb.drawText(contentX, lineY, buffer, Colors::TextDim);
             lineY += lineHeight;
 
@@ -246,7 +246,7 @@ namespace Modals {
             if (screen.pokemonDetailsEditing && screen.pokemonDetailsSelectedField == 11) {
                 fb.drawText(contentX - 15, lineY, ">", Colors::Yellow);
             }
-            snprintf(buffer, sizeof(buffer), "Ability: %s (%d)", getAbilityName(pokemon->ability()), pokemon->ability());
+            snprintf(buffer, sizeof(buffer), "特性: %s (%d)", getAbilityName(pokemon->ability()), pokemon->ability());
             fb.drawText(contentX, lineY, buffer, Colors::TextDim);
             lineY += lineHeight;
 
@@ -254,7 +254,7 @@ namespace Modals {
             if (screen.pokemonDetailsEditing && screen.pokemonDetailsSelectedField == 12) {
                 fb.drawText(contentX - 15, lineY, ">", Colors::Yellow);
             }
-            snprintf(buffer, sizeof(buffer), "Friendship: %d", pokemon->friendship());
+            snprintf(buffer, sizeof(buffer), "亲密度: %d", pokemon->friendship());
             fb.drawText(contentX, lineY, buffer, Colors::TextDim);
             lineY += lineHeight;
 
@@ -262,7 +262,7 @@ namespace Modals {
             if (screen.pokemonDetailsEditing && screen.pokemonDetailsSelectedField == 13) {
                 fb.drawText(contentX - 15, lineY, ">", Colors::Yellow);
             }
-            snprintf(buffer, sizeof(buffer), "Is Egg: %s", pokemon->isEgg() ? "Yes" : "No");
+            snprintf(buffer, sizeof(buffer), "是否为蛋: %s", pokemon->isEgg() ? "是" : "否");
             fb.drawText(contentX, lineY, buffer, Colors::TextDim);
             lineY += lineHeight;
 
@@ -270,20 +270,20 @@ namespace Modals {
             if (screen.pokemonDetailsEditing && screen.pokemonDetailsSelectedField == 14) {
                 fb.drawText(contentX - 15, lineY, ">", Colors::Yellow);
             }
-            const char* pkrsStatus = pokemon->isPokerusInfected() ? "Infected" :
-                pokemon->isPokerusCured() ? "Cured" : "None";
-            snprintf(buffer, sizeof(buffer), "Pokerus: %s", pkrsStatus);
+            const char* pkrsStatus = pokemon->isPokerusInfected() ? "已感染" :
+                pokemon->isPokerusCured() ? "已治愈" : "无";
+            snprintf(buffer, sizeof(buffer), "宝可病毒: %s", pkrsStatus);
             fb.drawText(contentX, lineY, buffer, Colors::TextDim);
 
         } else if (screen.pokemonDetailsCategory == 2) { // Stats
             int lineY = contentY;
             int lineHeight = 25;
 
-            fb.drawText(contentX, lineY, "=== Stats ===", Colors::Text);
+            fb.drawText(contentX, lineY, "=== 能力值 ===", Colors::Text);
             lineY += lineHeight + 5;
 
             // Header
-            fb.drawText(contentX + 31, lineY, "Base | IV  | EV  | Stat", Colors::TextDim);
+            fb.drawText(contentX + 31, lineY, "种族 | 个体 | 努力 | 能力", Colors::TextDim);
             lineY += lineHeight;
 
             // Calculate totals
@@ -297,7 +297,7 @@ namespace Modals {
                 pokemon->statSPE() + pokemon->statSPA() + pokemon->statSPD();
 
             // Draw each stat
-            const char* statNames[] = {"HP ", "ATK", "DEF", "SPA", "SPD", "SPE"};
+            const char* statNames[] = {"HP ", "攻击", "防御", "特攻", "特防", "速度"};
             uint8_t baseStats[] = {pokemon->baseHP(), pokemon->baseATK(), pokemon->baseDEF(),
                 pokemon->baseSPA(), pokemon->baseSPD(), pokemon->baseSPE()};
             uint8_t ivs[] = {pokemon->ivHP(), pokemon->ivATK(), pokemon->ivDEF(),
@@ -325,16 +325,16 @@ namespace Modals {
             // Show totals
             lineY += 5;
             char totalLine[128];
-            snprintf(totalLine, sizeof(totalLine), "Tot: %03d | %03d | %03d | %03d", baseTotal, ivTotal, evTotal, statTotal);
+            snprintf(totalLine, sizeof(totalLine), "总和: %03d | %03d | %03d | %03d", baseTotal, ivTotal, evTotal, statTotal);
             fb.drawText(contentX, lineY, totalLine, Colors::TextDim);
 
         } else { // Other categories
             int lineY = contentY;
             fb.drawText(contentX, lineY, categories[screen.pokemonDetailsCategory], Colors::Text);
             lineY += 40;
-            fb.drawText(contentX, lineY, "Coming soon...", Colors::TextDim);
+            fb.drawText(contentX, lineY, "即将推出...", Colors::TextDim);
             lineY += 30;
-            fb.drawText(contentX, lineY, "This category will be implemented in a future update.", Colors::TextDim);
+            fb.drawText(contentX, lineY, "此类别将在未来更新中实现。", Colors::TextDim);
         }
     }
 }
