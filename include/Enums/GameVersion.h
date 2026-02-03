@@ -125,21 +125,21 @@ namespace Enums {
      */
     inline std::string getGameVersionName(GameVersion version) {
         switch (version) {
-            case GameVersion::GP: return "Let's Go Pikachu";
-            case GameVersion::GE: return "Let's Go Eevee";
-            case GameVersion::SW: return "Sword";
-            case GameVersion::SH: return "Shield";
-            case GameVersion::BD: return "Brilliant Diamond";
-            case GameVersion::SP: return "Shining Pearl";
-            case GameVersion::PLA: return "Legends Arceus";
-            case GameVersion::SL: return "Scarlet";
-            case GameVersion::VL: return "Violet";
-            case GameVersion::ZA: return "Legends Z-A";
-            case GameVersion::GG: return "Let's Go Pikachu/Eevee";
-            case GameVersion::SWSH: return "Sword/Shield";
-            case GameVersion::BDSP: return "Brilliant Diamond/Shining Pearl";
-            case GameVersion::SV: return "Scarlet/Violet";
-            default: return "Unknown";
+            case GameVersion::GP: return "Let's Go! 皮卡丘";
+            case GameVersion::GE: return "Let's Go! 伊布";
+            case GameVersion::SW: return "剑";
+            case GameVersion::SH: return "盾";
+            case GameVersion::BD: return "晶灿钻石";
+            case GameVersion::SP: return "明亮珍珠";
+            case GameVersion::PLA: return "传说 阿尔宙斯";
+            case GameVersion::SL: return "朱";
+            case GameVersion::VL: return "紫";
+            case GameVersion::ZA: return "传说 Z-A";
+            case GameVersion::GG: return "Let's Go! 皮卡丘/伊布";
+            case GameVersion::SWSH: return "剑/盾";
+            case GameVersion::BDSP: return "晶灿钻石/明亮珍珠";
+            case GameVersion::SV: return "朱/紫";
+            default: return "未知";
         }
     }
 
