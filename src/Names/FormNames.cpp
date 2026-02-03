@@ -96,9 +96,9 @@ namespace Names {
 
             // Tauros - Paldean breeds
             case 128: // Tauros
-                if (formId == 1) return "Combat Breed";
-                if (formId == 2) return "Blaze Breed";
-                if (formId == 3) return "Aqua Breed";
+                if (formId == 1) return "斗战";
+                if (formId == 2) return "火炽";
+                if (formId == 3) return "水澜";
                 break;
 
             // Pokemon with multiple permanent forms

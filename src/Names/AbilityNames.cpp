@@ -5,7 +5,7 @@ namespace Names {
     // Ability name lookup table - indexed by Ability ID
     // This includes abilities up to Generation 8 (Sword/Shield)
     static const char* ABILITY_NAMES[] = {
-        "None",              // 0
+        "无",              // 0
         "恶臭",            // 1
         "降雨",           // 2
         "加速",       // 3
