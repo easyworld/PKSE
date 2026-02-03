@@ -1,4 +1,5 @@
 #include <cstring>
+#include <new>  // For std::nothrow
 
 #include "UI/PKSEFramebuffer.h"
 
@@ -116,6 +117,11 @@ namespace UI {
     static const uint8_t glyph_female[8] = {     // ♀ (U+2640) - Female symbol
         0x1C, 0x22, 0x22, 0x1C, 0x08, 0x3E, 0x08, 0x00
     };
+    
+    // Constants for font rendering
+    constexpr int FONT_LINE_HEIGHT = 16;      // Line height for mixed ASCII/CJK text
+    constexpr int FONT_BASELINE_OFFSET = 12;  // Baseline offset for shared font glyphs
+    constexpr int MAX_GLYPH_SIZE = 128;       // Maximum expected glyph dimension (safety check)
 
     PKSEFramebuffer::PKSEFramebuffer() {
         framebufferCreate(&fb, nwindowGetDefault(), 1280, 720, PIXEL_FORMAT_RGBA_8888, 2);
@@ -200,14 +206,19 @@ namespace UI {
 
             // Handle newline
             if (c == '\n') {
-                offsetY += 16;  // Increased line height for mixed fonts
+                offsetY += FONT_LINE_HEIGHT;
                 offsetX = x;
                 text++;
                 continue;
             }
 
             // Check if this is a multi-byte UTF-8 sequence (potential Chinese/Unicode)
-            // Chinese characters are in the range U+4E00 to U+9FFF (3-byte UTF-8: E4-E9)
+            // CJK Unified Ideographs (U+4E00 to U+9FFF) use 3-byte UTF-8:
+            //   - U+4E00-U+4FFF: 0xE4 0xB8-BF 0x80-BF
+            //   - U+5000-U+5FFF: 0xE5 0x80-BF 0x80-BF
+            //   - ...
+            //   - U+9000-U+9FFF: 0xE9 0x80-BF 0x80-BF
+            // Also include Hiragana/Katakana (U+3000-U+30FF): 0xE3 0x80-BF 0x80-BF
             if ((c >= 0xE4 && c <= 0xE9) || c == 0xE3) {
                 // This is likely a CJK character - use shared font
                 if (plServiceInitialized && text[1] && text[2]) {
@@ -224,7 +235,7 @@ namespace UI {
                         // Wrap to next line if we exceed width
                         if (offsetX > (int)width - 16) {
                             offsetX = x;
-                            offsetY += 16;
+                            offsetY += FONT_LINE_HEIGHT;
                         }
                         continue;
                     }
@@ -321,7 +332,7 @@ namespace UI {
                             offsetX += charWidth;
                             if (offsetX > (int)width - 16) {
                                 offsetX = x;
-                                offsetY += 16;
+                                offsetY += FONT_LINE_HEIGHT;
                             }
                             continue;
                         }
@@ -348,7 +359,7 @@ namespace UI {
             // Wrap to next line if we exceed width
             if (offsetX > (int)width - 8) {
                 offsetX = x;
-                offsetY += 16;  // Increased line height for mixed fonts
+                offsetY += FONT_LINE_HEIGHT;
             }
         }
     }
@@ -543,13 +554,26 @@ namespace UI {
             return;
         }
         
+        // Validate glyph dimensions to prevent buffer overflow
+        if (metrics.width > MAX_GLYPH_SIZE || metrics.height > MAX_GLYPH_SIZE || 
+            metrics.width == 0 || metrics.height == 0) {
+            glyphWidth = 8;
+            return;
+        }
+        
         // Calculate glyph dimensions
         int glyphX = x + metrics.bearingX;
         int glyphY = y - metrics.bearingY;
         glyphWidth = metrics.advance;
         
-        // Get bitmap data
-        u8* bitmap = new u8[metrics.width * metrics.height];
+        // Allocate bitmap buffer with bounds check
+        size_t bitmapSize = static_cast<size_t>(metrics.width) * static_cast<size_t>(metrics.height);
+        u8* bitmap = new (std::nothrow) u8[bitmapSize];
+        if (!bitmap) {
+            glyphWidth = 8;
+            return;
+        }
+        
         rc = plGetSharedFontGlyphBitmap(&standardFont, bitmap, metrics.width, metrics.height, codepoint);
         if (R_FAILED(rc)) {
             delete[] bitmap;
@@ -557,8 +581,13 @@ namespace UI {
             return;
         }
         
-        // Render the glyph bitmap
+        // Pre-calculate color components for blending
         u32 colorValue = color.toRGBA8();
+        unsigned char r = colorValue & 0xFF;
+        unsigned char g = (colorValue >> 8) & 0xFF;
+        unsigned char b = (colorValue >> 16) & 0xFF;
+        
+        // Render the glyph bitmap
         for (int dy = 0; dy < (int)metrics.height; dy++) {
             for (int dx = 0; dx < (int)metrics.width; dx++) {
                 int px = glyphX + dx;
@@ -568,22 +597,21 @@ namespace UI {
                     u8 alpha = bitmap[dy * metrics.width + dx];
                     if (alpha > 0) {
                         if (alpha == 255) {
-                            // Fully opaque
+                            // Fully opaque - direct write
                             framebuf[py * stride / sizeof(u32) + px] = colorValue;
                         } else {
-                            // Alpha blending
+                            // Alpha blending using optimized calculation
                             u32 bgColor = framebuf[py * stride / sizeof(u32) + px];
                             unsigned char bgR = bgColor & 0xFF;
                             unsigned char bgG = (bgColor >> 8) & 0xFF;
                             unsigned char bgB = (bgColor >> 16) & 0xFF;
                             
-                            unsigned char r = colorValue & 0xFF;
-                            unsigned char g = (colorValue >> 8) & 0xFF;
-                            unsigned char b = (colorValue >> 16) & 0xFF;
-                            
-                            unsigned char finalR = (r * alpha + bgR * (255 - alpha)) / 255;
-                            unsigned char finalG = (g * alpha + bgG * (255 - alpha)) / 255;
-                            unsigned char finalB = (b * alpha + bgB * (255 - alpha)) / 255;
+                            // Optimized alpha blend: (src * alpha + bg * (255 - alpha)) / 255
+                            // Using: ((x * alpha) + (x << 8)) >> 8 ≈ (x * alpha) / 255
+                            unsigned char invAlpha = 255 - alpha;
+                            unsigned char finalR = ((r * alpha) + (bgR * invAlpha) + 255) >> 8;
+                            unsigned char finalG = ((g * alpha) + (bgG * invAlpha) + 255) >> 8;
+                            unsigned char finalB = ((b * alpha) + (bgB * invAlpha) + 255) >> 8;
                             
                             u32 blendedColor = (255 << 24) | (finalB << 16) | (finalG << 8) | finalR;
                             framebuf[py * stride / sizeof(u32) + px] = blendedColor;
@@ -615,7 +643,7 @@ namespace UI {
             }
             
             int glyphWidth = 0;
-            drawGlyphFromSharedFont(offsetX, y + 12, codepoint, color, glyphWidth);  // y+12 for baseline
+            drawGlyphFromSharedFont(offsetX, y + FONT_BASELINE_OFFSET, codepoint, color, glyphWidth);
             offsetX += glyphWidth;
         }
         
