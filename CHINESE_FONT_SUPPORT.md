@@ -1,220 +1,160 @@
-# PKSE 中文字体支持实现说明
+# PKSE 中文字体支持实现说明（当前限制）
 
-## 问题描述
+## 当前状态
 
-原始的`PKSEFramebuffer::drawText`方法只支持ASCII字符（32-127），使用自制的8x8点阵字库。当尝试渲染中文字符时，它们会被替换为"???"。
+由于libnx的pl服务API限制，**当前版本暂不支持中文字符显示**。
 
-## 解决方案
+### 原因说明
 
-实现了使用Nintendo Switch系统共享字体（plSharedFont服务）来渲染Unicode字符，包括中文、日文和其他多语言字符。
+**技术限制**:
+- libnx的pl服务只提供原始字体数据访问（`plGetSharedFontByType`）
+- 不提供字形渲染API（如`plGetSharedFontGlyphInfo`、`plGetSharedFontGlyphBitmap`等）
+- 要渲染TrueType/OpenType字体需要额外的字体解析和光栅化库
 
-## 技术实现
+**尝试的方案**:
+原始实现尝试使用假定的pl字形渲染API，但这些API在libnx中不存在。
 
-### 1. pl服务初始化
+### 当前功能
+
+**✅ 支持的字符**:
+- ASCII字符（32-127）：使用8x8点阵字体
+- 特殊Pokemon符号（★♀♂）：使用自定义8x8字形
+- Unicode引号和破折号：自动映射到ASCII等效字符
+- 拉丁扩展字符（À, É, Ñ等）：映射到基本字母
+
+**❌ 不支持的字符**:
+- CJK字符（中文、日文、韩文）：显示为'?'
+- 其他多字节Unicode字符：显示为'?'
+
+### 代码实现
 
 ```cpp
-// 在PKSEFramebuffer构造函数中
-Result rc = plInitialize(PlServiceType_User);
-if (R_SUCCEEDED(rc)) {
-    rc = plGetSharedFontByType(&standardFont, PlSharedFontType_Standard);
-    if (R_SUCCEEDED(rc)) {
-        plServiceInitialized = true;
+// UTF-8检测和处理
+if ((c >= 0xE4 && c <= 0xE9) || c == 0xE3) {
+    // CJK字符 - 跳过3字节并显示占位符
+    if (text[1] && text[2]) {
+        bytesToSkip = 3;
+        c = '?';  // 使用'?'作为占位符
     }
 }
 ```
 
-- PlSharedFontType_Standard包含：
-  - 拉丁字母（Latin）
-  - 日文假名（Hiragana, Katakana）
-  - CJK统一表意文字（简体中文、繁体中文、日文汉字、韩文）
+### 翻译数据
 
-### 2. UTF-8到Unicode转换
+虽然不能显示中文字符，但项目已完成：
+- ✅ 所有UI字符串翻译为中文
+- ✅ 宝可梦、道具、特性等名称翻译
+- ✅ 使用PKHeX官方翻译数据
 
-```cpp
-uint32_t utf8ToUnicode(const char*& text);
-```
+这些翻译为未来支持中文显示做好了准备。
 
-支持1-4字节的UTF-8序列：
-- 1字节：ASCII (0x00-0x7F)
-- 2字节：扩展拉丁字符 (0x80-0x7FF)
-- 3字节：CJK字符等 (0x800-0xFFFF)
-- 4字节：补充字符 (0x10000-0x10FFFF)
+## 未来改进方案
 
-### 3. 字形渲染
+要实现完整的中文显示支持，有以下几种方案：
 
-```cpp
-void drawGlyphFromSharedFont(int x, int y, uint32_t codepoint, Color color, int& glyphWidth);
-```
+### 方案1: 集成FreeType库（推荐）
 
-流程：
-1. 调用`plGetSharedFontGlyphInfo`获取字形度量信息
-2. 调用`plGetSharedFontGlyphBitmap`获取字形位图数据
-3. 使用alpha混合渲染字形到framebuffer
-4. 返回字形宽度用于文本定位
+**优点**:
+- 完整的TrueType/OpenType字体支持
+- 专业的字形渲染质量
+- 支持所有Unicode字符
 
-### 4. 混合字体渲染策略
+**实施步骤**:
+1. 添加FreeType到Makefile依赖
+   ```makefile
+   LIBS := -lnx -lfreetype -lz -llz4
+   ```
 
-`drawText`方法实现智能字体选择：
+2. 初始化FreeType并加载系统字体
+   ```cpp
+   FT_Library library;
+   FT_Face face;
+   FT_Init_FreeType(&library);
+   
+   // 使用pl服务获取字体数据
+   PlFontData fontData;
+   plGetSharedFontByType(&fontData, PlSharedFontType_Standard);
+   
+   // 从内存加载字体
+   FT_New_Memory_Face(library, (FT_Byte*)fontData.address, 
+                      fontData.size, 0, &face);
+   ```
 
-| 字符类型 | 渲染方法 | 说明 |
-|---------|---------|------|
-| ASCII (32-127) | 8x8点阵字体 | 高性能，已有字形 |
-| CJK字符 (E4-E9开头的UTF-8) | 系统共享字体 | 完整Unicode支持 |
-| 特殊符号 (★♀♂) | 自定义8x8字形 | Pokemon专用符号 |
-| 其他Unicode | 系统共享字体 | 回退方案 |
+3. 实现字形渲染
+   ```cpp
+   FT_Set_Pixel_Sizes(face, 0, 16);  // 设置字体大小
+   FT_Load_Char(face, codepoint, FT_LOAD_RENDER);
+   // 渲染face->glyph->bitmap
+   ```
 
-### 5. 字形度量处理
+**工作量**: 中等（约2-3天）
 
-系统字体提供详细的字形度量：
-- `bearingX`: 字形水平偏移
-- `bearingY`: 字形垂直偏移（基线）
-- `advance`: 光标前进距离
-- `width`, `height`: 字形位图尺寸
+### 方案2: 预渲染位图字体
 
-正确使用这些度量确保文本对齐和间距正确。
+**优点**:
+- 无需外部库依赖
+- 渲染速度快
+- 实现简单
 
-## API变化
+**缺点**:
+- 文件体积大（常用3000汉字约1-2MB）
+- 不支持字体缩放
+- 字体质量固定
 
-### 新增私有成员
+**实施步骤**:
+1. 使用工具生成常用汉字的位图数据
+2. 将位图数据嵌入到romfs
+3. 实现简单的位图查找和渲染
 
-```cpp
-class PKSEFramebuffer {
-private:
-    bool plServiceInitialized;
-    PlFontData standardFont;
-    
-    void drawTextWithSharedFont(int x, int y, const char* text, Color color, int& outWidth);
-    uint32_t utf8ToUnicode(const char*& text);
-    void drawGlyphFromSharedFont(int x, int y, uint32_t codepoint, Color color, int& glyphWidth);
-};
-```
+**工作量**: 低（约1天）
 
-### 公共API保持不变
+### 方案3: BDF/PCF字体解析器
 
-```cpp
-void drawText(int x, int y, const char* text, Color color);
-void drawText(int x, int y, const std::string& text, Color color);
-```
+**优点**:
+- 简单的位图字体格式
+- 容易解析
+- 文件较小
 
-现有代码无需修改即可自动支持中文！
+**缺点**:
+- 不支持抗锯齿
+- 字体质量一般
 
-## 性能考虑
+**工作量**: 中等（约1-2天）
 
-### 优化措施
+## 建议
 
-1. **ASCII字符保持8x8字体**
-   - 避免对常用英文字符调用pl服务
-   - 保持原有渲染性能
+**短期**（当前）:
+- 保持当前实现（中文显示为'?'）
+- 确保翻译数据完整
+- 文档说明限制
 
-2. **按需加载字形**
-   - 只在遇到CJK字符时调用pl服务
-   - 每次只获取单个字形数据
+**中期**（推荐）:
+- 集成FreeType库
+- 实现完整的中文字体渲染
+- 提供高质量的显示效果
 
-3. **智能检测**
-   - 通过UTF-8首字节快速识别CJK字符
-   - 避免不必要的字体查询
+**长期**:
+- 支持字体大小调整
+- 支持多种字体样式
+- 优化渲染性能
 
-### 性能影响
+## 相关文件
 
-- **ASCII文本**：无性能影响（继续使用8x8字体）
-- **中文文本**：首次渲染略慢（需要从pl服务获取字形）
-- **混合文本**：根据中文字符比例有轻微性能影响
+- `src/UI/PKSEFramebuffer.cpp` - 文本渲染实现
+- `src/UI/PKSEFramebuffer.h` - 接口定义
+- `src/Names/*.cpp` - 已翻译的游戏数据
+- `TRANSLATION_SUMMARY.md` - 翻译总结
 
-## 兼容性
+## 参考资料
 
-### 系统要求
+- [libnx pl service文档](https://github.com/switchbrew/libnx/blob/master/nx/include/switch/services/pl.h)
+- [FreeType文档](https://www.freetype.org/freetype2/docs/documentation.html)
+- [Switch Homebrew开发指南](https://switchbrew.org/)
 
-- Nintendo Switch系统固件：任何支持plSharedFont服务的版本
-- libnx版本：支持pl服务的任何版本
+## 更新日志
 
-### 向后兼容
-
-- 如果pl服务初始化失败，自动回退到原有行为
-- ASCII字符渲染不受影响
-- 不支持的字符显示为'?'
-
-## 示例代码
-
-### 基本使用
-
-```cpp
-PKSEFramebuffer fb;
-
-// 纯英文 - 使用8x8字体
-fb.drawText(100, 100, "Hello World", Colors::White);
-
-// 纯中文 - 使用系统字体
-fb.drawText(100, 120, "你好世界", Colors::White);
-
-// 混合文本 - 自动切换
-fb.drawText(100, 140, "Pokemon 宝可梦", Colors::Yellow);
-
-fb.flush();
-```
-
-### UI示例
-
-```cpp
-// 用户选择界面
-fb.drawText(20, 20, "选择用户档案", Colors::Text);
-
-// 宝可梦详情
-fb.drawText(100, 200, "种类: 皮卡丘", Colors::Text);
-fb.drawText(100, 220, "性格: 勇敢", Colors::Text);
-fb.drawText(100, 240, "特性: 静电", Colors::Text);
-
-// 混合符号
-fb.drawText(100, 260, "异色: ★", Colors::Red);  // 特殊符号仍使用自定义字形
-```
-
-## 调试
-
-### 检查pl服务状态
-
-```cpp
-if (fb.plServiceInitialized) {
-    // pl服务可用，中文将正确显示
-} else {
-    // pl服务不可用，中文将显示为'?'
-}
-```
-
-### 常见问题
-
-1. **中文显示为方块或'?'**
-   - 检查pl服务是否初始化成功
-   - 确认系统字体包含所需字符
-
-2. **字体大小不一致**
-   - 这是正常的 - 中文字符（~16px）比ASCII（8px）大
-   - 考虑调整布局以适应混合字体大小
-
-3. **渲染性能问题**
-   - 如果大量中文文本渲染慢，考虑缓存常用字形
-   - 当前实现优先考虑正确性而非性能
-
-## 未来改进
-
-可能的优化方向：
-
-1. **字形缓存**：缓存最近使用的字形位图，避免重复从pl服务获取
-
-2. **文本预渲染**：对固定文本（如UI标签）预渲染到纹理
-
-3. **可配置字体大小**：允许调整中文字体大小以更好地匹配UI设计
-
-4. **字体回退链**：支持多个字体源，提高字符覆盖率
-
-5. **字距调整**：更精细的字符间距控制
-
-## 结论
-
-通过集成Switch的plSharedFont服务，PKSE现在完全支持中文UI。该实现：
-
-- ✅ 支持完整的Unicode/CJK字符集
-- ✅ 保持ASCII文本的高性能渲染
-- ✅ 向后兼容，无需修改现有代码
-- ✅ 使用系统字体，无需额外资源
-- ✅ 支持alpha混合，字体边缘平滑
-
-现在所有的中文翻译都能正确显示，为中文用户提供完整的本地化体验！
+### 2024年2月3日
+- ❌ 移除了无效的pl字形渲染API调用
+- ✅ 修复编译错误
+- ✅ 保留UTF-8解析基础设施
+- ✅ 文档说明当前限制和改进方案
