@@ -123,9 +123,26 @@ namespace UI {
         framebuf = (u32*)framebufferBegin(&fb, &stride);
         width = 1280;
         height = 720;
+        
+        // Initialize shared font service for Unicode/Chinese text support
+        plServiceInitialized = false;
+        Result rc = plInitialize(PlServiceType_User);
+        if (R_SUCCEEDED(rc)) {
+            // Load standard font which supports Chinese characters
+            // PlSharedFontType_Standard includes Latin, Japanese Kana, and CJK characters
+            rc = plGetSharedFontByType(&standardFont, PlSharedFontType_Standard);
+            if (R_SUCCEEDED(rc)) {
+                plServiceInitialized = true;
+            } else {
+                plExit();
+            }
+        }
     }
 
     PKSEFramebuffer::~PKSEFramebuffer() {
+        if (plServiceInitialized) {
+            plExit();
+        }
         framebufferClose(&fb);
     }
 
@@ -179,16 +196,46 @@ namespace UI {
             const uint8_t* glyph = nullptr;
             unsigned char c = static_cast<unsigned char>(*text);
             int bytesToSkip = 1;  // Default: skip 1 byte for ASCII
+            bool useSharedFont = false;
 
             // Handle newline
             if (c == '\n') {
-                offsetY += 10;
+                offsetY += 16;  // Increased line height for mixed fonts
                 offsetX = x;
                 text++;
                 continue;
             }
 
-            // Handle UTF-8 sequences
+            // Check if this is a multi-byte UTF-8 sequence (potential Chinese/Unicode)
+            // Chinese characters are in the range U+4E00 to U+9FFF (3-byte UTF-8: E4-E9)
+            if ((c >= 0xE4 && c <= 0xE9) || c == 0xE3) {
+                // This is likely a CJK character - use shared font
+                if (plServiceInitialized && text[1] && text[2]) {
+                    // Let shared font handle this character
+                    const char* charStart = text;
+                    int charWidth = 0;
+                    
+                    // Draw single character using shared font
+                    uint32_t codepoint = utf8ToUnicode(text);
+                    if (codepoint != 0) {
+                        drawGlyphFromSharedFont(offsetX, offsetY, codepoint, color, charWidth);
+                        offsetX += charWidth;
+                        
+                        // Wrap to next line if we exceed width
+                        if (offsetX > (int)width - 16) {
+                            offsetX = x;
+                            offsetY += 16;
+                        }
+                        continue;
+                    }
+                    // If failed, fall back to old method
+                    text = charStart;
+                    c = static_cast<unsigned char>(*text);
+                    bytesToSkip = 3;
+                }
+            }
+            
+            // Handle UTF-8 sequences with custom glyphs or mappings
             // 3-byte UTF-8 sequences (U+0800 to U+FFFF)
             if (c == 0xE2 && text[1] && text[2]) {
                 unsigned char b2 = static_cast<unsigned char>(text[1]);
@@ -260,16 +307,32 @@ namespace UI {
                 }
             }
 
-            // If we mapped a Unicode character to ASCII, use the ASCII glyph
+            // If we mapped a Unicode character to ASCII or have a custom glyph, use 8x8 font
             if (glyph == nullptr) {
                 // Only render printable ASCII characters (32-127)
                 if (c < 32 || c > 127) {
+                    // For other unsupported characters, try shared font as fallback
+                    if (plServiceInitialized && bytesToSkip > 1) {
+                        const char* charStart = text;
+                        int charWidth = 0;
+                        uint32_t codepoint = utf8ToUnicode(text);
+                        if (codepoint != 0) {
+                            drawGlyphFromSharedFont(offsetX, offsetY, codepoint, color, charWidth);
+                            offsetX += charWidth;
+                            if (offsetX > (int)width - 16) {
+                                offsetX = x;
+                                offsetY += 16;
+                            }
+                            continue;
+                        }
+                        text = charStart;
+                    }
                     c = '?';  // Replace unsupported characters with '?'
                 }
                 glyph = font8x8[c - 32];
             }
 
-            // Draw the character pixel by pixel
+            // Draw the character using 8x8 bitmap font
             for (int row = 0; row < 8; row++) {
                 uint8_t rowData = glyph[row];
                 for (int col = 0; col < 8; col++) {
@@ -285,7 +348,7 @@ namespace UI {
             // Wrap to next line if we exceed width
             if (offsetX > (int)width - 8) {
                 offsetX = x;
-                offsetY += 10;
+                offsetY += 16;  // Increased line height for mixed fonts
             }
         }
     }
@@ -426,5 +489,136 @@ namespace UI {
     void PKSEFramebuffer::flush() {
         framebufferEnd(&fb);
         framebuf = (u32*)framebufferBegin(&fb, &stride);
+    }
+
+    // Helper method: Convert UTF-8 sequence to Unicode codepoint
+    uint32_t PKSEFramebuffer::utf8ToUnicode(const char*& text) {
+        unsigned char c = static_cast<unsigned char>(*text);
+        
+        // 1-byte sequence (ASCII): 0xxxxxxx
+        if ((c & 0x80) == 0) {
+            text++;
+            return c;
+        }
+        // 2-byte sequence: 110xxxxx 10xxxxxx
+        else if ((c & 0xE0) == 0xC0) {
+            if (!text[1]) return 0;
+            uint32_t codepoint = ((c & 0x1F) << 6) | (text[1] & 0x3F);
+            text += 2;
+            return codepoint;
+        }
+        // 3-byte sequence: 1110xxxx 10xxxxxx 10xxxxxx
+        else if ((c & 0xF0) == 0xE0) {
+            if (!text[1] || !text[2]) return 0;
+            uint32_t codepoint = ((c & 0x0F) << 12) | ((text[1] & 0x3F) << 6) | (text[2] & 0x3F);
+            text += 3;
+            return codepoint;
+        }
+        // 4-byte sequence: 11110xxx 10xxxxxx 10xxxxxx 10xxxxxx
+        else if ((c & 0xF8) == 0xF0) {
+            if (!text[1] || !text[2] || !text[3]) return 0;
+            uint32_t codepoint = ((c & 0x07) << 18) | ((text[1] & 0x3F) << 12) | 
+                                 ((text[2] & 0x3F) << 6) | (text[3] & 0x3F);
+            text += 4;
+            return codepoint;
+        }
+        
+        // Invalid UTF-8 sequence
+        text++;
+        return 0;
+    }
+
+    // Helper method: Draw a single glyph using shared font
+    void PKSEFramebuffer::drawGlyphFromSharedFont(int x, int y, uint32_t codepoint, Color color, int& glyphWidth) {
+        if (!plServiceInitialized) {
+            glyphWidth = 8;
+            return;
+        }
+        
+        // Get glyph data from shared font
+        PlFontGlyphMetrics metrics;
+        Result rc = plGetSharedFontGlyphInfo(&standardFont, &metrics, codepoint);
+        if (R_FAILED(rc)) {
+            glyphWidth = 8;
+            return;
+        }
+        
+        // Calculate glyph dimensions
+        int glyphX = x + metrics.bearingX;
+        int glyphY = y - metrics.bearingY;
+        glyphWidth = metrics.advance;
+        
+        // Get bitmap data
+        u8* bitmap = new u8[metrics.width * metrics.height];
+        rc = plGetSharedFontGlyphBitmap(&standardFont, bitmap, metrics.width, metrics.height, codepoint);
+        if (R_FAILED(rc)) {
+            delete[] bitmap;
+            glyphWidth = 8;
+            return;
+        }
+        
+        // Render the glyph bitmap
+        u32 colorValue = color.toRGBA8();
+        for (int dy = 0; dy < (int)metrics.height; dy++) {
+            for (int dx = 0; dx < (int)metrics.width; dx++) {
+                int px = glyphX + dx;
+                int py = glyphY + dy;
+                
+                if (px >= 0 && px < (int)width && py >= 0 && py < (int)height) {
+                    u8 alpha = bitmap[dy * metrics.width + dx];
+                    if (alpha > 0) {
+                        if (alpha == 255) {
+                            // Fully opaque
+                            framebuf[py * stride / sizeof(u32) + px] = colorValue;
+                        } else {
+                            // Alpha blending
+                            u32 bgColor = framebuf[py * stride / sizeof(u32) + px];
+                            unsigned char bgR = bgColor & 0xFF;
+                            unsigned char bgG = (bgColor >> 8) & 0xFF;
+                            unsigned char bgB = (bgColor >> 16) & 0xFF;
+                            
+                            unsigned char r = colorValue & 0xFF;
+                            unsigned char g = (colorValue >> 8) & 0xFF;
+                            unsigned char b = (colorValue >> 16) & 0xFF;
+                            
+                            unsigned char finalR = (r * alpha + bgR * (255 - alpha)) / 255;
+                            unsigned char finalG = (g * alpha + bgG * (255 - alpha)) / 255;
+                            unsigned char finalB = (b * alpha + bgB * (255 - alpha)) / 255;
+                            
+                            u32 blendedColor = (255 << 24) | (finalB << 16) | (finalG << 8) | finalR;
+                            framebuf[py * stride / sizeof(u32) + px] = blendedColor;
+                        }
+                    }
+                }
+            }
+        }
+        
+        delete[] bitmap;
+    }
+
+    // Helper method: Draw text using shared font for Unicode characters
+    void PKSEFramebuffer::drawTextWithSharedFont(int x, int y, const char* text, Color color, int& outWidth) {
+        if (!plServiceInitialized) {
+            outWidth = 0;
+            return;
+        }
+        
+        int offsetX = x;
+        const char* ptr = text;
+        
+        while (*ptr) {
+            uint32_t codepoint = utf8ToUnicode(ptr);
+            if (codepoint == 0) break;
+            
+            if (codepoint == '\n') {
+                break;  // Let caller handle newlines
+            }
+            
+            int glyphWidth = 0;
+            drawGlyphFromSharedFont(offsetX, y + 12, codepoint, color, glyphWidth);  // y+12 for baseline
+            offsetX += glyphWidth;
+        }
+        
+        outWidth = offsetX - x;
     }
 }
