@@ -124,9 +124,9 @@ namespace Names {
             // Burmy/Wormadam - Cloak forms
             case 412: // Burmy
             case 413: // Wormadam
-                if (formId == 0) return "Plant Cloak";
-                if (formId == 1) return "Sandy Cloak";
-                if (formId == 2) return "Trash Cloak";
+                if (formId == 0) return "草木蓑衣";
+                if (formId == 1) return "砂土蓑衣";
+                if (formId == 2) return "垃圾蓑衣";
                 break;
 
             // Rotom - Appliance forms
@@ -152,9 +152,9 @@ namespace Names {
 
             // Basculin - Forms
             case 550: // Basculin
-                if (formId == 0) return "Red-Striped";
-                if (formId == 1) return "Blue-Striped";
-                if (formId == 2) return "White-Striped";
+                if (formId == 0) return "红条纹的样子";
+                if (formId == 1) return "蓝条纹的样子";
+                if (formId == 2) return "白条纹的样子";
                 break;
 
             // Tornadus/Thundurus/Landorus - Incarnate/Therian forms
@@ -222,23 +222,23 @@ namespace Names {
 
             // Necrozma - Fusions
             case 800: // Necrozma
-                if (formId == 1) return "Dusk Mane";
-                if (formId == 2) return "Dawn Wings";
+                if (formId == 1) return "黄昏之鬃";
+                if (formId == 2) return "拂晓之翼";
                 if (formId == 3) return "究极奈克洛兹玛";
                 break;
 
             // Toxtricity - Forms
             case 849: // Toxtricity
-                if (formId == 0) return "Amped";
+                if (formId == 0) return "高调的样子";
                 if (formId == 1) return "低调的样子";
                 break;
 
             // Zacian/Zamazenta - Crowned forms
             case 888: // Zacian
-                if (formId == 1) return "Crowned Sword";
+                if (formId == 1) return "剑之王";
                 break;
             case 889: // Zamazenta
-                if (formId == 1) return "Crowned Shield";
+                if (formId == 1) return "盾之王";
                 break;
 
             // Urshifu - Styles
@@ -248,8 +248,8 @@ namespace Names {
 
             // Calyrex - Riders
             case 898: // Calyrex
-                if (formId == 1) return "Ice Rider";
-                if (formId == 2) return "Shadow Rider";
+                if (formId == 1) return "骑白马的样子";
+                if (formId == 2) return "骑黑马的样子";
                 break;
 
             // Ursaluna - Bloodmoon
@@ -269,9 +269,9 @@ namespace Names {
 
             // Squawkabilly - Plumages
             case 931: // Squawkabilly
-                if (formId == 1) return "Blue Plumage";
-                if (formId == 2) return "Yellow Plumage";
-                if (formId == 3) return "White Plumage";
+                if (formId == 1) return "蓝羽毛";
+                if (formId == 2) return "黄羽毛";
+                if (formId == 3) return "白羽毛";
                 break;
 
             // Tatsugiri - Forms
@@ -298,9 +298,9 @@ namespace Names {
 
             // Ogerpon - Masks (permanent forms when holding masks)
             case 1017: // Ogerpon
-                if (formId == 1) return "Wellspring Mask";
-                if (formId == 2) return "Hearthflame Mask";
-                if (formId == 3) return "Cornerstone Mask";
+                if (formId == 1) return "水井面具";
+                if (formId == 2) return "火灶面具";
+                if (formId == 3) return "础石面具";
                 break;
 
             // Terapagos - Forms

@@ -136,7 +136,7 @@ namespace UI {
         }
         
         // Get the Standard shared font (supports CJK characters)
-        rc = plGetSharedFontByType(&fontData, PlSharedFontType_Standard);
+        rc = plGetSharedFontByType(&fontData, PlSharedFontType_ChineseSimplified);
         if (R_FAILED(rc)) {
             plExit();
             return;  // FreeType won't be available, fallback to ASCII
@@ -163,11 +163,11 @@ namespace UI {
             return;  // FreeType won't be available, fallback to ASCII
         }
         
-        // Set character size (16pt at 96 DPI)
+        // Set character size (8pt at 96 DPI - matching 8x8 ASCII font)
         ftError = FT_Set_Char_Size(
             ftFace,
             0,        // char_width in 1/64th of points (0 = same as height)
-            16*64,    // char_height in 1/64th of points
+            8*64,     // char_height in 1/64th of points
             96,       // horizontal device resolution
             96        // vertical device resolution
         );

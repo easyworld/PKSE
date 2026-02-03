@@ -54,7 +54,7 @@ namespace Modals {
         constexpr int CATEGORY_PANEL_WIDTH = 200;
         fb.drawRect(modalX + 10, modalY + 10, CATEGORY_PANEL_WIDTH, MODAL_HEIGHT - 20, Colors::Border);
 
-        const char* categories[] = {"主要", "遇见", "能力", "招式", "外观", "OT/其他"};
+        const char* categories[] = {"主要", "相遇", "能力", "招式", "外观", "OT/其他"};
         int catY = modalY + 30;
         for (int i = 0; i < 6; i++) {
             if (i == screen.pokemonDetailsCategory) {
