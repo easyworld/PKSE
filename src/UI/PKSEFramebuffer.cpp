@@ -117,11 +117,7 @@ namespace UI {
     static const uint8_t glyph_female[8] = {     // ♀ (U+2640) - Female symbol
         0x1C, 0x22, 0x22, 0x1C, 0x08, 0x3E, 0x08, 0x00
     };
-    
-    // Constants for font rendering
-    constexpr int FONT_LINE_HEIGHT = 16;      // Line height for mixed ASCII/CJK text
-    constexpr int FONT_BASELINE_OFFSET = 12;  // Baseline offset for shared font glyphs
-    constexpr int MAX_GLYPH_SIZE = 128;       // Maximum expected glyph dimension (safety check)
+
 
     PKSEFramebuffer::PKSEFramebuffer() {
         framebufferCreate(&fb, nwindowGetDefault(), 1280, 720, PIXEL_FORMAT_RGBA_8888, 2);
@@ -129,26 +125,9 @@ namespace UI {
         framebuf = (u32*)framebufferBegin(&fb, &stride);
         width = 1280;
         height = 720;
-        
-        // Initialize shared font service for Unicode/Chinese text support
-        plServiceInitialized = false;
-        Result rc = plInitialize(PlServiceType_User);
-        if (R_SUCCEEDED(rc)) {
-            // Load standard font which supports Chinese characters
-            // PlSharedFontType_Standard includes Latin, Japanese Kana, and CJK characters
-            rc = plGetSharedFontByType(&standardFont, PlSharedFontType_Standard);
-            if (R_SUCCEEDED(rc)) {
-                plServiceInitialized = true;
-            } else {
-                plExit();
-            }
-        }
     }
 
     PKSEFramebuffer::~PKSEFramebuffer() {
-        if (plServiceInitialized) {
-            plExit();
-        }
         framebufferClose(&fb);
     }
 
@@ -202,53 +181,29 @@ namespace UI {
             const uint8_t* glyph = nullptr;
             unsigned char c = static_cast<unsigned char>(*text);
             int bytesToSkip = 1;  // Default: skip 1 byte for ASCII
-            bool useSharedFont = false;
 
             // Handle newline
             if (c == '\n') {
-                offsetY += FONT_LINE_HEIGHT;
+                offsetY += 10;
                 offsetX = x;
                 text++;
                 continue;
             }
 
-            // Check if this is a multi-byte UTF-8 sequence (potential Chinese/Unicode)
-            // CJK Unified Ideographs (U+4E00 to U+9FFF) use 3-byte UTF-8:
-            //   - U+4E00-U+4FFF: 0xE4 0xB8-BF 0x80-BF
-            //   - U+5000-U+5FFF: 0xE5 0x80-BF 0x80-BF
-            //   - ...
-            //   - U+9000-U+9FFF: 0xE9 0x80-BF 0x80-BF
-            // Also include Hiragana/Katakana (U+3000-U+30FF): 0xE3 0x80-BF 0x80-BF
+            // Check if this is a multi-byte UTF-8 sequence
+            // For CJK characters (U+4E00-U+9FFF) and other multi-byte sequences,
+            // we currently don't have font rendering support, so skip them gracefully
             if ((c >= 0xE4 && c <= 0xE9) || c == 0xE3) {
-                // This is likely a CJK character - use shared font
-                if (plServiceInitialized && text[1] && text[2]) {
-                    // Let shared font handle this character
-                    const char* charStart = text;
-                    int charWidth = 0;
-                    
-                    // Draw single character using shared font
-                    uint32_t codepoint = utf8ToUnicode(text);
-                    if (codepoint != 0) {
-                        drawGlyphFromSharedFont(offsetX, offsetY, codepoint, color, charWidth);
-                        offsetX += charWidth;
-                        
-                        // Wrap to next line if we exceed width
-                        if (offsetX > (int)width - 16) {
-                            offsetX = x;
-                            offsetY += FONT_LINE_HEIGHT;
-                        }
-                        continue;
-                    }
-                    // If failed, fall back to old method
-                    text = charStart;
-                    c = static_cast<unsigned char>(*text);
+                // This is likely a CJK character (3-byte UTF-8)
+                // Skip all 3 bytes and display a placeholder
+                if (text[1] && text[2]) {
                     bytesToSkip = 3;
+                    c = '?';  // Use placeholder for CJK characters
                 }
             }
-            
             // Handle UTF-8 sequences with custom glyphs or mappings
             // 3-byte UTF-8 sequences (U+0800 to U+FFFF)
-            if (c == 0xE2 && text[1] && text[2]) {
+            else if (c == 0xE2 && text[1] && text[2]) {
                 unsigned char b2 = static_cast<unsigned char>(text[1]);
                 unsigned char b3 = static_cast<unsigned char>(text[2]);
                 bytesToSkip = 3;
@@ -286,7 +241,7 @@ namespace UI {
                     }
                     // … (U+2026 HORIZONTAL ELLIPSIS): E2 80 A6
                     else if (b3 == 0xA6) {
-                        c = '.';  // Map to period (will need special handling for 3 dots)
+                        c = '.';  // Map to period
                     }
                 }
             }
@@ -318,26 +273,10 @@ namespace UI {
                 }
             }
 
-            // If we mapped a Unicode character to ASCII or have a custom glyph, use 8x8 font
+            // If we have a custom glyph, use it; otherwise use ASCII font
             if (glyph == nullptr) {
                 // Only render printable ASCII characters (32-127)
                 if (c < 32 || c > 127) {
-                    // For other unsupported characters, try shared font as fallback
-                    if (plServiceInitialized && bytesToSkip > 1) {
-                        const char* charStart = text;
-                        int charWidth = 0;
-                        uint32_t codepoint = utf8ToUnicode(text);
-                        if (codepoint != 0) {
-                            drawGlyphFromSharedFont(offsetX, offsetY, codepoint, color, charWidth);
-                            offsetX += charWidth;
-                            if (offsetX > (int)width - 16) {
-                                offsetX = x;
-                                offsetY += FONT_LINE_HEIGHT;
-                            }
-                            continue;
-                        }
-                        text = charStart;
-                    }
                     c = '?';  // Replace unsupported characters with '?'
                 }
                 glyph = font8x8[c - 32];
@@ -359,7 +298,7 @@ namespace UI {
             // Wrap to next line if we exceed width
             if (offsetX > (int)width - 8) {
                 offsetX = x;
-                offsetY += FONT_LINE_HEIGHT;
+                offsetY += 10;
             }
         }
     }
@@ -503,6 +442,7 @@ namespace UI {
     }
 
     // Helper method: Convert UTF-8 sequence to Unicode codepoint
+    // This is kept for potential future use when font rendering is added
     uint32_t PKSEFramebuffer::utf8ToUnicode(const char*& text) {
         unsigned char c = static_cast<unsigned char>(*text);
         
@@ -537,116 +477,5 @@ namespace UI {
         // Invalid UTF-8 sequence
         text++;
         return 0;
-    }
-
-    // Helper method: Draw a single glyph using shared font
-    void PKSEFramebuffer::drawGlyphFromSharedFont(int x, int y, uint32_t codepoint, Color color, int& glyphWidth) {
-        if (!plServiceInitialized) {
-            glyphWidth = 8;
-            return;
-        }
-        
-        // Get glyph data from shared font
-        PlFontGlyphMetrics metrics;
-        Result rc = plGetSharedFontGlyphInfo(&standardFont, &metrics, codepoint);
-        if (R_FAILED(rc)) {
-            glyphWidth = 8;
-            return;
-        }
-        
-        // Validate glyph dimensions to prevent buffer overflow
-        if (metrics.width > MAX_GLYPH_SIZE || metrics.height > MAX_GLYPH_SIZE || 
-            metrics.width == 0 || metrics.height == 0) {
-            glyphWidth = 8;
-            return;
-        }
-        
-        // Calculate glyph dimensions
-        int glyphX = x + metrics.bearingX;
-        int glyphY = y - metrics.bearingY;
-        glyphWidth = metrics.advance;
-        
-        // Allocate bitmap buffer with bounds check
-        size_t bitmapSize = static_cast<size_t>(metrics.width) * static_cast<size_t>(metrics.height);
-        u8* bitmap = new (std::nothrow) u8[bitmapSize];
-        if (!bitmap) {
-            glyphWidth = 8;
-            return;
-        }
-        
-        rc = plGetSharedFontGlyphBitmap(&standardFont, bitmap, metrics.width, metrics.height, codepoint);
-        if (R_FAILED(rc)) {
-            delete[] bitmap;
-            glyphWidth = 8;
-            return;
-        }
-        
-        // Pre-calculate color components for blending
-        u32 colorValue = color.toRGBA8();
-        unsigned char r = colorValue & 0xFF;
-        unsigned char g = (colorValue >> 8) & 0xFF;
-        unsigned char b = (colorValue >> 16) & 0xFF;
-        
-        // Render the glyph bitmap
-        for (int dy = 0; dy < (int)metrics.height; dy++) {
-            for (int dx = 0; dx < (int)metrics.width; dx++) {
-                int px = glyphX + dx;
-                int py = glyphY + dy;
-                
-                if (px >= 0 && px < (int)width && py >= 0 && py < (int)height) {
-                    u8 alpha = bitmap[dy * metrics.width + dx];
-                    if (alpha > 0) {
-                        if (alpha == 255) {
-                            // Fully opaque - direct write
-                            framebuf[py * stride / sizeof(u32) + px] = colorValue;
-                        } else {
-                            // Alpha blending using optimized calculation
-                            u32 bgColor = framebuf[py * stride / sizeof(u32) + px];
-                            unsigned char bgR = bgColor & 0xFF;
-                            unsigned char bgG = (bgColor >> 8) & 0xFF;
-                            unsigned char bgB = (bgColor >> 16) & 0xFF;
-                            
-                            // Optimized alpha blend: (src * alpha + bg * (255 - alpha)) / 255
-                            // Using: ((x * alpha) + (x << 8)) >> 8 ≈ (x * alpha) / 255
-                            unsigned char invAlpha = 255 - alpha;
-                            unsigned char finalR = ((r * alpha) + (bgR * invAlpha) + 255) >> 8;
-                            unsigned char finalG = ((g * alpha) + (bgG * invAlpha) + 255) >> 8;
-                            unsigned char finalB = ((b * alpha) + (bgB * invAlpha) + 255) >> 8;
-                            
-                            u32 blendedColor = (255 << 24) | (finalB << 16) | (finalG << 8) | finalR;
-                            framebuf[py * stride / sizeof(u32) + px] = blendedColor;
-                        }
-                    }
-                }
-            }
-        }
-        
-        delete[] bitmap;
-    }
-
-    // Helper method: Draw text using shared font for Unicode characters
-    void PKSEFramebuffer::drawTextWithSharedFont(int x, int y, const char* text, Color color, int& outWidth) {
-        if (!plServiceInitialized) {
-            outWidth = 0;
-            return;
-        }
-        
-        int offsetX = x;
-        const char* ptr = text;
-        
-        while (*ptr) {
-            uint32_t codepoint = utf8ToUnicode(ptr);
-            if (codepoint == 0) break;
-            
-            if (codepoint == '\n') {
-                break;  // Let caller handle newlines
-            }
-            
-            int glyphWidth = 0;
-            drawGlyphFromSharedFont(offsetX, y + FONT_BASELINE_OFFSET, codepoint, color, glyphWidth);
-            offsetX += glyphWidth;
-        }
-        
-        outWidth = offsetX - x;
     }
 }

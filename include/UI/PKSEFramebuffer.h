@@ -33,14 +33,8 @@ namespace UI {
         u32 height;
         u32 stride;
         
-        // Shared font support for Unicode/Chinese text
-        bool plServiceInitialized;  // true if plSharedFont service successfully initialized
-        PlFontData standardFont;     // Standard font data (supports Latin, Kana, CJK)
-        
-        // Helper methods for Unicode text rendering
-        void drawTextWithSharedFont(int x, int y, const char* text, Color color, int& outWidth);
+        // Helper method for UTF-8 decoding
         uint32_t utf8ToUnicode(const char*& text);
-        void drawGlyphFromSharedFont(int x, int y, uint32_t codepoint, Color color, int& glyphWidth);
     };
 }
 
