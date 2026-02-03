@@ -164,10 +164,11 @@ namespace UI {
         }
         
         // Set character size (8pt at 96 DPI - matching 8x8 ASCII font)
+        // This produces glyphs approximately 8 pixels tall, consistent with our bitmap font
         ftError = FT_Set_Char_Size(
             ftFace,
             0,        // char_width in 1/64th of points (0 = same as height)
-            8*64,     // char_height in 1/64th of points
+            8*64,     // char_height in 1/64th of points (8pt)
             96,       // horizontal device resolution
             96        // vertical device resolution
         );
@@ -241,6 +242,14 @@ namespace UI {
             FT_UInt glyph_index;
             FT_GlyphSlot slot = ftFace->glyph;
             
+            // For 8pt font, use a fixed line height of 10 pixels to match ASCII 8x8 font
+            // This ensures consistent spacing between lines
+            const int LINE_HEIGHT = 10;
+            
+            // For 8pt font, add a baseline offset to align with the 8x8 bitmap font
+            // The baseline should be at approximately 6-7 pixels from the top for 8pt fonts
+            const int BASELINE_OFFSET = 7;
+            
             size_t i = 0;
             size_t str_size = strlen(text);
             uint32_t tmpchar;
@@ -255,7 +264,7 @@ namespace UI {
                 // Handle newline
                 if (tmpchar == '\n') {
                     tmpx = x;
-                    tmpy += ftFace->size->metrics.height / 64;
+                    tmpy += LINE_HEIGHT;
                     continue;
                 }
                 
@@ -270,17 +279,18 @@ namespace UI {
                 ftError = FT_Render_Glyph(ftFace->glyph, FT_RENDER_MODE_NORMAL);
                 if (ftError) continue;
                 
-                // Draw the glyph bitmap
-                drawGlyph(&slot->bitmap, tmpx + slot->bitmap_left, tmpy - slot->bitmap_top, color);
+                // Draw the glyph bitmap with baseline alignment
+                // For 8pt font: position relative to baseline, then add our offset
+                drawGlyph(&slot->bitmap, tmpx + slot->bitmap_left, tmpy + BASELINE_OFFSET - slot->bitmap_top, color);
                 
                 // Advance to next character position
                 tmpx += slot->advance.x >> 6;
                 tmpy += slot->advance.y >> 6;
                 
-                // Wrap to next line if needed
-                if (tmpx > width - 32) {
+                // Wrap to next line if needed (using 8-pixel character width estimate)
+                if (tmpx > width - 16) {
                     tmpx = x;
-                    tmpy += ftFace->size->metrics.height / 64;
+                    tmpy += LINE_HEIGHT;
                 }
             }
             return;
