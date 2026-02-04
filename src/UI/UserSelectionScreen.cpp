@@ -43,12 +43,12 @@ namespace UI {
                     info.name = std::string(base.nickname);
                     info.isValid = true;
                 } else {
-                    info.name = "Unknown User";
+                    info.name = "未知用户";
                     info.isValid = false;
                 }
                 accountProfileClose(&profile);
             } else {
-                info.name = "Unknown User";
+                info.name = "未知用户";
                 info.isValid = false;
             }
 
@@ -57,7 +57,7 @@ namespace UI {
 
         if (users.empty()) {
             UserInfo defaultUser;
-            defaultUser.name = "Default User";
+            defaultUser.name = "默认用户";
             defaultUser.isValid = false;
             memset(&defaultUser.uid, 0, sizeof(AccountUid));
             users.push_back(defaultUser);
@@ -88,7 +88,7 @@ namespace UI {
         fb.clear(Colors::Background);
 
         // Draw title bar
-        std::string versionText = "PKSE - Pokemon Save Editor v" + VERSION_STRING;
+        std::string versionText = "PKSE - 宝可梦存档编辑器 v" + VERSION_STRING;
         fb.drawFilledRect(0, 0, fb.getWidth(), 60, Colors::Panel);
         fb.drawText(20, 20, versionText, Colors::Text);
         fb.drawRect(0, 0, fb.getWidth(), 60, Colors::Border);
@@ -101,14 +101,14 @@ namespace UI {
         fb.drawRect(LEFT_PANEL_X, LEFT_PANEL_Y, panelWidth, panelHeight, Colors::Border);
 
         // Draw panel title
-        fb.drawText(LEFT_PANEL_X + 20, LEFT_PANEL_Y + 20, "Select User Profile", Colors::Text);
+        fb.drawText(LEFT_PANEL_X + 20, LEFT_PANEL_Y + 20, "选择用户档案", Colors::Text);
         fb.drawFilledRect(LEFT_PANEL_X + 20, LEFT_PANEL_Y + 45, panelWidth - 40, 2, Colors::Border);
 
         // Draw user list
         drawUserList(fb);
 
         // Draw instructions
-        fb.drawText(LEFT_PANEL_X + 20, LEFT_PANEL_Y + panelHeight + 20, "Press A to select  |  Press + to exit", Colors::TextDim);
+        fb.drawText(LEFT_PANEL_X + 20, LEFT_PANEL_Y + panelHeight + 20, "按 A 选择  |  按 + 退出", Colors::TextDim);
     }
 
     void UserSelectionScreen::drawUserList(PKSEFramebuffer& fb) {

@@ -47,7 +47,7 @@ namespace UI {
                     TitleInfo info;
                     info.titleId = titleId;
                     // Apply sanitization and formatting to handle special characters
-                    info.name = "Pokemon " + getGameVersionName(gameVersion);
+                    info.name = "宝可梦 " + getGameVersionName(gameVersion);
                     titles.push_back(info);
                 }
                 // If mount failed, user doesn't have save data - skip this title
@@ -57,7 +57,7 @@ namespace UI {
         if (titles.empty()) {
             TitleInfo info;
             info.titleId = 0;
-            info.name = "No Pokemon saves found for this user";
+            info.name = "未找到该用户的宝可梦存档";
             titles.push_back(info);
         }
     }
@@ -87,7 +87,7 @@ namespace UI {
         fb.clear(Colors::Background);
 
         // Draw title bar
-        std::string versionText = "PKSE - Pokemon Save Editor v" + VERSION_STRING;
+        std::string versionText = "PKSE - 宝可梦存档编辑器 v" + VERSION_STRING;
         fb.drawFilledRect(0, 0, fb.getWidth(), 60, Colors::Panel);
         fb.drawText(20, 20,versionText.c_str(), Colors::Text);
         fb.drawRect(0, 0, fb.getWidth(), 60, Colors::Border);
@@ -97,14 +97,14 @@ namespace UI {
         fb.drawRect(LEFT_PANEL_X, LEFT_PANEL_Y, LEFT_TITLE_SELECTION_PANEL_WIDTH, LEFT_TITLE_SELECTION_PANEL_HEIGHT, Colors::Border);
 
         // Draw panel title
-        fb.drawText(LEFT_PANEL_X + 20, LEFT_PANEL_Y + 20, "Select Pokemon Title", Colors::Text);
+        fb.drawText(LEFT_PANEL_X + 20, LEFT_PANEL_Y + 20, "选择宝可梦游戏", Colors::Text);
         fb.drawFilledRect(LEFT_PANEL_X + 20, LEFT_PANEL_Y + 45, LEFT_TITLE_SELECTION_PANEL_WIDTH - 40, 2, Colors::Border);
 
         // Draw title list
         drawTitleList(fb);
 
         // Draw instructions
-        fb.drawText(LEFT_PANEL_X + 20, LEFT_PANEL_Y + LEFT_TITLE_SELECTION_PANEL_HEIGHT + 20, "Press A to select  |  Press B to go back", Colors::TextDim);
+        fb.drawText(LEFT_PANEL_X + 20, LEFT_PANEL_Y + LEFT_TITLE_SELECTION_PANEL_HEIGHT + 20, "按 A 选择  |  按 B 返回", Colors::TextDim);
     }
 
     void TitleSelectionScreen::drawTitleList(PKSEFramebuffer& fb) {

@@ -37,7 +37,7 @@ namespace Panels {
         }
 
         // Header with category name
-        std::string headerText = std::string("Items - ") + pouchName;
+        std::string headerText = std::string("道具 - ") + pouchName;
         // if (screen.detailViewActive) {
         //     headerText += " [DETAIL VIEW]";
         // }
@@ -49,7 +49,7 @@ namespace Panels {
             const auto& pouch = screen.trainer.items[screen.selectedCategory];
 
             if (pouch.empty()) {
-                fb.drawText(x + 20, y + 80, "No items in this category", Colors::TextDim);
+                fb.drawText(x + 20, y + 80, "此类别中没有道具", Colors::TextDim);
                 return;
             }
 

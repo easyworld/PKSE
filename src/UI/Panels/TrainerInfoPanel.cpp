@@ -13,13 +13,13 @@ namespace Panels {
         fb.drawFilledRect(x, y, width, height, Colors::Panel);
         fb.drawRect(x, y, width, height, Colors::Border);
 
-        fb.drawText(x + 20, y + 20, "Trainer Details", Colors::Text);
+        fb.drawText(x + 20, y + 20, "训练家信息", Colors::Text);
         fb.drawFilledRect(x + 20, y + 45, width - 40, 2, Colors::Border);
 
         int lineY = y + 60;
         int lineHeight = 18;
 
-        std::string nameText = "Name: " + trainer.trainerName;
+        std::string nameText = "姓名: " + trainer.trainerName;
         fb.drawText(x + 20, lineY, nameText, Colors::Text);
         lineY += lineHeight;
 
@@ -27,15 +27,15 @@ namespace Panels {
         fb.drawText(x + 20, lineY, idText, Colors::Text);
         lineY += lineHeight;
 
-        std::string tidText = "TID: " + std::to_string(trainer.TID);
+        std::string tidText = "训练家ID: " + std::to_string(trainer.TID);
         fb.drawText(x + 20, lineY, tidText, Colors::Text);
         lineY += lineHeight;
 
-        std::string sidText = "SID: " + std::to_string(trainer.SID);
+        std::string sidText = "秘密ID: " + std::to_string(trainer.SID);
         fb.drawText(x + 20, lineY, sidText, Colors::Text);
         lineY += lineHeight;
 
-        std::string moneyText = "$" + std::to_string(trainer.money);
+        std::string moneyText = "金钱: " + std::to_string(trainer.money);
         fb.drawText(x + 20, lineY, moneyText, Colors::Text);
     }
 }

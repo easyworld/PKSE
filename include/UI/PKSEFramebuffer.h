@@ -5,6 +5,9 @@
 
 #include <switch.h>
 
+#include <ft2build.h>
+#include FT_FREETYPE_H
+
 #include "UI/Common.h"
 
 namespace UI {
@@ -32,6 +35,15 @@ namespace UI {
         u32 width;
         u32 height;
         u32 stride;
+        
+        // FreeType font rendering
+        bool freetypeInitialized;   // true if FreeType successfully initialized
+        FT_Library ftLibrary;        // FreeType library instance
+        FT_Face ftFace;              // FreeType font face
+        PlFontData fontData;         // Font data from pl service
+        
+        // Helper methods for font rendering
+        void drawGlyph(FT_Bitmap* bitmap, u32 x, u32 y, Color color);
     };
 }
 

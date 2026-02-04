@@ -42,7 +42,7 @@ namespace Panels {
             }
 
             if (pokemon->speciesID() == 0) {
-                std::string slotText = "Slot " + std::to_string(i + 1) + ": Empty";
+                std::string slotText = "栏位 " + std::to_string(i + 1) + ": 空";
                 fb.drawText(colX, colY, slotText, Colors::TextDim);
                 continue;
             }
@@ -52,7 +52,7 @@ namespace Panels {
             Sprite* sprite = SpriteManager::getSprite(pokemon->speciesID(), pokemon->form(), isShiny);
 
             // Draw header: "Slot X: Species"
-            std::string headerText = "Slot " + std::to_string(i + 1) + ": " + std::string(pokemon->species());
+            std::string headerText = "栏位 " + std::to_string(i + 1) + ": " + std::string(pokemon->species());
             int textX = colX;
             fb.drawText(colX, colY, headerText, Colors::Text);
             textX += headerText.length() * 8;  // Approximate character width
@@ -108,7 +108,7 @@ namespace Panels {
             colY += lineHeight;
 
             // Draw stats header
-            fb.drawText(colX + 20, colY, "    Base | IV | EV  | Stat", Colors::TextDim);
+            fb.drawText(colX + 20, colY, "    基础 | IV | EV  | 能力", Colors::TextDim);
             colY += lineHeight;
 
             // Draw each stat
@@ -118,27 +118,27 @@ namespace Panels {
             fb.drawText(colX + 20, colY, statLine, Colors::Text);
             colY += lineHeight;
 
-            snprintf(statLine, sizeof(statLine), "ATK: %03d | %02d | %03d | %03d",
+            snprintf(statLine, sizeof(statLine), "攻击: %03d | %02d | %03d | %03d",
                 pokemon->baseATK(), pokemon->ivATK(), pokemon->evATK(), pokemon->statATK());
             fb.drawText(colX + 20, colY, statLine, Colors::Text);
             colY += lineHeight;
 
-            snprintf(statLine, sizeof(statLine), "DEF: %03d | %02d | %03d | %03d",
+            snprintf(statLine, sizeof(statLine), "防御: %03d | %02d | %03d | %03d",
                 pokemon->baseDEF(), pokemon->ivDEF(), pokemon->evDEF(), pokemon->statDEF());
             fb.drawText(colX + 20, colY, statLine, Colors::Text);
             colY += lineHeight;
 
-            snprintf(statLine, sizeof(statLine), "SPA: %03d | %02d | %03d | %03d",
+            snprintf(statLine, sizeof(statLine), "特攻: %03d | %02d | %03d | %03d",
                 pokemon->baseSPA(), pokemon->ivSPA(), pokemon->evSPA(), pokemon->statSPA());
             fb.drawText(colX + 20, colY, statLine, Colors::Text);
             colY += lineHeight;
 
-            snprintf(statLine, sizeof(statLine), "SPD: %03d | %02d | %03d | %03d",
+            snprintf(statLine, sizeof(statLine), "特防: %03d | %02d | %03d | %03d",
                 pokemon->baseSPD(), pokemon->ivSPD(), pokemon->evSPD(), pokemon->statSPD());
             fb.drawText(colX + 20, colY, statLine, Colors::Text);
             colY += lineHeight;
 
-            snprintf(statLine, sizeof(statLine), "SPE: %03d | %02d | %03d | %03d",
+            snprintf(statLine, sizeof(statLine), "速度: %03d | %02d | %03d | %03d",
                 pokemon->baseSPE(), pokemon->ivSPE(), pokemon->evSPE(), pokemon->statSPE());
             fb.drawText(colX + 20, colY, statLine, Colors::Text);
 

@@ -5,268 +5,268 @@ namespace Names {
     // Ability name lookup table - indexed by Ability ID
     // This includes abilities up to Generation 8 (Sword/Shield)
     static const char* ABILITY_NAMES[] = {
-        "None",              // 0
-        "Stench",            // 1
-        "Drizzle",           // 2
-        "Speed Boost",       // 3
-        "Battle Armor",      // 4
-        "Sturdy",            // 5
-        "Damp",              // 6
-        "Limber",            // 7
-        "Sand Veil",         // 8
-        "Static",            // 9
-        "Volt Absorb",       // 10
-        "Water Absorb",      // 11
-        "Oblivious",         // 12
-        "Cloud Nine",        // 13
-        "Compound Eyes",     // 14
-        "Insomnia",          // 15
-        "Color Change",      // 16
-        "Immunity",          // 17
-        "Flash Fire",        // 18
-        "Shield Dust",       // 19
-        "Own Tempo",         // 20
-        "Suction Cups",      // 21
-        "Intimidate",        // 22
-        "Shadow Tag",        // 23
-        "Rough Skin",        // 24
-        "Wonder Guard",      // 25
-        "Levitate",          // 26
-        "Effect Spore",      // 27
-        "Synchronize",       // 28
-        "Clear Body",        // 29
-        "Natural Cure",      // 30
-        "Lightning Rod",     // 31
-        "Serene Grace",      // 32
-        "Swift Swim",        // 33
-        "Chlorophyll",       // 34
-        "Illuminate",        // 35
-        "Trace",             // 36
-        "Huge Power",        // 37
-        "Poison Point",      // 38
-        "Inner Focus",       // 39
-        "Magma Armor",       // 40
-        "Water Veil",        // 41
-        "Magnet Pull",       // 42
-        "Soundproof",        // 43
-        "Rain Dish",         // 44
-        "Sand Stream",       // 45
-        "Pressure",          // 46
-        "Thick Fat",         // 47
-        "Early Bird",        // 48
-        "Flame Body",        // 49
-        "Run Away",          // 50
-        "Keen Eye",          // 51
-        "Hyper Cutter",      // 52
-        "Pickup",            // 53
-        "Truant",            // 54
-        "Hustle",            // 55
-        "Cute Charm",        // 56
-        "Plus",              // 57
-        "Minus",             // 58
-        "Forecast",          // 59
-        "Sticky Hold",       // 60
-        "Shed Skin",         // 61
-        "Guts",              // 62
-        "Marvel Scale",      // 63
-        "Liquid Ooze",       // 64
-        "Overgrow",          // 65
-        "Blaze",             // 66
-        "Torrent",           // 67
-        "Swarm",             // 68
-        "Rock Head",         // 69
-        "Drought",           // 70
-        "Arena Trap",        // 71
-        "Vital Spirit",      // 72
-        "White Smoke",       // 73
-        "Pure Power",        // 74
-        "Shell Armor",       // 75
-        "Air Lock",          // 76
-        "Tangled Feet",      // 77
-        "Motor Drive",       // 78
-        "Rivalry",           // 79
-        "Steadfast",         // 80
-        "Snow Cloak",        // 81
-        "Gluttony",          // 82
-        "Anger Point",       // 83
-        "Unburden",          // 84
-        "Heatproof",         // 85
-        "Simple",            // 86
-        "Dry Skin",          // 87
-        "Download",          // 88
-        "Iron Fist",         // 89
-        "Poison Heal",       // 90
-        "Adaptability",      // 91
-        "Skill Link",        // 92
-        "Hydration",         // 93
-        "Solar Power",       // 94
-        "Quick Feet",        // 95
-        "Normalize",         // 96
-        "Sniper",            // 97
-        "Magic Guard",       // 98
-        "No Guard",          // 99
-        "Stall",             // 100
-        "Technician",        // 101
-        "Leaf Guard",        // 102
-        "Klutz",             // 103
-        "Mold Breaker",      // 104
-        "Super Luck",        // 105
-        "Aftermath",         // 106
-        "Anticipation",      // 107
-        "Forewarn",          // 108
-        "Unaware",           // 109
-        "Tinted Lens",       // 110
-        "Filter",            // 111
-        "Slow Start",        // 112
-        "Scrappy",           // 113
-        "Storm Drain",       // 114
-        "Ice Body",          // 115
-        "Solid Rock",        // 116
-        "Snow Warning",      // 117
-        "Honey Gather",      // 118
-        "Frisk",             // 119
-        "Reckless",          // 120
-        "Multitype",         // 121
-        "Flower Gift",       // 122
-        "Bad Dreams",        // 123
-        "Pickpocket",        // 124
-        "Sheer Force",       // 125
-        "Contrary",          // 126
-        "Unnerve",           // 127
-        "Defiant",           // 128
-        "Defeatist",         // 129
-        "Cursed Body",       // 130
-        "Healer",            // 131
-        "Friend Guard",      // 132
-        "Weak Armor",        // 133
-        "Heavy Metal",       // 134
-        "Light Metal",       // 135
-        "Multiscale",        // 136
-        "Toxic Boost",       // 137
-        "Flare Boost",       // 138
-        "Harvest",           // 139
-        "Telepathy",         // 140
-        "Moody",             // 141
-        "Overcoat",          // 142
-        "Poison Touch",      // 143
-        "Regenerator",       // 144
-        "Big Pecks",         // 145
-        "Sand Rush",         // 146
-        "Wonder Skin",       // 147
-        "Analytic",          // 148
-        "Illusion",          // 149
-        "Imposter",          // 150
-        "Infiltrator",       // 151
-        "Mummy",             // 152
-        "Moxie",             // 153
-        "Justified",         // 154
-        "Rattled",           // 155
-        "Magic Bounce",      // 156
-        "Sap Sipper",        // 157
-        "Prankster",         // 158
-        "Sand Force",        // 159
-        "Iron Barbs",        // 160
-        "Zen Mode",          // 161
-        "Victory Star",      // 162
-        "Turboblaze",        // 163
-        "Teravolt",          // 164
-        "Aroma Veil",        // 165
-        "Flower Veil",       // 166
-        "Cheek Pouch",       // 167
-        "Protean",           // 168
-        "Fur Coat",          // 169
-        "Magician",          // 170
-        "Bulletproof",       // 171
-        "Competitive",       // 172
-        "Strong Jaw",        // 173
-        "Refrigerate",       // 174
-        "Sweet Veil",        // 175
-        "Stance Change",     // 176
-        "Gale Wings",        // 177
-        "Mega Launcher",     // 178
-        "Grass Pelt",        // 179
-        "Symbiosis",         // 180
-        "Tough Claws",       // 181
-        "Pixilate",          // 182
-        "Gooey",             // 183
-        "Aerilate",          // 184
-        "Parental Bond",     // 185
-        "Dark Aura",         // 186
-        "Fairy Aura",        // 187
-        "Aura Break",        // 188
-        "Primordial Sea",    // 189
-        "Desolate Land",     // 190
-        "Delta Stream",      // 191
-        "Stamina",           // 192
-        "Wimp Out",          // 193
-        "Emergency Exit",    // 194
-        "Water Compaction",  // 195
-        "Merciless",         // 196
-        "Shields Down",      // 197
-        "Stakeout",          // 198
-        "Water Bubble",      // 199
-        "Steelworker",       // 200
-        "Berserk",           // 201
-        "Slush Rush",        // 202
-        "Long Reach",        // 203
-        "Liquid Voice",      // 204
-        "Triage",            // 205
-        "Galvanize",         // 206
-        "Surge Surfer",      // 207
-        "Schooling",         // 208
-        "Disguise",          // 209
-        "Battle Bond",       // 210
-        "Power Construct",   // 211
-        "Corrosion",         // 212
-        "Comatose",          // 213
-        "Queenly Majesty",   // 214
-        "Innards Out",       // 215
-        "Dancer",            // 216
-        "Battery",           // 217
-        "Fluffy",            // 218
-        "Dazzling",          // 219
-        "Soul-Heart",        // 220
-        "Tangling Hair",     // 221
-        "Receiver",          // 222
-        "Power of Alchemy",  // 223
-        "Beast Boost",       // 224
-        "RKS System",        // 225
-        "Electric Surge",    // 226
-        "Psychic Surge",     // 227
-        "Misty Surge",       // 228
-        "Grassy Surge",      // 229
-        "Full Metal Body",   // 230
-        "Shadow Shield",     // 231
-        "Prism Armor",       // 232
-        "Neuroforce",        // 233
-        "Intrepid Sword",    // 234
-        "Dauntless Shield",  // 235
-        "Libero",            // 236
-        "Ball Fetch",        // 237
-        "Cotton Down",       // 238
-        "Propeller Tail",    // 239
-        "Mirror Armor",      // 240
-        "Gulp Missile",      // 241
-        "Stalwart",          // 242
-        "Steam Engine",      // 243
-        "Punk Rock",         // 244
-        "Sand Spit",         // 245
-        "Ice Scales",        // 246
-        "Ripen",             // 247
-        "Ice Face",          // 248
-        "Power Spot",        // 249
-        "Mimicry",           // 250
-        "Screen Cleaner",    // 251
-        "Steely Spirit",     // 252
-        "Perish Body",       // 253
-        "Wandering Spirit",  // 254
-        "Gorilla Tactics",   // 255
-        "Neutralizing Gas",  // 256
-        "Pastel Veil",       // 257
-        "Hunger Switch",     // 258
-        "Quick Draw",        // 259
-        "Unseen Fist",       // 260
-        "Curious Medicine",  // 261
+        "无",              // 0
+        "恶臭",            // 1
+        "降雨",           // 2
+        "加速",       // 3
+        "战斗盔甲",      // 4
+        "结实",            // 5
+        "湿气",              // 6
+        "柔软",            // 7
+        "沙隐",         // 8
+        "静电",            // 9
+        "蓄电",       // 10
+        "储水",      // 11
+        "迟钝",         // 12
+        "无关天气",        // 13
+        "复眼",     // 14
+        "不眠",          // 15
+        "变色",      // 16
+        "免疫",          // 17
+        "引火",        // 18
+        "鳞粉",       // 19
+        "我行我素",         // 20
+        "吸盘",      // 21
+        "威吓",        // 22
+        "踩影",        // 23
+        "粗糙皮肤",        // 24
+        "神奇守护",      // 25
+        "飘浮",          // 26
+        "孢子",      // 27
+        "同步",       // 28
+        "恒净之躯",        // 29
+        "自然回复",      // 30
+        "避雷针",     // 31
+        "天恩",      // 32
+        "悠游自如",        // 33
+        "叶绿素",       // 34
+        "发光",        // 35
+        "复制",             // 36
+        "大力士",        // 37
+        "毒刺",      // 38
+        "精神力",       // 39
+        "熔岩铠甲",       // 40
+        "水幕",        // 41
+        "磁力",       // 42
+        "隔音",        // 43
+        "雨盘",         // 44
+        "扬沙",       // 45
+        "压迫感",          // 46
+        "厚脂肪",         // 47
+        "早起",        // 48
+        "火焰之躯",        // 49
+        "逃跑",          // 50
+        "锐利目光",          // 51
+        "怪力钳",      // 52
+        "捡拾",            // 53
+        "懒惰",            // 54
+        "活力",            // 55
+        "迷人之躯",        // 56
+        "正电",              // 57
+        "负电",             // 58
+        "阴晴不定",          // 59
+        "黏着",       // 60
+        "蜕皮",         // 61
+        "毅力",              // 62
+        "神奇鳞片",      // 63
+        "污泥浆",       // 64
+        "茂盛",          // 65
+        "猛火",             // 66
+        "激流",           // 67
+        "虫之预感",             // 68
+        "坚硬脑袋",         // 69
+        "日照",           // 70
+        "沙穴",        // 71
+        "干劲",      // 72
+        "白色烟雾",       // 73
+        "瑜伽之力",        // 74
+        "硬壳盔甲",       // 75
+        "气闸",          // 76
+        "蹒跚",      // 77
+        "电气引擎",       // 78
+        "斗争心",           // 79
+        "不屈之心",         // 80
+        "雪隐",        // 81
+        "贪吃鬼",          // 82
+        "愤怒穴位",       // 83
+        "轻装",          // 84
+        "耐热",         // 85
+        "单纯",            // 86
+        "干燥皮肤",          // 87
+        "下载",          // 88
+        "铁拳",         // 89
+        "毒疗",       // 90
+        "适应力",      // 91
+        "连续攻击",        // 92
+        "湿润之躯",         // 93
+        "太阳之力",       // 94
+        "飞毛腿",        // 95
+        "一般皮肤",         // 96
+        "狙击手",            // 97
+        "魔法防守",       // 98
+        "无防守",          // 99
+        "慢出",             // 100
+        "技术高手",        // 101
+        "叶子防守",        // 102
+        "笨拙",             // 103
+        "破格",      // 104
+        "超幸运",        // 105
+        "诱爆",         // 106
+        "危险预知",      // 107
+        "预知梦",          // 108
+        "纯朴",           // 109
+        "有色眼镜",       // 110
+        "过滤",            // 111
+        "慢启动",        // 112
+        "胆量",           // 113
+        "引水",       // 114
+        "冰冻之躯",          // 115
+        "坚硬岩石",        // 116
+        "降雪",      // 117
+        "采蜜",      // 118
+        "察觉",             // 119
+        "舍身",          // 120
+        "多属性",         // 121
+        "花之礼",       // 122
+        "梦魇",        // 123
+        "顺手牵羊",        // 124
+        "强行",       // 125
+        "唱反调",          // 126
+        "紧张感",           // 127
+        "不服输",           // 128
+        "软弱",         // 129
+        "咒术之躯",       // 130
+        "治愈之心",            // 131
+        "友情防守",      // 132
+        "碎裂铠甲",        // 133
+        "重金属",       // 134
+        "轻金属",       // 135
+        "多重鳞片",        // 136
+        "中毒激升",       // 137
+        "受热激升",       // 138
+        "收获",           // 139
+        "心灵感应",         // 140
+        "心情不定",             // 141
+        "防尘",          // 142
+        "毒手",      // 143
+        "再生力",       // 144
+        "健壮胸肌",         // 145
+        "拨沙",         // 146
+        "奇迹皮肤",       // 147
+        "分析",          // 148
+        "幻觉",          // 149
+        "变身者",          // 150
+        "穿透",       // 151
+        "木乃伊",             // 152
+        "自信过度",             // 153
+        "正义之心",         // 154
+        "胆怯",           // 155
+        "魔法镜",      // 156
+        "食草",        // 157
+        "恶作剧之心",         // 158
+        "沙之力",        // 159
+        "铁刺",        // 160
+        "达摩模式",          // 161
+        "胜利之星",      // 162
+        "涡轮火焰",        // 163
+        "兆级电压",          // 164
+        "芳香幕",        // 165
+        "花幕",       // 166
+        "颊囊",       // 167
+        "变幻自如",           // 168
+        "毛皮大衣",          // 169
+        "魔术师",          // 170
+        "防弹",       // 171
+        "好胜",       // 172
+        "强壮之颚",        // 173
+        "冰冻皮肤",       // 174
+        "甜幕",        // 175
+        "战斗切换",     // 176
+        "疾风之翼",        // 177
+        "超级发射器",     // 178
+        "草之毛皮",        // 179
+        "共生",         // 180
+        "硬爪",       // 181
+        "妖精皮肤",          // 182
+        "黏滑",             // 183
+        "飞行皮肤",          // 184
+        "亲子爱",     // 185
+        "暗黑气场",         // 186
+        "妖精气场",        // 187
+        "气场破坏",        // 188
+        "始源之海",    // 189
+        "终结之地",     // 190
+        "德尔塔气流",      // 191
+        "持久力",           // 192
+        "跃跃欲逃",          // 193
+        "危险回避",    // 194
+        "遇水凝固",  // 195
+        "不仁不义",         // 196
+        "界限盾壳",      // 197
+        "蹲守",          // 198
+        "水泡",      // 199
+        "钢能力者",       // 200
+        "怒火冲天",           // 201
+        "拨雪",        // 202
+        "远隔",        // 203
+        "湿润之声",      // 204
+        "先行治疗",            // 205
+        "电气皮肤",         // 206
+        "冲浪之尾",      // 207
+        "鱼群",         // 208
+        "画皮",          // 209
+        "牵绊变身",       // 210
+        "群聚变形",   // 211
+        "腐蚀",         // 212
+        "绝对睡眠",          // 213
+        "女王的威严",   // 214
+        "飞出的内在物",       // 215
+        "舞者",            // 216
+        "蓄电池",           // 217
+        "毛茸茸",            // 218
+        "鲜艳之躯",          // 219
+        "魂心",        // 220
+        "卷发",     // 221
+        "接球手",          // 222
+        "化学之力",  // 223
+        "异兽提升",       // 224
+        "ＡＲ系统",        // 225
+        "电气制造者",    // 226
+        "精神制造者",     // 227
+        "薄雾制造者",       // 228
+        "青草制造者",      // 229
+        "金属防护",   // 230
+        "幻影防守",     // 231
+        "棱镜装甲",       // 232
+        "脑核之力",        // 233
+        "不挠之剑",    // 234
+        "不屈之盾",  // 235
+        "自由者",            // 236
+        "捡球",        // 237
+        "棉絮",       // 238
+        "螺旋尾鳍",    // 239
+        "镜甲",      // 240
+        "一口导弹",      // 241
+        "坚毅",          // 242
+        "蒸汽机",      // 243
+        "庞克摇滚",         // 244
+        "吐沙",         // 245
+        "冰鳞粉",        // 246
+        "熟成",             // 247
+        "结冻头",          // 248
+        "能量点",        // 249
+        "拟态",           // 250
+        "除障",    // 251
+        "钢之意志",     // 252
+        "灭亡之躯",       // 253
+        "游魂",  // 254
+        "一猩一意",   // 255
+        "化学变化气体",  // 256
+        "粉彩护幕",       // 257
+        "饱了又饿",     // 258
+        "速击",        // 259
+        "无形拳",       // 260
+        "怪药",  // 261
     };
 
     constexpr size_t ABILITY_NAMES_COUNT = 262;

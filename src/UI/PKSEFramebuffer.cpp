@@ -1,4 +1,5 @@
 #include <cstring>
+#include <new>  // For std::nothrow
 
 #include "UI/PKSEFramebuffer.h"
 
@@ -117,15 +118,76 @@ namespace UI {
         0x1C, 0x22, 0x22, 0x1C, 0x08, 0x3E, 0x08, 0x00
     };
 
+
     PKSEFramebuffer::PKSEFramebuffer() {
         framebufferCreate(&fb, nwindowGetDefault(), 1280, 720, PIXEL_FORMAT_RGBA_8888, 2);
         framebufferMakeLinear(&fb);
         framebuf = (u32*)framebufferBegin(&fb, &stride);
         width = 1280;
         height = 720;
+        
+        // Initialize FreeType for font rendering
+        freetypeInitialized = false;
+        
+        // Initialize pl service to get system font
+        Result rc = plInitialize(PlServiceType_User);
+        if (R_FAILED(rc)) {
+            return;  // FreeType won't be available, fallback to ASCII
+        }
+        
+        // Get the Standard shared font (supports CJK characters)
+        rc = plGetSharedFontByType(&fontData, PlSharedFontType_ChineseSimplified);
+        if (R_FAILED(rc)) {
+            plExit();
+            return;  // FreeType won't be available, fallback to ASCII
+        }
+        
+        // Initialize FreeType library
+        FT_Error ftError = FT_Init_FreeType(&ftLibrary);
+        if (ftError) {
+            plExit();
+            return;  // FreeType won't be available, fallback to ASCII
+        }
+        
+        // Create font face from memory (system font data)
+        ftError = FT_New_Memory_Face(
+            ftLibrary,
+            (const FT_Byte*)fontData.address,  // font data from pl service
+            fontData.size,                      // size in bytes
+            0,                                  // face index
+            &ftFace
+        );
+        if (ftError) {
+            FT_Done_FreeType(ftLibrary);
+            plExit();
+            return;  // FreeType won't be available, fallback to ASCII
+        }
+        
+        // Set character size (8pt at 96 DPI - matching 8x8 ASCII font)
+        // This produces glyphs approximately 8 pixels tall, consistent with our bitmap font
+        ftError = FT_Set_Char_Size(
+            ftFace,
+            0,        // char_width in 1/64th of points (0 = same as height)
+            8*64,     // char_height in 1/64th of points (8pt)
+            96,       // horizontal device resolution
+            96        // vertical device resolution
+        );
+        if (ftError) {
+            FT_Done_Face(ftFace);
+            FT_Done_FreeType(ftLibrary);
+            plExit();
+            return;  // FreeType won't be available, fallback to ASCII
+        }
+        
+        freetypeInitialized = true;
     }
 
     PKSEFramebuffer::~PKSEFramebuffer() {
+        if (freetypeInitialized) {
+            FT_Done_Face(ftFace);
+            FT_Done_FreeType(ftLibrary);
+            plExit();
+        }
         framebufferClose(&fb);
     }
 
@@ -172,6 +234,69 @@ namespace UI {
     }
 
     void PKSEFramebuffer::drawText(int x, int y, const char* text, Color color) {
+        // If FreeType is available, use it for full Unicode support
+        if (freetypeInitialized) {
+            u32 tmpx = x;
+            u32 tmpy = y;
+            FT_Error ftError;
+            FT_UInt glyph_index;
+            FT_GlyphSlot slot = ftFace->glyph;
+            
+            // For 8pt font, use a fixed line height of 10 pixels to match ASCII 8x8 font
+            // This ensures consistent spacing between lines
+            const int LINE_HEIGHT = 10;
+            
+            // For 8pt font, add a baseline offset to align with the 8x8 bitmap font
+            // The baseline should be at approximately 6-7 pixels from the top for 8pt fonts
+            const int BASELINE_OFFSET = 7;
+            
+            size_t i = 0;
+            size_t str_size = strlen(text);
+            uint32_t tmpchar;
+            ssize_t unitcount = 0;
+            
+            while (i < str_size) {
+                // Use libnx's decode_utf8 function
+                unitcount = decode_utf8(&tmpchar, (const uint8_t*)&text[i]);
+                if (unitcount <= 0) break;
+                i += unitcount;
+                
+                // Handle newline
+                if (tmpchar == '\n') {
+                    tmpx = x;
+                    tmpy += LINE_HEIGHT;
+                    continue;
+                }
+                
+                // Get glyph index for this character
+                glyph_index = FT_Get_Char_Index(ftFace, tmpchar);
+                
+                // Load the glyph
+                ftError = FT_Load_Glyph(ftFace, glyph_index, FT_LOAD_DEFAULT);
+                if (ftError) continue;
+                
+                // Render the glyph
+                ftError = FT_Render_Glyph(ftFace->glyph, FT_RENDER_MODE_NORMAL);
+                if (ftError) continue;
+                
+                // Draw the glyph bitmap with baseline alignment
+                // For 8pt font: position relative to baseline, then add our offset
+                drawGlyph(&slot->bitmap, tmpx + slot->bitmap_left, tmpy + BASELINE_OFFSET - slot->bitmap_top, color);
+                
+                // Advance to next character position
+                tmpx += slot->advance.x >> 6;
+                tmpy += slot->advance.y >> 6;
+                
+                // Wrap to next line if needed (using 8-pixel character width estimate)
+                if (tmpx > width - 16) {
+                    tmpx = x;
+                    tmpy += LINE_HEIGHT;
+                }
+            }
+            return;
+        }
+        
+        // Fallback to 8x8 bitmap font for ASCII only (if FreeType not available)
         int offsetX = x;
         int offsetY = y;
 
@@ -188,9 +313,20 @@ namespace UI {
                 continue;
             }
 
-            // Handle UTF-8 sequences
+            // Check if this is a multi-byte UTF-8 sequence
+            // For CJK characters (U+4E00-U+9FFF) and other multi-byte sequences,
+            // we currently don't have font rendering support, so skip them gracefully
+            if ((c >= 0xE4 && c <= 0xE9) || c == 0xE3) {
+                // This is likely a CJK character (3-byte UTF-8)
+                // Skip all 3 bytes and display a placeholder
+                if (text[1] && text[2]) {
+                    bytesToSkip = 3;
+                    c = '?';  // Use placeholder for CJK characters
+                }
+            }
+            // Handle UTF-8 sequences with custom glyphs or mappings
             // 3-byte UTF-8 sequences (U+0800 to U+FFFF)
-            if (c == 0xE2 && text[1] && text[2]) {
+            else if (c == 0xE2 && text[1] && text[2]) {
                 unsigned char b2 = static_cast<unsigned char>(text[1]);
                 unsigned char b3 = static_cast<unsigned char>(text[2]);
                 bytesToSkip = 3;
@@ -228,7 +364,7 @@ namespace UI {
                     }
                     // … (U+2026 HORIZONTAL ELLIPSIS): E2 80 A6
                     else if (b3 == 0xA6) {
-                        c = '.';  // Map to period (will need special handling for 3 dots)
+                        c = '.';  // Map to period
                     }
                 }
             }
@@ -260,7 +396,7 @@ namespace UI {
                 }
             }
 
-            // If we mapped a Unicode character to ASCII, use the ASCII glyph
+            // If we have a custom glyph, use it; otherwise use ASCII font
             if (glyph == nullptr) {
                 // Only render printable ASCII characters (32-127)
                 if (c < 32 || c > 127) {
@@ -269,7 +405,7 @@ namespace UI {
                 glyph = font8x8[c - 32];
             }
 
-            // Draw the character pixel by pixel
+            // Draw the character using 8x8 bitmap font
             for (int row = 0; row < 8; row++) {
                 uint8_t rowData = glyph[row];
                 for (int col = 0; col < 8; col++) {
@@ -426,5 +562,48 @@ namespace UI {
     void PKSEFramebuffer::flush() {
         framebufferEnd(&fb);
         framebuf = (u32*)framebufferBegin(&fb, &stride);
+    }
+
+    // Helper method: Draw a single glyph bitmap from FreeType
+    void PKSEFramebuffer::drawGlyph(FT_Bitmap* bitmap, u32 x, u32 y, Color color) {
+        if (bitmap->pixel_mode != FT_PIXEL_MODE_GRAY) return;
+        
+        u32 colorValue = color.toRGBA8();
+        u8 r = colorValue & 0xFF;
+        u8 g = (colorValue >> 8) & 0xFF;
+        u8 b = (colorValue >> 16) & 0xFF;
+        
+        u8* imageptr = bitmap->buffer;
+        
+        for (u32 row = 0; row < bitmap->rows; row++) {
+            for (u32 col = 0; col < bitmap->width; col++) {
+                u32 px = x + col;
+                u32 py = y + row;
+                
+                if (px >= width || py >= height) continue;
+                
+                u8 alpha = imageptr[col];
+                if (alpha > 0) {
+                    if (alpha == 255) {
+                        // Fully opaque
+                        framebuf[py * stride / sizeof(u32) + px] = colorValue;
+                    } else {
+                        // Alpha blending
+                        u32 bgColor = framebuf[py * stride / sizeof(u32) + px];
+                        u8 bgR = bgColor & 0xFF;
+                        u8 bgG = (bgColor >> 8) & 0xFF;
+                        u8 bgB = (bgColor >> 16) & 0xFF;
+                        
+                        u8 finalR = ((r * alpha) + (bgR * (255 - alpha)) + 255) >> 8;
+                        u8 finalG = ((g * alpha) + (bgG * (255 - alpha)) + 255) >> 8;
+                        u8 finalB = ((b * alpha) + (bgB * (255 - alpha)) + 255) >> 8;
+                        
+                        u32 blendedColor = (255 << 24) | (finalB << 16) | (finalG << 8) | finalR;
+                        framebuf[py * stride / sizeof(u32) + px] = blendedColor;
+                    }
+                }
+            }
+            imageptr += bitmap->pitch;
+        }
     }
 }

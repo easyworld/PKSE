@@ -834,67 +834,68 @@ namespace UI {
         std::string instructions;
         if (statEditDialogActive) {
             if (statEditMode == Dialogs::StatEditMode::EV) {
-                instructions = "L/R: Select Field  |  Arrows: +/- Value  |  ZL/ZR: +/-100  |  A: Confirm  |  B: Cancel";
+                instructions = "L/R: 选择项  |  方向键: +/- 数值  |  ZL/ZR: +/-100  |  A: 确认  |  B: 取消";
             } else {
-                instructions = "L/R: Select Field  |  Arrows: +/- Value  |  A: Confirm  |  B: Cancel";
+                instructions = "L/R: 选择项  |  方向键: +/- 数值  |  A: 确认  |  B: 取消";
             }
         } else if (itemEditDialogActive) {
-            instructions = "Left/Right: +/-1  |  Up/Down: +/-10  |  ZL/ZR: +/-100  |  A: Confirm  |  B: Cancel";
+            instructions = "左/右: +/-1  |  上/下: +/-10  |  ZL/ZR: +/-100  |  A: 确认  |  B: 取消";
         } else if (saveConfirmActive) {
-            instructions = "A: Save Changes  |  B: Cancel";
+            instructions = "A: 保存更改  |  B: 取消";
         } else if (detailViewActive) {
             if (selectedMode == ViewMode::Items) {
-                instructions = "Arrows: Select Item  |  A: Edit Amount  |  Left/Right: Column/Page  |  L/R: Category  |  B: Back  |  X: Save  |  +: Exit App";
+                instructions = "方向键: 选择道具  |  A: 编辑数量  |  左/右: 列/页  |  L/R: 类别  |  B: 返回  |  X: 保存  |  +: 退出";
             } else if (selectedMode == ViewMode::Boxes) {
                 if (pokemonDetailsActive) {
                     if (pokemonDetailsCategory == 0) { // Main
                         instructions = pokemonDetailsEditing
                             ? pokemonDetailsSelectedField == 3
-                                ? "Up/Down: Select Field | A: Edit Field |  B: Back  |  X: Save  |  +: Exit App"
-                                : "Up/Down: Select Field | B: Back  |  X: Save  |  +: Exit App"
-                            : "Up/Down: Select Category | A: Select Category  |  B: Close  |  X: Save  |  +: Exit App";
+                                ? "上/下: 选择项 | A: 编辑项 |  B: 返回  |  X: 保存  |  +: 退出"
+                                : "上/下: 选择项 | B: 返回  |  X: 保存  |  +: 退出"
+                            : "上/下: 选择类别 | A: 选择类别  |  B: 关闭  |  X: 保存  |  +: 退出";
                     }
                     else if (pokemonDetailsCategory == 2) { // Stats
                         instructions = pokemonDetailsEditing
-                            ? "Up/Down: Select Field  |  A: Edit Field |  B: Back  |  X: Save  |  +: Exit App"
-                            : "Up/Down: Select Category  |  A: Select Category  |  B: Close  |  X: Save  |  +: Exit App";
+                            ? "上/下: 选择项  |  A: 编辑项 |  B: 返回  |  X: 保存  |  +: 退出"
+                            : "上/下: 选择类别  |  A: 选择类别  |  B: 关闭  |  X: 保存  |  +: 退出";
                     }
                     else {
-                        instructions = "Up/Down: Select Category  |  B: Close  |  X: Save  |  +: Exit App";
+                        instructions = "上/下: 选择类别  |  B: 关闭  |  X: 保存  |  +: 退出";
                     }
                 }
                 else {
-                    instructions = "Arrows: Navigate Grid  |  L/R: Change Box  |  A: View Details  |  B: Back  |  X: Save  |  +: Exit App";
+                    instructions = "方向键: 导航格子  |  L/R: 切换盒子  |  A: 查看详情  |  B: 返回  |  X: 保存  |  +: 退出";
                 }
             } else if(selectedMode == ViewMode::Party) { // TODO: There HAS to be a better way of doing this without all of the if/else conditionals... probably will look into this at some point.
                 if (pokemonDetailsActive) {
                     if (pokemonDetailsCategory == 0) { // Main
                         instructions = pokemonDetailsEditing
                             ? pokemonDetailsSelectedField == 3
-                                ? "Up/Down: Select Field | A: Edit Field |  B: Back  |  X: Save  |  +: Exit App"
-                                : "Up/Down: Select Field | B: Back  |  X: Save  |  +: Exit App"
-                            : "Up/Down: Select Category | A: Select Category  |  B: Close  |  X: Save  |  +: Exit App";
+                                ? "上/下: 选择项 | A: 编辑项 |  B: 返回  |  X: 保存  |  +: 退出"
+                                : "上/下: 选择项 | B: 返回  |  X: 保存  |  +: 退出"
+                            : "上/下: 选择类别 | A: 选择类别  |  B: 关闭  |  X: 保存  |  +: 退出";
                     }
                     else if (pokemonDetailsCategory == 2) { // Stats
                         instructions = pokemonDetailsEditing
-                            ? "Up/Down: Select Field  |  A: Edit Field |  B: Back  |  X: Save  |  +: Exit App"
-                            : "Up/Down: Select Category  |  A: Select Category  |  B: Close  |  X: Save  |  +: Exit App";
+                            ? "上/下: 选择项  |  A: 编辑项 |  B: 返回  |  X: 保存  |  +: 退出"
+                            : "上/下: 选择类别  |  A: 选择类别  |  B: 关闭  |  X: 保存  |  +: 退出";
                     }
                     else {
-                        instructions = "Up/Down: Select Category  |  B: Close  |  X: Save  |  +: Exit App";
+                        instructions = "上/下: 选择类别  |  B: 关闭  |  X: 保存  |  +: 退出";
                     }
                 }
                 else {
-                    instructions = "Arrows: Navigate Grid  |  A: View Details  |  B: Back  |  X: Save  |  +: Exit App";
+                    instructions = "方向键: 导航格子  |  A: 查看详情  |  B: 返回  |  X: 保存  |  +: 退出";
                 }
             }
         } else {
             if (selectedMode == ViewMode::Items) {
-                instructions = "Up/Down: Select Mode  |  L/R: Category  |  A: Enter Detail  |  B: Go Back  |  X: Save  |  +: Exit App";
+                instructions = "上/下: 选择模式  |  L/R: 类别  |  A: 进入详情  |  B: 返回  |  X: 保存  |  +: 退出";
             } else if (selectedMode == ViewMode::Boxes) {
-                instructions = "Up/Down: Select Mode  |  L/R: Change Box  |  A: Enter Detail  |  B: Go Back  |  X: Save  |  +: Exit App";
+                instructions = "上/下: 选择模式  |  L/R: 切换盒子  |  A: 进入详情  |  B: 返回  |  X: 保存  |  +: 退出";
+            } else {
+                instructions = "上/下: 选择模式  |  A: 进入详情  |  B: 返回  |  X: 保存  |  +: 退出";
             }
-            instructions = "Up/Down: Select Mode  |  A: Enter Detail  |  B: Go Back  |  X: Save  |  +: Exit App";
         }
         fb.drawText(50, 680, instructions, Colors::TextDim);
 
