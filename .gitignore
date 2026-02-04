@@ -39,6 +39,7 @@ debug.log
 # Ignore ROMFS and data directories if generated dynamically
 /romfs/
 /data/
+/fonts/
 
 # Ignore CodeQL analysis files
 _codeql_detected_source_root

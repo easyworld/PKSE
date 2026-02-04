@@ -20,6 +20,15 @@ jobs:
       with:
         submodules: recursive
     
+    - name: Build sprites
+      run: make sprites
+    
+    - name: Install Pillow
+      run: pip install Pillow
+    
+    - name: Process Pokemon type images
+      run: python pokemon_type_image_processor.py
+    
     - name: Build project
       run: make all
     
