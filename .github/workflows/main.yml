@@ -24,7 +24,7 @@ jobs:
       run: make sprites
     
     - name: Install Pillow
-      run: pip install Pillow
+      run: pip install Pillow --break-system-packages
     
     - name: Process Pokemon type images
       run: python pokemon_type_image_processor.py
