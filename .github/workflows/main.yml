@@ -1,0 +1,31 @@
+name: Build PKSE
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    
+    container:
+      image: easyworld/atmosphere-build-env:latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        submodules: recursive
+    
+    - name: Build project
+      run: make all
+    
+    - name: Upload artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: PKSE
+        path: PKSE.nro
+        if-no-files-found: error
