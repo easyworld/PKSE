@@ -1,3 +1,10 @@
+# STATE OF THE APPLICATION
+My unpatched switch died mid development of fully integrating Pokemon LGPE, so this is where I stop for now. I am now traveling with my wife, and do not have the ability to get a new unpatched switch or attempt to get it fixed currently. Someone can take on this project if they wish. For now it's dead in the water until I either get a new switch or modchip my current patched switch (after traveling).
+
+For those that don't know, this application cannot be worked on or debugged with an emulator or non-hacked switch, it has to painstakingly be built and copied to a hacked switch every build and every debug attempt. It's quite a lot of effort.
+
+---
+
 # **PKSE - Pokemon Save Editor**
 PKSE is a homebrew application for conveniently editing Pokemon save files on the Nintendo Switch, without having to transfer save files to your PC.
 
