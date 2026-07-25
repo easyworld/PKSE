@@ -92,6 +92,19 @@ namespace Pokemon {
         Pokemon7LGPE(Pokemon7LGPE&&) noexcept = default;
         Pokemon7LGPE& operator=(Pokemon7LGPE&&) noexcept = default;
 
+        /** Deep-copy: re-encrypt the decrypted buffer and rebuild via the encrypted-span ctor.
+         *  Offset 0x00 is the EC/crypto seed (the PID lives separately at 0x18 in LGPE). */
+        std::unique_ptr<Pokemon> clone() const override {
+            uint32_t ec = readUInt32LittleEndian(reinterpret_cast<const uint8_t*>(data.data()));
+            std::byte* enc = encryptArray7LGPE(std::span<const std::byte>(data.data(), dataSize), ec);
+            auto c = std::make_unique<Pokemon7LGPE>(std::span<const std::byte>(enc, dataSize));
+            delete[] enc;
+            return c;
+        }
+
+        /** Storage-format game group (this subclass), NOT the origin Version byte. */
+        Enums::GameVersion getGameGroup() const noexcept override { return Enums::GameVersion::GG; }
+
         // ========================================
         // Core Data Properties (Block A - Growth)
         // ========================================
@@ -106,6 +119,48 @@ namespace Pokemon {
             return readUInt16LittleEndian(reinterpret_cast<const uint8_t*>(data.data() + 0x08));
         }
 
+        /** Sets species (0x08) and recalculates stats. Without this override the base no-op left a
+         *  freshly-CREATED LGPE mon at species 0, so the details editor -- which bails on species 0 --
+         *  never appeared (the create-Pokemon-shows-no-editor bug). */
+        void setSpecies(uint16_t species) noexcept override
+        {
+            writeUInt16LittleEndian(reinterpret_cast<uint8_t*>(data.data() + 0x08), species);
+            recalculateStats();
+            refreshChecksum();
+        }
+
+        /** Core-identity setters, also unwired before (base no-ops), so a CREATED LGPE mon had
+         *  EC / PID / TID / form all zero. EC 0 is the worst: the save's read path treats a zero-EC
+         *  slot as EMPTY, so a created mon would vanish on reload. */
+        void setEncryptionConstant(uint32_t ec) noexcept override
+        { writeUInt32LittleEndian(reinterpret_cast<uint8_t*>(data.data() + 0x00), ec); refreshChecksum(); }
+        void setPID(uint32_t pidValue) noexcept override
+        { writeUInt32LittleEndian(reinterpret_cast<uint8_t*>(data.data() + 0x18), pidValue); refreshChecksum(); }
+        void setId32(uint32_t value) noexcept override
+        { writeUInt32LittleEndian(reinterpret_cast<uint8_t*>(data.data() + 0x0C), value); refreshChecksum(); }
+        /** Form lives in the high 5 bits of 0x1D (bit0 = Fateful, bits1-2 = Gender). */
+        void setForm(uint8_t formValue) noexcept override
+        {
+            uint8_t b = (static_cast<uint8_t>(data[0x1D]) & 0x07) | ((formValue & 0x1F) << 3);
+            data[0x1D] = static_cast<std::byte>(b);
+            recalculateStats();
+            refreshChecksum();
+        }
+
+        /** Fateful-encounter flag -- bit 0 of 0x1D (the byte also holds gender bits 1-2 / form bits 3-7,
+         *  which setGender/setForm leave untouched). */
+        bool isFatefulEncounter() const noexcept override { return (static_cast<uint8_t>(data[0x1D]) & 0x01) != 0; }
+        void setFatefulEncounter(bool value) noexcept override
+        {
+            uint8_t b = (static_cast<uint8_t>(data[0x1D]) & 0xFE) | (value ? 0x01 : 0x00);
+            data[0x1D] = static_cast<std::byte>(b);
+            refreshChecksum();
+        }
+
+        /** Level is EXP-derived; setLevel writes the level's minimum EXP (0x10) and recalcs. Defined in
+         *  the .cpp (needs the growth-rate / EXP tables). Without it the level picker was a no-op here. */
+        void setLevel(uint8_t level) noexcept override;
+
         /**
          * Gets the Pokemon's species name as a string.
          * @return Species name (e.g., "Pikachu", "Eevee")
@@ -119,14 +174,9 @@ namespace Pokemon {
          */
         uint8_t formID() const noexcept override
         {
-            return static_cast<uint8_t>(data[0x1D]);
+            // Byte 0x1D packs Fateful(bit0) + Gender(bits1-2) + Form(bits3-7).
+            return static_cast<uint8_t>(data[0x1D]) >> 3;
         }
-
-        // /**
-        //  * Gets the Pokemon's form name as a string.
-        //  * @return Form name (e.g., "Alolan", "Galarian")
-        //  */
-        // const char* form() const noexcept override;
 
         /**
          * Gets the held item ID.
@@ -138,6 +188,14 @@ namespace Pokemon {
             return readUInt16LittleEndian(reinterpret_cast<const uint8_t*>(data.data() + 0x0A));
         }
 
+        /** Sets the held item id (0x0A). The field exists in PB7; Let's Go doesn't use held items
+         *  in-game, so a non-zero value here is cosmetic/illegal but harmless to the save. */
+        void setHeldItem(uint16_t item) noexcept override
+        {
+            writeUInt16LittleEndian(reinterpret_cast<uint8_t*>(data.data() + 0x0A), item);
+            refreshChecksum();
+        }
+
         /**
          * Gets the Pokemon's form/variation.
          * Location: 0x1D (1 byte)
@@ -145,7 +203,8 @@ namespace Pokemon {
          */
         uint8_t form() const noexcept override
         {
-            return static_cast<uint8_t>(data[0x1D]);
+            // Byte 0x1D packs Fateful(bit0) + Gender(bits1-2) + Form(bits3-7).
+            return static_cast<uint8_t>(data[0x1D]) >> 3;
         }
 
         /**
@@ -168,14 +227,36 @@ namespace Pokemon {
             return readUInt32LittleEndian(reinterpret_cast<const uint8_t*>(data.data() + 0x10));
         }
 
+        /** Sets total EXP (0x10) directly; level() derives from it, so this also drives the level. */
+        void setExp(uint32_t value) noexcept override
+        {
+            writeUInt32LittleEndian(reinterpret_cast<uint8_t*>(data.data() + 0x10), value);
+            recalculateStats();
+            refreshChecksum();
+        }
+
         /**
          * Gets the Pokemon's ability ID.
-         * Location: 0x14 (2 bytes)
+         * Location: 0x14 (1 byte — PB7 ability is a u8; 0x15 holds AbilityNumber + flags).
          * @return Ability ID
          */
         uint16_t ability() const noexcept override
         {
-            return readUInt16LittleEndian(reinterpret_cast<const uint8_t*>(data.data() + 0x14));
+            return static_cast<uint8_t>(data[0x14]);
+        }
+        void setAbility(uint16_t value) noexcept override
+        {
+            data[0x14] = static_cast<std::byte>(value & 0xFF);
+            refreshChecksum();
+        }
+
+        /** Ability slot (1 / 2 / H). Location: 0x15 bits 0-2. */
+        uint8_t abilityNumber() const noexcept override { return static_cast<uint8_t>(data[0x15]) & 0x07; }
+        void setAbilityNumber(uint8_t number) noexcept override
+        {
+            uint8_t b = (static_cast<uint8_t>(data[0x15]) & ~0x07) | (number & 0x07);
+            data[0x15] = static_cast<std::byte>(b);
+            refreshChecksum();
         }
 
         /**
@@ -187,6 +268,33 @@ namespace Pokemon {
         uint8_t nature() const noexcept override
         {
             return static_cast<uint8_t>(data[0x1C]);
+        }
+
+        /** Sets the nature (0x1C). In Let's Go this is also the stat nature, so recalc stats. */
+        void setNature(uint8_t value) noexcept override
+        {
+            data[0x1C] = static_cast<std::byte>(value);
+            recalculateStats();
+            refreshChecksum();
+        }
+
+        /** Sets gender (0=Male, 1=Female, 2=Genderless). Location: 0x1D bits 1-2 (preserves
+         *  Fateful bit0 + Form bits3-7). */
+        void setGender(uint8_t value) noexcept override
+        {
+            uint8_t b = (static_cast<uint8_t>(data[0x1D]) & ~0x06) | ((value & 0x03) << 1);
+            data[0x1D] = static_cast<std::byte>(b);
+            refreshChecksum();
+        }
+
+        /**
+         * Gets the nature used for stat calculation.
+         * In Let's Go, this is the same as nature() (no separate stat nature).
+         * @return Nature ID (0-24)
+         */
+        uint8_t statNature() const noexcept override
+        {
+            return nature();
         }
 
         // ========================================
@@ -206,15 +314,13 @@ namespace Pokemon {
 
         /**
          * Gets the Personality ID (PID).
-         * Location: 0x1C (4 bytes) - Note: In Pokemon7LGPE, nature byte is part of PID location
-         * For compatibility, we read the full 32-bit value near nature
+         * Location: 0x18 (4 bytes). This is SEPARATE from the Encryption Constant (0x00);
+         * the EC is only the crypto seed. Shininess is derived from the PID.
          * @return PID value
          */
         uint32_t pid() const noexcept override
         {
-            // Pokemon7LGPE doesn't have a dedicated PID field like PK8
-            // Use Encryption Constant as PID for compatibility
-            return encryptionConstant();
+            return readUInt32LittleEndian(reinterpret_cast<const uint8_t*>(data.data() + 0x18));
         }
 
         // ========================================
@@ -233,6 +339,79 @@ namespace Pokemon {
             return getString(nicknameStart, 26);
         }
 
+        /** Sets the nickname (0x40, 26 bytes / 12 chars). Does not change the isNicknamed flag. Was
+         *  unwired (base no-op), so a created LGPE mon showed a BLANK name in-game. */
+        void setNickname(const std::u16string& value) noexcept override
+        {
+            setString(reinterpret_cast<uint8_t*>(data.data() + 0x40), 26, value, 12);
+            refreshChecksum();
+        }
+        /** "Has a custom nickname" flag -- bit 31 of the packed IV32 (0x74). */
+        bool isNicknamed() const noexcept override { return (iv32() & 0x80000000u) != 0; }
+        void setIsNicknamed(bool nicknamed) noexcept override
+        {
+            uint32_t iv = iv32();
+            if (nicknamed) iv |= 0x80000000u; else iv &= ~0x80000000u;
+            writeUInt32LittleEndian(reinterpret_cast<uint8_t*>(data.data() + 0x74), iv);
+            refreshChecksum();
+        }
+
+        // ========================================
+        // Moves (Block B) — Let's Go layout (differs from Gen 8/9)
+        // ========================================
+
+        /** Move ID in a slot. Location: 0x5A + slot*2. */
+        uint16_t move(int slot) const noexcept override
+        {
+            if (slot < 0 || slot > 3) return 0;
+            return readUInt16LittleEndian(reinterpret_cast<const uint8_t*>(data.data() + 0x5A + slot * 2));
+        }
+        void setMove(int slot, uint16_t moveID) noexcept override
+        {
+            if (slot < 0 || slot > 3) return;
+            writeUInt16LittleEndian(reinterpret_cast<uint8_t*>(data.data() + 0x5A + slot * 2), moveID);
+            refreshChecksum();
+        }
+
+        /** Current PP of a move slot. Location: 0x62 + slot. */
+        uint8_t movePP(int slot) const noexcept override
+        {
+            if (slot < 0 || slot > 3) return 0;
+            return static_cast<uint8_t>(data[0x62 + slot]);
+        }
+        void setMovePP(int slot, uint8_t pp) noexcept override
+        {
+            if (slot < 0 || slot > 3) return;
+            data[0x62 + slot] = static_cast<std::byte>(pp);
+            refreshChecksum();
+        }
+
+        /** PP Ups applied to a move slot. Location: 0x66 + slot. */
+        uint8_t movePPUps(int slot) const noexcept override
+        {
+            if (slot < 0 || slot > 3) return 0;
+            return static_cast<uint8_t>(data[0x66 + slot]);
+        }
+        void setMovePPUps(int slot, uint8_t ppUps) noexcept override
+        {
+            if (slot < 0 || slot > 3) return;
+            data[0x66 + slot] = static_cast<std::byte>(ppUps);
+            refreshChecksum();
+        }
+
+        /** Relearn move ID. Location: 0x6A + slot*2. */
+        uint16_t relearnMove(int slot) const noexcept override
+        {
+            if (slot < 0 || slot > 3) return 0;
+            return readUInt16LittleEndian(reinterpret_cast<const uint8_t*>(data.data() + 0x6A + slot * 2));
+        }
+        void setRelearnMove(int slot, uint16_t moveID) noexcept override
+        {
+            if (slot < 0 || slot > 3) return;
+            writeUInt16LittleEndian(reinterpret_cast<uint8_t*>(data.data() + 0x6A + slot * 2), moveID);
+            refreshChecksum();
+        }
+
         // ========================================
         // Block C/D (Misc)
         // ========================================
@@ -247,6 +426,54 @@ namespace Pokemon {
         {
             return static_cast<uint8_t>(data[0xCA]);
         }
+        void setFriendship(uint8_t value) noexcept override { data[0xCA] = static_cast<std::byte>(value); refreshChecksum(); }
+
+        // ---- OT / handler / origin / met / ball / language (PB7 offsets per PKHeX PB7.cs) ----
+        /** Original Trainer name (0xB0, 26 bytes UTF-16). */
+        std::u16string otName() const override { return getString(reinterpret_cast<const uint8_t*>(data.data() + 0xB0), 26); }
+        void setOTName(const std::u16string& value) noexcept override { setString(reinterpret_cast<uint8_t*>(data.data() + 0xB0), 26, value, 12); refreshChecksum(); }
+        /** Handling (current) Trainer name (0x78, 26 bytes). */
+        std::u16string htName() const override { return getString(reinterpret_cast<const uint8_t*>(data.data() + 0x78), 26); }
+        void setHTName(const std::u16string& value) noexcept override { setString(reinterpret_cast<uint8_t*>(data.data() + 0x78), 26, value, 12); refreshChecksum(); }
+        /** Current handler flag (0 = OT active, 1 = HT active). Location: 0x93. */
+        uint8_t currentHandler() const noexcept override { return static_cast<uint8_t>(data[0x93]); }
+        void setCurrentHandler(uint8_t value) noexcept override { data[0x93] = static_cast<std::byte>(value); refreshChecksum(); }
+        /** Game of origin (Version byte). Location: 0xDF. */
+        uint8_t originGame() const noexcept override { return static_cast<uint8_t>(data[0xDF]); }
+        void setOriginGame(uint8_t value) noexcept override { data[0xDF] = static_cast<std::byte>(value); refreshChecksum(); }
+        /** Language id. Location: 0xE3. */
+        uint8_t language() const noexcept override { return static_cast<uint8_t>(data[0xE3]); }
+        void setLanguage(uint8_t value) noexcept override { data[0xE3] = static_cast<std::byte>(value); refreshChecksum(); }
+        /** Poke Ball id. Location: 0xDC. */
+        uint8_t ball() const noexcept override { return static_cast<uint8_t>(data[0xDC]); }
+        void setBall(uint8_t value) noexcept override { data[0xDC] = static_cast<std::byte>(value); refreshChecksum(); }
+        /** Met location. Location: 0xDA (2 bytes). */
+        uint16_t metLocation() const noexcept override { return readUInt16LittleEndian(reinterpret_cast<const uint8_t*>(data.data() + 0xDA)); }
+        void setMetLocation(uint16_t value) noexcept override { writeUInt16LittleEndian(reinterpret_cast<uint8_t*>(data.data() + 0xDA), value); refreshChecksum(); }
+        /** Egg location. Location: 0xD8 (2 bytes). */
+        uint16_t eggLocation() const noexcept override { return readUInt16LittleEndian(reinterpret_cast<const uint8_t*>(data.data() + 0xD8)); }
+        void setEggLocation(uint16_t value) noexcept override { writeUInt16LittleEndian(reinterpret_cast<uint8_t*>(data.data() + 0xD8), value); refreshChecksum(); }
+
+        /** Met date (0xD4-0xD6) and received-Egg date (0xD1-0xD3); the year byte is years-since-2000.
+         *  These were unwired (base no-ops), so a created LGPE mon's met date stayed 0/0/2000. */
+        uint8_t metYear()  const noexcept override { return static_cast<uint8_t>(data[0xD4]); }
+        void setMetYear(uint8_t value)  noexcept override { data[0xD4] = static_cast<std::byte>(value); refreshChecksum(); }
+        uint8_t metMonth() const noexcept override { return static_cast<uint8_t>(data[0xD5]); }
+        void setMetMonth(uint8_t value) noexcept override { data[0xD5] = static_cast<std::byte>(value); refreshChecksum(); }
+        uint8_t metDay()   const noexcept override { return static_cast<uint8_t>(data[0xD6]); }
+        void setMetDay(uint8_t value)   noexcept override { data[0xD6] = static_cast<std::byte>(value); refreshChecksum(); }
+        uint8_t eggYear()  const noexcept override { return static_cast<uint8_t>(data[0xD1]); }
+        void setEggYear(uint8_t value)  noexcept override { data[0xD1] = static_cast<std::byte>(value); refreshChecksum(); }
+        uint8_t eggMonth() const noexcept override { return static_cast<uint8_t>(data[0xD2]); }
+        void setEggMonth(uint8_t value) noexcept override { data[0xD2] = static_cast<std::byte>(value); refreshChecksum(); }
+        uint8_t eggDay()   const noexcept override { return static_cast<uint8_t>(data[0xD3]); }
+        void setEggDay(uint8_t value)   noexcept override { data[0xD3] = static_cast<std::byte>(value); refreshChecksum(); }
+        /** Met level (bits 0-6). Location: 0xDD. */
+        uint8_t metLevel() const noexcept override { return static_cast<uint8_t>(data[0xDD]) & 0x7F; }
+        void setMetLevel(uint8_t value) noexcept override { uint8_t b = (static_cast<uint8_t>(data[0xDD]) & 0x80) | (value & 0x7F); data[0xDD] = static_cast<std::byte>(b); refreshChecksum(); }
+        /** OT gender (bit 7 of 0xDD). */
+        uint8_t otGender() const noexcept override { return (static_cast<uint8_t>(data[0xDD]) >> 7) & 0x01; }
+        void setOTGender(uint8_t value) noexcept override { uint8_t b = (static_cast<uint8_t>(data[0xDD]) & 0x7F) | ((value & 0x01) << 7); data[0xDD] = static_cast<std::byte>(b); refreshChecksum(); }
 
         /**
          * Checks if the Pokemon is an egg.
@@ -255,8 +482,27 @@ namespace Pokemon {
          */
         bool isEgg() const noexcept override
         {
-            // Pokemon7LGPE egg flag location (simplified)
             return false; // Let's Go doesn't have eggs
+        }
+
+        /**
+         * Checks if the Pokemon is infected with Pokerus.
+         * Let's Go does not have the Pokerus mechanic.
+         * @return false (always, Pokerus doesn't exist in Let's Go)
+         */
+        bool isPokerusInfected() const noexcept override
+        {
+            return false; // Let's Go doesn't have Pokerus
+        }
+
+        /**
+         * Checks if the Pokemon has been cured of Pokerus.
+         * Let's Go does not have the Pokerus mechanic.
+         * @return false (always, Pokerus doesn't exist in Let's Go)
+         */
+        bool isPokerusCured() const noexcept override
+        {
+            return false; // Let's Go doesn't have Pokerus
         }
 
         // ========================================
@@ -275,15 +521,15 @@ namespace Pokemon {
             if (trainerID32 == 0) {
                 return false;
             }
-            uint32_t ec = encryptionConstant();
-            uint32_t xorComponent = (ec ^ trainerID32);
+            // Shininess is PID-based (Gen 6+): shiny iff (TID^SID^PIDhi^PIDlo) < 16.
+            uint32_t p = pid();
+            uint32_t xorComponent = (p ^ trainerID32);
             uint32_t xorResult = (xorComponent ^ (xorComponent >> 16)) & 0xFFFF;
             return xorResult < 16;
         }
 
         /**
          * Gets the Pokemon's gender.
-         * Gender is determined by encryption constant and species gender ratio.
          * @return 0 = Male, 1 = Female, 2 = Genderless
          */
         uint8_t gender() const noexcept override;
@@ -340,19 +586,25 @@ namespace Pokemon {
          * Max 200 per stat, earned by catching Pokemon of the same species.
          * Each AV point directly adds to the stat (different from EV formula).
          */
-        uint8_t avHP() const noexcept  { return static_cast<uint8_t>(data[0x24]); }
-        uint8_t avATK() const noexcept { return static_cast<uint8_t>(data[0x25]); }
-        uint8_t avDEF() const noexcept { return static_cast<uint8_t>(data[0x26]); }
-        uint8_t avSPE() const noexcept { return static_cast<uint8_t>(data[0x27]); }
-        uint8_t avSPA() const noexcept { return static_cast<uint8_t>(data[0x28]); }
-        uint8_t avSPD() const noexcept { return static_cast<uint8_t>(data[0x29]); }
+        uint8_t avHP() const noexcept override  { return static_cast<uint8_t>(data[0x24]); }
+        uint8_t avATK() const noexcept override { return static_cast<uint8_t>(data[0x25]); }
+        uint8_t avDEF() const noexcept override { return static_cast<uint8_t>(data[0x26]); }
+        uint8_t avSPE() const noexcept override { return static_cast<uint8_t>(data[0x27]); }
+        uint8_t avSPA() const noexcept override { return static_cast<uint8_t>(data[0x28]); }
+        uint8_t avSPD() const noexcept override { return static_cast<uint8_t>(data[0x29]); }
+
+        /**
+         * Checks if this Pokemon format uses Awakening Values.
+         * @return true for Let's Go Pokemon
+         */
+        bool hasAwakeningValues() const noexcept override { return true; }
 
         /**
          * Sets an Awakening Value for a specific stat.
          * @param statIndex 0=HP, 1=ATK, 2=DEF, 3=SPE, 4=SPA, 5=SPD
          * @param value AV value (0-200)
          */
-        void setAV(int statIndex, uint8_t value) noexcept {
+        void setAV(int statIndex, uint8_t value) noexcept override {
             if (statIndex >= 0 && statIndex < 6 && value <= 200) {
                 data[0x24 + statIndex] = static_cast<std::byte>(value);
                 recalculateStats();
@@ -468,14 +720,12 @@ namespace Pokemon {
         uint8_t level() const noexcept override;
 
         /**
-         * Battle stats in Let's Go are calculated differently:
-         * - Include Awakening Value (AV) bonuses
-         * - Include friendship bonus (up to +10% at max friendship)
-         * - Standard IV/EV calculations still apply
-         *
-         * For simplicity, we'll calculate basic stats here.
-         * Full Let's Go formula is more complex.
+         * Battle stats in Let's Go = friendship% * ( nature% * ((2*Base + IV) * Level/100 + 5) ) + AV,
+         * with HP the usual (no nature / friendship). computeStat() is the ONE implementation; the six
+         * getters and recalculateStats() (which writes the stored tail the game reads) both use it so the
+         * display can't drift from the game. idx 0..5 = HP, Atk, Def, Spe, SpA, SpD.
          */
+        uint16_t computeStat(int idx) const noexcept;
         uint16_t statHPMax() const noexcept override;
         uint16_t statATK() const noexcept override;
         uint16_t statDEF() const noexcept override;

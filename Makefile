@@ -39,12 +39,16 @@ include $(DEVKITPRO)/libnx/switch_rules
 #---------------------------------------------------------------------------------
 TARGET		:=	PKSE
 BUILD		:=	build
-SOURCES		:=	src src/Pokemon src/Encryption src/Enums src/UI src/UI/Panels src/UI/Dialogs src/UI/Modals src/Trainer src/Names src/Utils src/Save
+SOURCES		:=	src src/Pokemon src/Encryption src/Enums src/UI src/UI/Panels src/UI/Dialogs src/UI/Modals src/Trainer src/Names src/Utils src/Save src/Legality src/Conversion nanovg
 DATA		:=	data
-INCLUDES	:=	include
+INCLUDES	:=	include nanovg
 APP_TITLE   :=  PKSE
 APP_AUTHOR  :=  Kiasta
-APP_VERSION :=  0.0.3 		# TODO: We need to create a better way to update the version, probably setup a github action to automate releases
+# THE version. Globals.h derives VERSION_STRING from this via -DPKSE_VERSION below, so this is the
+# single source of truth -- the two can no longer drift.
+# NOTE: no trailing comment on the assignment line. Make keeps trailing whitespace in a value, so
+# "0.0.3 \t\t# ..." would have baked spaces into the .nacp version and the -D define.
+APP_VERSION :=	1.0
 ROMFS		:=	romfs
 ICON		:=  icon.jpg
 
@@ -53,10 +57,25 @@ ICON		:=  icon.jpg
 #---------------------------------------------------------------------------------
 ARCH	:=	-march=armv8-a+crc+crypto -mtune=cortex-a57 -mtp=soft -fPIE
 
+# NanoVG: disable its stb_image (we feed RGBA buffers via nvgCreateImageRGBA, and SpriteManager
+# already owns the STB_IMAGE_IMPLEMENTATION) — avoids duplicate symbols. Keeps fontstash for text.
+DEFINES	:=	-DNVG_NO_STB -DPKSE_VERSION='"$(APP_VERSION)"'
+
+#---------------------------------------------------------------------------------
+# SDL2 provides the window, GL context and input ONLY -- rendering is NanoVG on GL,
+# PNG decoding is stb_image and text is NanoVG's own font atlas, so SDL2_image and
+# SDL2_ttf are no longer linked. Resolve the exact include paths and static link chain
+# from devkitPro's pkg-config so we don't hand-maintain the (long, order-sensitive)
+# dependency list.
+#---------------------------------------------------------------------------------
+SDL_PKGCONFIG	:=	$(DEVKITPRO)/portlibs/switch/bin/aarch64-none-elf-pkg-config
+SDL_CFLAGS	:=	$(shell $(SDL_PKGCONFIG) --cflags sdl2)
+SDL_LIBS	:=	$(shell $(SDL_PKGCONFIG) --libs --static sdl2)
+
 CFLAGS	:=	-g -Wall -O2 -ffunction-sections \
 			$(ARCH) $(DEFINES)
 
-CFLAGS	+=	$(INCLUDE) -D__SWITCH__ `$(PREFIX)pkg-config --cflags freetype2`
+CFLAGS	+=	$(INCLUDE) -D__SWITCH__ $(SDL_CFLAGS)
 
 CXXFLAGS	:= $(CFLAGS) -fno-rtti -fno-exceptions
 
@@ -65,7 +84,12 @@ CXXFLAGS	+=	-std=c++20
 ASFLAGS	:=	-g $(ARCH)
 LDFLAGS	=	-specs=$(DEVKITPRO)/libnx/switch.specs -g $(ARCH) -Wl,-Map,$(notdir $*.map)
 
-LIBS	:= -lnx `$(PREFIX)pkg-config --libs freetype2` -lz -llz4
+# SDL_LIBS already pulls in -lnx -lz -lm and the EGL/mesa/freetype/png/jpeg/webp
+# chain; we only need to add the project's own extra libs (lz4).
+# NanoVG renders through OpenGL 4.3 core loaded by switch-glad. -lglad must come BEFORE the
+# EGL/mesa chain (which SDL_LIBS ends with: -lEGL -lglapi -ldrm_nouveau -lnx) so the static
+# linker resolves glad's eglGetProcAddress reference.
+LIBS	:= -lglad $(SDL_LIBS) -llz4 -lm
 
 #---------------------------------------------------------------------------------
 # list of directories containing libraries, this must be the top level containing
@@ -164,8 +188,8 @@ endif
 # Default target when you just run 'make'. Only builds.
 default: $(BUILD)
 
-# Target when you run 'make all'. Downloads sprites, types, forms then builds
-all: sprites types forms $(BUILD)
+# Target when you run 'make all'. Downloads sprites, types, forms, HD sprites, fonts then builds
+all: sprites types forms hdsprites hdforms fonts $(BUILD)
 
 #---------------------------------------------------------------------------------
 # Sprite and icon download integration
@@ -337,6 +361,120 @@ forms:
 		fi'
 
 .PHONY: forms
+
+#---------------------------------------------------------------------------------
+# UI font download (Nunito, SIL Open Font License — free to bundle/redistribute)
+#---------------------------------------------------------------------------------
+FONT_DIR         := romfs/fonts
+FONT_FILE        := $(FONT_DIR)/Nunito.ttf
+FONT_URL         := https://github.com/google/fonts/raw/main/ofl/nunito/Nunito%5Bwght%5D.ttf
+# Fallback fonts for glyphs Nunito lacks. Noto Sans SC covers Simplified Chinese,
+# Symbols covers gender ♂/♀ + star ★, and Symbols2 covers the card-suit heart ♥.
+CJK_FONT_FILE     := $(FONT_DIR)/NotoSansSC.ttf
+CJK_FONT_URL      := https://github.com/google/fonts/raw/main/ofl/notosanssc/NotoSansSC%5Bwght%5D.ttf
+SYMBOL_FONT_FILE  := $(FONT_DIR)/NotoSansSymbols.ttf
+SYMBOL_FONT_URL   := https://github.com/google/fonts/raw/main/ofl/notosanssymbols/NotoSansSymbols%5Bwght%5D.ttf
+SYMBOL2_FONT_FILE := $(FONT_DIR)/NotoSansSymbols2.ttf
+SYMBOL2_FONT_URL  := https://github.com/google/fonts/raw/main/ofl/notosanssymbols2/NotoSansSymbols2-Regular.ttf
+
+# Download $(2) to $(1) if missing. $(3) = human label.
+define fetch_font
+	@if [ -f "$(1)" ] && [ -s "$(1)" ]; then \
+		printf "%s already present.\n" "$(3)"; \
+	else \
+		printf "Downloading %s (SIL OFL)...\n" "$(3)"; \
+		if command -v curl >/dev/null 2>&1; then \
+			curl -fsSL -g "$(2)" -o "$(1)"; \
+		else \
+			wget -q "$(2)" -O "$(1)"; \
+		fi || { printf "Failed to download %s\n" "$(3)"; exit 1; }; \
+	fi
+endef
+
+fonts:
+	@printf "Checking UI fonts...\n"
+	@mkdir -p "$(FONT_DIR)"
+	$(call fetch_font,$(FONT_FILE),$(FONT_URL),Nunito)
+	$(call fetch_font,$(CJK_FONT_FILE),$(CJK_FONT_URL),Noto Sans SC)
+	$(call fetch_font,$(SYMBOL_FONT_FILE),$(SYMBOL_FONT_URL),Noto Sans Symbols)
+	$(call fetch_font,$(SYMBOL2_FONT_FILE),$(SYMBOL2_FONT_URL),Noto Sans Symbols 2)
+
+.PHONY: fonts
+
+#---------------------------------------------------------------------------------
+# HD sprite download — Pokemon HOME renders (transparent 256px PNGs) from pokemondb.
+# Fetched BY DEX NUMBER using the name map in tools/hd_sprite_names.txt (line N = dex N),
+# saved as <id>.png / <id>s.png. 256px so the big editor/summary renders stay crisp (drawn up to
+# ~196px). Preferred over the 96px PokeAPI sprites at runtime; any that 404 fall back to the 96px.
+#---------------------------------------------------------------------------------
+HD_SPRITE_DIR := romfs/sprites/pokemon_hd
+HD_NAMES      := tools/hd_sprite_names.txt
+HD_BASE       := https://img.pokemondb.net/sprites/home
+
+hdsprites:
+	@printf "Checking and downloading missing HD Pokemon sprites...\n"
+	@mkdir -p "$(HD_SPRITE_DIR)"
+	@if [ ! -f "$(HD_NAMES)" ]; then printf "Missing $(HD_NAMES) -- cannot fetch HD sprites\n"; exit 1; fi
+	@awk '{ print NR "|" $$0 }' "$(HD_NAMES)" | \
+	xargs -P $(MAX_JOBS) -I{} sh -c '\
+		pair="{}"; id="$${pair%%|*}"; name="$${pair#*|}"; \
+		dir="$(HD_SPRITE_DIR)"; base="$(HD_BASE)"; \
+		normal="$$dir/$$id.png"; shiny="$$dir/$${id}s.png"; \
+		if [ ! -f "$$normal" ]; then \
+			curl -fsSL "$$base/normal/$$name.png" -o "$$normal" 2>/dev/null; \
+			[ -s "$$normal" ] || rm -f "$$normal" 2>/dev/null; \
+		fi; \
+		if [ ! -f "$$shiny" ]; then \
+			curl -fsSL "$$base/shiny/$$name.png" -o "$$shiny" 2>/dev/null; \
+			[ -s "$$shiny" ] || rm -f "$$shiny" 2>/dev/null; \
+		fi'
+	@printf "HD sprites present: %s files.\n" "$$(ls -1 $(HD_SPRITE_DIR) 2>/dev/null | wc -l)"
+
+.PHONY: hdsprites
+
+#---------------------------------------------------------------------------------
+# HD form sprites -- regional variants and alternate forms (task #13).
+#
+# Same source and size as the base-species set above: pokemondb HOME renders at 256px.
+# PokeAPI would have been simpler (it keys by the same numeric ids as FORM_SPRITE_IDS,
+# so no name map at all) but only serves 512px -- 4x the bytes and 4x the DECODED memory
+# for no visible gain, since the UI draws at most ~196px and the sprite cache does not
+# evict. So forms use pokemondb too, via a generated id -> name map.
+#
+# tools/gen_hdform_names.py builds that map from PokeAPI's own form names and FETCHES
+# every candidate URL before accepting it -- a trimmed name very often exists but is a
+# different Pokemon ('tauros-paldea-combat-breed' -> 'tauros' is a valid URL and the
+# wrong sprite), so it refuses to emit a partial or region-dropping map.
+#
+# Presence is judged on the NORMAL sprite alone: a few forms (the Pikachu cap forms)
+# have no shiny render, so requiring both would re-attempt permanent 404s every run.
+#
+# SpriteManager already prefers sprites/pokemon_hd/<id>.png and falls back to the 96px
+# copy, so these need no code change: dropping the files in IS the feature.
+#---------------------------------------------------------------------------------
+HD_FORM_NAMES := tools/hd_form_names.txt
+HD_FORM_BASE  := https://img.pokemondb.net/sprites/home
+
+hdforms:
+	@printf "Checking and downloading missing HD form sprites...\n"
+	@mkdir -p "$(HD_SPRITE_DIR)"
+	@if [ ! -f "$(HD_FORM_NAMES)" ]; then printf "Missing $(HD_FORM_NAMES) - run: python tools/gen_hdform_names.py\n"; exit 1; fi
+	@grep -v '^#' "$(HD_FORM_NAMES)" | \
+	xargs -P $(MAX_JOBS) -I{} sh -c '\
+		pair="{}"; id="$${pair%%|*}"; name="$${pair#*|}"; \
+		dir="$(HD_SPRITE_DIR)"; base="$(HD_FORM_BASE)"; \
+		normal="$$dir/$$id.png"; shiny="$$dir/$${id}s.png"; \
+		if [ ! -f "$$normal" ]; then \
+			curl -fsSL "$$base/normal/$$name.png" -o "$$normal" 2>/dev/null; \
+			[ -s "$$normal" ] || rm -f "$$normal" 2>/dev/null; \
+		fi; \
+		if [ ! -f "$$shiny" ]; then \
+			curl -fsSL "$$base/shiny/$$name.png" -o "$$shiny" 2>/dev/null; \
+			[ -s "$$shiny" ] || rm -f "$$shiny" 2>/dev/null; \
+		fi'
+	@printf "HD sprite dir now holds %s files.\n" "$$(ls -1 $(HD_SPRITE_DIR) 2>/dev/null | wc -l)"
+
+.PHONY: hdforms
 
 #---------------------------------------------------------------------------------
 .PHONY: $(BUILD) clean all

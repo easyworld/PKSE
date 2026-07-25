@@ -1,383 +1,633 @@
-<?xml version="1.0" encoding="utf-8"?>
+﻿<?xml version="1.0" encoding="utf-8"?>
 <Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup>
-    <Filter Include="Source Files">
-      <UniqueIdentifier>{4FC737F1-C7A5-4376-A066-2A32D752A2FF}</UniqueIdentifier>
-      <Extensions>cpp;c;cc;cxx;c++;cppm;ixx;def;odl;idl;hpj;bat;asm;asmx</Extensions>
+    <Filter Include="include">
+      <UniqueIdentifier>{9ced977d-7ea5-4838-954f-f0e468e3b03b}</UniqueIdentifier>
     </Filter>
-    <Filter Include="Header Files">
-      <UniqueIdentifier>{93995380-89BD-4b04-88EB-625FBE52EBFB}</UniqueIdentifier>
-      <Extensions>h;hh;hpp;hxx;h++;hm;inl;inc;ipp;xsd</Extensions>
+    <Filter Include="include\Conversion">
+      <UniqueIdentifier>{b382108d-a7b6-43a2-8509-2f9de918001b}</UniqueIdentifier>
     </Filter>
-    <Filter Include="Source Files\Encryption">
-      <UniqueIdentifier>{8B7E1A2C-3D4E-5F6A-7B8C-9D0E1F2A3B4C}</UniqueIdentifier>
+    <Filter Include="include\Encryption">
+      <UniqueIdentifier>{56ffb167-ac7f-4bd2-b5e6-36ccb148519e}</UniqueIdentifier>
     </Filter>
-    <Filter Include="Source Files\Enums">
-      <UniqueIdentifier>{1A2B3C4D-5E6F-7A8B-9C0D-1E2F3A4B5C6D}</UniqueIdentifier>
+    <Filter Include="include\Enums">
+      <UniqueIdentifier>{b4ec5b2f-23ac-4331-a6fd-a5d52c286be4}</UniqueIdentifier>
     </Filter>
-    <Filter Include="Source Files\Names">
-      <UniqueIdentifier>{2B3C4D5E-6F7A-8B9C-0D1E-2F3A4B5C6D7E}</UniqueIdentifier>
+    <Filter Include="include\Legality">
+      <UniqueIdentifier>{b2c4f276-d5a0-4df9-80db-36b89b1599c4}</UniqueIdentifier>
     </Filter>
-    <Filter Include="Source Files\Pokemon">
-      <UniqueIdentifier>{3C4D5E6F-7A8B-9C0D-1E2F-3A4B5C6D7E8F}</UniqueIdentifier>
+    <Filter Include="include\Libs">
+      <UniqueIdentifier>{40c5e61f-20cc-4ca3-b233-d3a382b512fb}</UniqueIdentifier>
     </Filter>
-    <Filter Include="Source Files\Save">
-      <UniqueIdentifier>{4D5E6F7A-8B9C-0D1E-2F3A-4B5C6D7E8F9A}</UniqueIdentifier>
+    <Filter Include="include\Names">
+      <UniqueIdentifier>{74aa33f1-fabc-4768-9f66-eabd9cb8f81c}</UniqueIdentifier>
     </Filter>
-    <Filter Include="Source Files\Trainer">
-      <UniqueIdentifier>{5E6F7A8B-9C0D-1E2F-3A4B-5C6D7E8F9A0B}</UniqueIdentifier>
+    <Filter Include="include\Pokemon">
+      <UniqueIdentifier>{21dabca5-2d2a-4618-8622-3f7d138b0ea4}</UniqueIdentifier>
     </Filter>
-    <Filter Include="Source Files\UI">
-      <UniqueIdentifier>{6F7A8B9C-0D1E-2F3A-4B5C-6D7E8F9A0B1C}</UniqueIdentifier>
+    <Filter Include="include\Save">
+      <UniqueIdentifier>{0c1a1100-2cc3-4d62-af5c-827b11a878fc}</UniqueIdentifier>
     </Filter>
-    <Filter Include="Source Files\UI\Dialogs">
-      <UniqueIdentifier>{7A8B9C0D-1E2F-3A4B-5C6D-7E8F9A0B1C2D}</UniqueIdentifier>
+    <Filter Include="include\Trainer">
+      <UniqueIdentifier>{ba0a37b6-c1eb-4ba7-a67c-1f67062571f2}</UniqueIdentifier>
     </Filter>
-    <Filter Include="Source Files\UI\Modals">
-      <UniqueIdentifier>{8B9C0D1E-2F3A-4B5C-6D7E-8F9A0B1C2D3E}</UniqueIdentifier>
+    <Filter Include="include\UI">
+      <UniqueIdentifier>{a299b1a7-8cef-4f6e-a461-e8947bd04962}</UniqueIdentifier>
     </Filter>
-    <Filter Include="Source Files\UI\Panels">
-      <UniqueIdentifier>{9C0D1E2F-3A4B-5C6D-7E8F-9A0B1C2D3E4F}</UniqueIdentifier>
+    <Filter Include="include\UI\Dialogs">
+      <UniqueIdentifier>{c005f802-fbea-48b8-a6e9-a2870eb7f57f}</UniqueIdentifier>
     </Filter>
-    <Filter Include="Source Files\Utils">
-      <UniqueIdentifier>{0D1E2F3A-4B5C-6D7E-8F9A-0B1C2D3E4F5A}</UniqueIdentifier>
+    <Filter Include="include\UI\Modals">
+      <UniqueIdentifier>{2d834dcb-bca7-4729-bff9-de9515c1e1b3}</UniqueIdentifier>
     </Filter>
-    <Filter Include="Header Files\Encryption">
-      <UniqueIdentifier>{1E2F3A4B-5C6D-7E8F-9A0B-1C2D3E4F5A6B}</UniqueIdentifier>
+    <Filter Include="include\UI\Panels">
+      <UniqueIdentifier>{074e50ba-92ad-438a-91da-914010eb05ff}</UniqueIdentifier>
     </Filter>
-    <Filter Include="Header Files\Enums">
-      <UniqueIdentifier>{2F3A4B5C-6D7E-8F9A-0B1C-2D3E4F5A6B7C}</UniqueIdentifier>
+    <Filter Include="include\Utils">
+      <UniqueIdentifier>{c977b7b9-5f74-4466-a15a-79d88b110246}</UniqueIdentifier>
     </Filter>
-    <Filter Include="Header Files\Names">
-      <UniqueIdentifier>{3A4B5C6D-7E8F-9A0B-1C2D-3E4F5A6B7C8D}</UniqueIdentifier>
+    <Filter Include="nanovg">
+      <UniqueIdentifier>{4ba3baa3-e17c-4ac1-8427-e631c799f0ca}</UniqueIdentifier>
     </Filter>
-    <Filter Include="Header Files\Pokemon">
-      <UniqueIdentifier>{4B5C6D7E-8F9A-0B1C-2D3E-4F5A6B7C8D9E}</UniqueIdentifier>
+    <Filter Include="src">
+      <UniqueIdentifier>{aac7b3c3-feaa-460e-98c8-da98b9e30343}</UniqueIdentifier>
     </Filter>
-    <Filter Include="Header Files\Save">
-      <UniqueIdentifier>{5C6D7E8F-9A0B-1C2D-3E4F-5A6B7C8D9E0F}</UniqueIdentifier>
+    <Filter Include="src\Conversion">
+      <UniqueIdentifier>{6c356ac8-1545-42db-821a-7a5acbafad89}</UniqueIdentifier>
     </Filter>
-    <Filter Include="Header Files\Trainer">
-      <UniqueIdentifier>{6D7E8F9A-0B1C-2D3E-4F5A-6B7C8D9E0F1A}</UniqueIdentifier>
+    <Filter Include="src\Encryption">
+      <UniqueIdentifier>{5a12b008-978d-4baa-ad23-8b4747e21d25}</UniqueIdentifier>
     </Filter>
-    <Filter Include="Header Files\UI">
-      <UniqueIdentifier>{7E8F9A0B-1C2D-3E4F-5A6B-7C8D9E0F1A2B}</UniqueIdentifier>
+    <Filter Include="src\Enums">
+      <UniqueIdentifier>{7d395680-e2e7-4734-ab79-a175a09fe7e1}</UniqueIdentifier>
     </Filter>
-    <Filter Include="Header Files\UI\Dialogs">
-      <UniqueIdentifier>{8F9A0B1C-2D3E-4F5A-6B7C-8D9E0F1A2B3C}</UniqueIdentifier>
+    <Filter Include="src\Legality">
+      <UniqueIdentifier>{da60c7ad-4255-4928-90ca-e2381882a9e0}</UniqueIdentifier>
     </Filter>
-    <Filter Include="Header Files\UI\Modals">
-      <UniqueIdentifier>{9A0B1C2D-3E4F-5A6B-7C8D-9E0F1A2B3C4D}</UniqueIdentifier>
+    <Filter Include="src\Names">
+      <UniqueIdentifier>{309d3e79-f64d-4b05-a4db-d1204a9819e4}</UniqueIdentifier>
     </Filter>
-    <Filter Include="Header Files\UI\Panels">
-      <UniqueIdentifier>{0B1C2D3E-4F5A-6B7C-8D9E-0F1A2B3C4D5E}</UniqueIdentifier>
+    <Filter Include="src\Pokemon">
+      <UniqueIdentifier>{fdad4297-158d-4a1e-b715-591b64e658be}</UniqueIdentifier>
     </Filter>
-    <Filter Include="Header Files\Utils">
-      <UniqueIdentifier>{1C2D3E4F-5A6B-7C8D-9E0F-1A2B3C4D5E6F}</UniqueIdentifier>
+    <Filter Include="src\Save">
+      <UniqueIdentifier>{3fe1a790-f7bc-4330-b269-62a0582d2012}</UniqueIdentifier>
     </Filter>
-    <Filter Include="Header Files\Libs">
-      <UniqueIdentifier>{2D3E4F5A-6B7C-8D9E-0F1A-2B3C4D5E6F7A}</UniqueIdentifier>
+    <Filter Include="src\Trainer">
+      <UniqueIdentifier>{17d64dba-491e-4265-affd-d4d8911943f8}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="src\UI">
+      <UniqueIdentifier>{190dbf15-0c98-42ee-9392-fa53f4789962}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="src\UI\Dialogs">
+      <UniqueIdentifier>{0150e03f-af02-4150-9558-83e8b1bcc254}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="src\UI\Modals">
+      <UniqueIdentifier>{3cbca378-1f51-40f5-825b-a4f89fe0c2c4}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="src\UI\Panels">
+      <UniqueIdentifier>{90e7fdd6-5322-4f4f-b0af-573b2665d875}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="src\Utils">
+      <UniqueIdentifier>{55b4ecf6-c2c5-404c-b04f-446b83326287}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="src\main.cpp">
-      <Filter>Source Files</Filter>
+    <ClCompile Include="nanovg\nanovg_gl_impl.c">
+      <Filter>nanovg</Filter>
+    </ClCompile>
+    <ClCompile Include="nanovg\nanovg.c">
+      <Filter>nanovg</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Conversion\Convert.cpp">
+      <Filter>src\Conversion</Filter>
     </ClCompile>
     <ClCompile Include="src\Encryption\Encryption.cpp">
-      <Filter>Source Files\Encryption</Filter>
+      <Filter>src\Encryption</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Encryption\Encryption3FRLG.cpp">
+      <Filter>src\Encryption</Filter>
     </ClCompile>
     <ClCompile Include="src\Encryption\Encryption7LGPE.cpp">
-      <Filter>Source Files\Encryption</Filter>
+      <Filter>src\Encryption</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Encryption\Encryption8BDSP.cpp">
+      <Filter>src\Encryption</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Encryption\Encryption8LA.cpp">
+      <Filter>src\Encryption</Filter>
     </ClCompile>
     <ClCompile Include="src\Encryption\Encryption8SWSH.cpp">
-      <Filter>Source Files\Encryption</Filter>
+      <Filter>src\Encryption</Filter>
     </ClCompile>
     <ClCompile Include="src\Encryption\Encryption9LZA.cpp">
-      <Filter>Source Files\Encryption</Filter>
+      <Filter>src\Encryption</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Encryption\Encryption9SV.cpp">
+      <Filter>src\Encryption</Filter>
     </ClCompile>
     <ClCompile Include="src\Enums\SCTypeCode.cpp">
-      <Filter>Source Files\Enums</Filter>
+      <Filter>src\Enums</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Legality\Legality.cpp">
+      <Filter>src\Legality</Filter>
+    </ClCompile>
+    <ClCompile Include="src\main.cpp">
+      <Filter>src</Filter>
     </ClCompile>
     <ClCompile Include="src\Names\AbilityNames.cpp">
-      <Filter>Source Files\Names</Filter>
+      <Filter>src\Names</Filter>
     </ClCompile>
     <ClCompile Include="src\Names\FormNames.cpp">
-      <Filter>Source Files\Names</Filter>
+      <Filter>src\Names</Filter>
     </ClCompile>
     <ClCompile Include="src\Names\ItemNames.cpp">
-      <Filter>Source Files\Names</Filter>
+      <Filter>src\Names</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Names\ItemPouches.cpp">
+      <Filter>src\Names</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Names\ItemPresence.cpp">
+      <Filter>src\Names</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Names\LocationNames.cpp">
+      <Filter>src\Names</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Names\MoveInfo.cpp">
+      <Filter>src\Names</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Names\MoveNames.cpp">
+      <Filter>src\Names</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Names\MovePresence.cpp">
+      <Filter>src\Names</Filter>
     </ClCompile>
     <ClCompile Include="src\Names\NatureNames.cpp">
-      <Filter>Source Files\Names</Filter>
+      <Filter>src\Names</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Names\RibbonNames.cpp">
+      <Filter>src\Names</Filter>
     </ClCompile>
     <ClCompile Include="src\Names\SpeciesNames.cpp">
-      <Filter>Source Files\Names</Filter>
+      <Filter>src\Names</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Names\TMMoves.cpp">
+      <Filter>src\Names</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Names\TypeNames.cpp">
+      <Filter>src\Names</Filter>
     </ClCompile>
     <ClCompile Include="src\Pokemon\BaseStatsGen7.cpp">
-      <Filter>Source Files\Pokemon</Filter>
+      <Filter>src\Pokemon</Filter>
     </ClCompile>
     <ClCompile Include="src\Pokemon\BaseStatsGen89.cpp">
-      <Filter>Source Files\Pokemon</Filter>
+      <Filter>src\Pokemon</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Pokemon\Experience.cpp">
+      <Filter>src\Pokemon</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Pokemon\FormSpriteMapping.cpp">
+      <Filter>src\Pokemon</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Pokemon\LearnsetTable.cpp">
+      <Filter>src\Pokemon</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Pokemon\PersonalInfoTable.cpp">
+      <Filter>src\Pokemon</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Pokemon\Pokemon3FRLG.cpp">
+      <Filter>src\Pokemon</Filter>
     </ClCompile>
     <ClCompile Include="src\Pokemon\Pokemon7LGPE.cpp">
-      <Filter>Source Files\Pokemon</Filter>
+      <Filter>src\Pokemon</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Pokemon\Pokemon8BDSP.cpp">
+      <Filter>src\Pokemon</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Pokemon\Pokemon8LA.cpp">
+      <Filter>src\Pokemon</Filter>
     </ClCompile>
     <ClCompile Include="src\Pokemon\Pokemon8SWSH.cpp">
-      <Filter>Source Files\Pokemon</Filter>
+      <Filter>src\Pokemon</Filter>
     </ClCompile>
     <ClCompile Include="src\Pokemon\Pokemon9LZA.cpp">
-      <Filter>Source Files\Pokemon</Filter>
+      <Filter>src\Pokemon</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Pokemon\Pokemon9SV.cpp">
+      <Filter>src\Pokemon</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Pokemon\PokemonTypes.cpp">
+      <Filter>src\Pokemon</Filter>
     </ClCompile>
     <ClCompile Include="src\Save\Block.cpp">
-      <Filter>Source Files\Save</Filter>
+      <Filter>src\Save</Filter>
     </ClCompile>
     <ClCompile Include="src\Save\GetSaveFileContents.cpp">
-      <Filter>Source Files\Save</Filter>
+      <Filter>src\Save</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Trainer\Bank.cpp">
+      <Filter>src\Trainer</Filter>
     </ClCompile>
     <ClCompile Include="src\Trainer\Trainer.cpp">
-      <Filter>Source Files\Trainer</Filter>
+      <Filter>src\Trainer</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Trainer\Trainer3FRLG.cpp">
+      <Filter>src\Trainer</Filter>
     </ClCompile>
     <ClCompile Include="src\Trainer\Trainer7LGPE.cpp">
-      <Filter>Source Files\Trainer</Filter>
+      <Filter>src\Trainer</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Trainer\Trainer8BDSP.cpp">
+      <Filter>src\Trainer</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Trainer\Trainer8LA.cpp">
+      <Filter>src\Trainer</Filter>
     </ClCompile>
     <ClCompile Include="src\Trainer\Trainer8SWSH.cpp">
-      <Filter>Source Files\Trainer</Filter>
+      <Filter>src\Trainer</Filter>
     </ClCompile>
     <ClCompile Include="src\Trainer\Trainer9LZA.cpp">
-      <Filter>Source Files\Trainer</Filter>
+      <Filter>src\Trainer</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Trainer\Trainer9SV.cpp">
+      <Filter>src\Trainer</Filter>
     </ClCompile>
     <ClCompile Include="src\UI\BackupSelectionScreen.cpp">
-      <Filter>Source Files\UI</Filter>
-    </ClCompile>
-    <ClCompile Include="src\UI\PKSEFramebuffer.cpp">
-      <Filter>Source Files\UI</Filter>
-    </ClCompile>
-    <ClCompile Include="src\UI\SpriteManager.cpp">
-      <Filter>Source Files\UI</Filter>
-    </ClCompile>
-    <ClCompile Include="src\UI\TitleSelectionScreen.cpp">
-      <Filter>Source Files\UI</Filter>
-    </ClCompile>
-    <ClCompile Include="src\UI\TrainerViewScreen.cpp">
-      <Filter>Source Files\UI</Filter>
-    </ClCompile>
-    <ClCompile Include="src\UI\UI.cpp">
-      <Filter>Source Files\UI</Filter>
-    </ClCompile>
-    <ClCompile Include="src\UI\UserSelectionScreen.cpp">
-      <Filter>Source Files\UI</Filter>
+      <Filter>src\UI</Filter>
     </ClCompile>
     <ClCompile Include="src\UI\Dialogs\ItemEditDialog.cpp">
-      <Filter>Source Files\UI\Dialogs</Filter>
+      <Filter>src\UI\Dialogs</Filter>
+    </ClCompile>
+    <ClCompile Include="src\UI\Dialogs\PickerDialog.cpp">
+      <Filter>src\UI\Dialogs</Filter>
     </ClCompile>
     <ClCompile Include="src\UI\Dialogs\SaveConfirmDialog.cpp">
-      <Filter>Source Files\UI\Dialogs</Filter>
+      <Filter>src\UI\Dialogs</Filter>
     </ClCompile>
     <ClCompile Include="src\UI\Dialogs\StatEditDialog.cpp">
-      <Filter>Source Files\UI\Dialogs</Filter>
+      <Filter>src\UI\Dialogs</Filter>
     </ClCompile>
     <ClCompile Include="src\UI\Modals\PokemonDetailsModal.cpp">
-      <Filter>Source Files\UI\Modals</Filter>
+      <Filter>src\UI\Modals</Filter>
     </ClCompile>
     <ClCompile Include="src\UI\Panels\BoxPokemonPanel.cpp">
-      <Filter>Source Files\UI\Panels</Filter>
+      <Filter>src\UI\Panels</Filter>
+    </ClCompile>
+    <ClCompile Include="src\UI\Panels\HomeMenuPanel.cpp">
+      <Filter>src\UI\Panels</Filter>
     </ClCompile>
     <ClCompile Include="src\UI\Panels\ItemsPanel.cpp">
-      <Filter>Source Files\UI\Panels</Filter>
-    </ClCompile>
-    <ClCompile Include="src\UI\Panels\ModeSelectorPanel.cpp">
-      <Filter>Source Files\UI\Panels</Filter>
+      <Filter>src\UI\Panels</Filter>
     </ClCompile>
     <ClCompile Include="src\UI\Panels\PartyPokemonPanel.cpp">
-      <Filter>Source Files\UI\Panels</Filter>
+      <Filter>src\UI\Panels</Filter>
     </ClCompile>
-    <ClCompile Include="src\UI\Panels\TrainerInfoPanel.cpp">
-      <Filter>Source Files\UI\Panels</Filter>
+    <ClCompile Include="src\UI\Panels\StoragePanel.cpp">
+      <Filter>src\UI\Panels</Filter>
+    </ClCompile>
+    <ClCompile Include="src\UI\PKSEFramebuffer.cpp">
+      <Filter>src\UI</Filter>
+    </ClCompile>
+    <ClCompile Include="src\UI\SaveSelectScreen.cpp">
+      <Filter>src\UI</Filter>
+    </ClCompile>
+    <ClCompile Include="src\UI\SpriteManager.cpp">
+      <Filter>src\UI</Filter>
+    </ClCompile>
+    <ClCompile Include="src\UI\SystemIcons.cpp">
+      <Filter>src\UI</Filter>
+    </ClCompile>
+    <ClCompile Include="src\UI\TouchInput.cpp">
+      <Filter>src\UI</Filter>
+    </ClCompile>
+    <ClCompile Include="src\UI\TrainerViewScreen.cpp">
+      <Filter>src\UI</Filter>
+    </ClCompile>
+    <ClCompile Include="src\UI\UI.cpp">
+      <Filter>src\UI</Filter>
     </ClCompile>
     <ClCompile Include="src\Utils\FileUtilities.cpp">
-      <Filter>Source Files\Utils</Filter>
+      <Filter>src\Utils</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Utils\HelperUtilities.cpp">
+      <Filter>src\Utils</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Utils\Keyboard.cpp">
+      <Filter>src\Utils</Filter>
     </ClCompile>
     <ClCompile Include="src\Utils\Logger.cpp">
-      <Filter>Source Files\Utils</Filter>
+      <Filter>src\Utils</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Utils\MD5.cpp">
+      <Filter>src\Utils</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Utils\Settings.cpp">
+      <Filter>src\Utils</Filter>
     </ClCompile>
     <ClCompile Include="src\Utils\SHA256.cpp">
-      <Filter>Source Files\Utils</Filter>
+      <Filter>src\Utils</Filter>
     </ClCompile>
     <ClCompile Include="src\Utils\StringHelpers.cpp">
-      <Filter>Source Files\Utils</Filter>
-    </ClCompile>
-    <ClCompile Include="src\Utils\Utilities.cpp">
-      <Filter>Source Files\Utils</Filter>
+      <Filter>src\Utils</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="include\Globals.h">
-      <Filter>Header Files</Filter>
+    <ClInclude Include="include\Conversion\Convert.h">
+      <Filter>include\Conversion</Filter>
     </ClInclude>
     <ClInclude Include="include\Encryption\Encryption.h">
-      <Filter>Header Files\Encryption</Filter>
+      <Filter>include\Encryption</Filter>
+    </ClInclude>
+    <ClInclude Include="include\Encryption\Encryption3FRLG.h">
+      <Filter>include\Encryption</Filter>
     </ClInclude>
     <ClInclude Include="include\Encryption\Encryption7LGPE.h">
-      <Filter>Header Files\Encryption</Filter>
+      <Filter>include\Encryption</Filter>
+    </ClInclude>
+    <ClInclude Include="include\Encryption\Encryption8BDSP.h">
+      <Filter>include\Encryption</Filter>
+    </ClInclude>
+    <ClInclude Include="include\Encryption\Encryption8LA.h">
+      <Filter>include\Encryption</Filter>
     </ClInclude>
     <ClInclude Include="include\Encryption\Encryption8SWSH.h">
-      <Filter>Header Files\Encryption</Filter>
+      <Filter>include\Encryption</Filter>
     </ClInclude>
     <ClInclude Include="include\Encryption\Encryption9LZA.h">
-      <Filter>Header Files\Encryption</Filter>
+      <Filter>include\Encryption</Filter>
     </ClInclude>
-    <ClInclude Include="include\Enums\Ability.h">
-      <Filter>Header Files\Enums</Filter>
+    <ClInclude Include="include\Encryption\Encryption9SV.h">
+      <Filter>include\Encryption</Filter>
     </ClInclude>
     <ClInclude Include="include\Enums\Ball.h">
-      <Filter>Header Files\Enums</Filter>
+      <Filter>include\Enums</Filter>
     </ClInclude>
     <ClInclude Include="include\Enums\GameVersion.h">
-      <Filter>Header Files\Enums</Filter>
-    </ClInclude>
-    <ClInclude Include="include\Enums\Gender.h">
-      <Filter>Header Files\Enums</Filter>
+      <Filter>include\Enums</Filter>
     </ClInclude>
     <ClInclude Include="include\Enums\LanguageID.h">
-      <Filter>Header Files\Enums</Filter>
-    </ClInclude>
-    <ClInclude Include="include\Enums\Move.h">
-      <Filter>Header Files\Enums</Filter>
-    </ClInclude>
-    <ClInclude Include="include\Enums\MoveType.h">
-      <Filter>Header Files\Enums</Filter>
-    </ClInclude>
-    <ClInclude Include="include\Enums\Nature.h">
-      <Filter>Header Files\Enums</Filter>
+      <Filter>include\Enums</Filter>
     </ClInclude>
     <ClInclude Include="include\Enums\SCTypeCode.h">
-      <Filter>Header Files\Enums</Filter>
+      <Filter>include\Enums</Filter>
     </ClInclude>
-    <ClInclude Include="include\Enums\Species.h">
-      <Filter>Header Files\Enums</Filter>
+    <ClInclude Include="include\Globals.h">
+      <Filter>include</Filter>
+    </ClInclude>
+    <ClInclude Include="include\Legality\Legality.h">
+      <Filter>include\Legality</Filter>
     </ClInclude>
     <ClInclude Include="include\Libs\stb_image.h">
-      <Filter>Header Files\Libs</Filter>
+      <Filter>include\Libs</Filter>
     </ClInclude>
     <ClInclude Include="include\Names\FormNames.h">
-      <Filter>Header Files\Names</Filter>
+      <Filter>include\Names</Filter>
+    </ClInclude>
+    <ClInclude Include="include\Names\ItemNames.h">
+      <Filter>include\Names</Filter>
+    </ClInclude>
+    <ClInclude Include="include\Names\ItemPouches.h">
+      <Filter>include\Names</Filter>
+    </ClInclude>
+    <ClInclude Include="include\Names\ItemPresence.h">
+      <Filter>include\Names</Filter>
+    </ClInclude>
+    <ClInclude Include="include\Names\LocationNames.h">
+      <Filter>include\Names</Filter>
+    </ClInclude>
+    <ClInclude Include="include\Names\MoveInfo.h">
+      <Filter>include\Names</Filter>
+    </ClInclude>
+    <ClInclude Include="include\Names\MoveNames.h">
+      <Filter>include\Names</Filter>
+    </ClInclude>
+    <ClInclude Include="include\Names\MovePresence.h">
+      <Filter>include\Names</Filter>
+    </ClInclude>
+    <ClInclude Include="include\Names\RibbonNames.h">
+      <Filter>include\Names</Filter>
+    </ClInclude>
+    <ClInclude Include="include\Names\TMMoves.h">
+      <Filter>include\Names</Filter>
+    </ClInclude>
+    <ClInclude Include="include\Names\TypeNames.h">
+      <Filter>include\Names</Filter>
     </ClInclude>
     <ClInclude Include="include\Pokemon\BaseStatsGen7.h">
-      <Filter>Header Files\Pokemon</Filter>
+      <Filter>include\Pokemon</Filter>
     </ClInclude>
     <ClInclude Include="include\Pokemon\BaseStatsGen89.h">
-      <Filter>Header Files\Pokemon</Filter>
+      <Filter>include\Pokemon</Filter>
+    </ClInclude>
+    <ClInclude Include="include\Pokemon\Experience.h">
+      <Filter>include\Pokemon</Filter>
+    </ClInclude>
+    <ClInclude Include="include\Pokemon\FormSpriteMapping.h">
+      <Filter>include\Pokemon</Filter>
+    </ClInclude>
+    <ClInclude Include="include\Pokemon\LearnsetTable.h">
+      <Filter>include\Pokemon</Filter>
+    </ClInclude>
+    <ClInclude Include="include\Pokemon\PersonalInfoTable.h">
+      <Filter>include\Pokemon</Filter>
     </ClInclude>
     <ClInclude Include="include\Pokemon\Pokemon.h">
-      <Filter>Header Files\Pokemon</Filter>
+      <Filter>include\Pokemon</Filter>
+    </ClInclude>
+    <ClInclude Include="include\Pokemon\Pokemon3FRLG.h">
+      <Filter>include\Pokemon</Filter>
     </ClInclude>
     <ClInclude Include="include\Pokemon\Pokemon7LGPE.h">
-      <Filter>Header Files\Pokemon</Filter>
+      <Filter>include\Pokemon</Filter>
+    </ClInclude>
+    <ClInclude Include="include\Pokemon\Pokemon8BDSP.h">
+      <Filter>include\Pokemon</Filter>
+    </ClInclude>
+    <ClInclude Include="include\Pokemon\Pokemon8LA.h">
+      <Filter>include\Pokemon</Filter>
     </ClInclude>
     <ClInclude Include="include\Pokemon\Pokemon8SWSH.h">
-      <Filter>Header Files\Pokemon</Filter>
+      <Filter>include\Pokemon</Filter>
     </ClInclude>
     <ClInclude Include="include\Pokemon\Pokemon9LZA.h">
-      <Filter>Header Files\Pokemon</Filter>
+      <Filter>include\Pokemon</Filter>
+    </ClInclude>
+    <ClInclude Include="include\Pokemon\Pokemon9SV.h">
+      <Filter>include\Pokemon</Filter>
+    </ClInclude>
+    <ClInclude Include="include\Pokemon\PokemonTypes.h">
+      <Filter>include\Pokemon</Filter>
     </ClInclude>
     <ClInclude Include="include\Save\Block.h">
-      <Filter>Header Files\Save</Filter>
+      <Filter>include\Save</Filter>
     </ClInclude>
     <ClInclude Include="include\Save\GetSaveFileContents.h">
-      <Filter>Header Files\Save</Filter>
+      <Filter>include\Save</Filter>
+    </ClInclude>
+    <ClInclude Include="include\Trainer\Bank.h">
+      <Filter>include\Trainer</Filter>
     </ClInclude>
     <ClInclude Include="include\Trainer\Inventory.h">
-      <Filter>Header Files\Trainer</Filter>
+      <Filter>include\Trainer</Filter>
+    </ClInclude>
+    <ClInclude Include="include\Trainer\Inventory3FRLG.h">
+      <Filter>include\Trainer</Filter>
+    </ClInclude>
+    <ClInclude Include="include\Trainer\Inventory7LGPE.h">
+      <Filter>include\Trainer</Filter>
+    </ClInclude>
+    <ClInclude Include="include\Trainer\Inventory8BDSP.h">
+      <Filter>include\Trainer</Filter>
+    </ClInclude>
+    <ClInclude Include="include\Trainer\Inventory8LA.h">
+      <Filter>include\Trainer</Filter>
     </ClInclude>
     <ClInclude Include="include\Trainer\Inventory8SWSH.h">
-      <Filter>Header Files\Trainer</Filter>
+      <Filter>include\Trainer</Filter>
     </ClInclude>
     <ClInclude Include="include\Trainer\Inventory9LZA.h">
-      <Filter>Header Files\Trainer</Filter>
+      <Filter>include\Trainer</Filter>
+    </ClInclude>
+    <ClInclude Include="include\Trainer\Inventory9SV.h">
+      <Filter>include\Trainer</Filter>
     </ClInclude>
     <ClInclude Include="include\Trainer\Trainer.h">
-      <Filter>Header Files\Trainer</Filter>
+      <Filter>include\Trainer</Filter>
+    </ClInclude>
+    <ClInclude Include="include\Trainer\Trainer3FRLG.h">
+      <Filter>include\Trainer</Filter>
     </ClInclude>
     <ClInclude Include="include\Trainer\Trainer7LGPE.h">
-      <Filter>Header Files\Trainer</Filter>
+      <Filter>include\Trainer</Filter>
+    </ClInclude>
+    <ClInclude Include="include\Trainer\Trainer8BDSP.h">
+      <Filter>include\Trainer</Filter>
+    </ClInclude>
+    <ClInclude Include="include\Trainer\Trainer8LA.h">
+      <Filter>include\Trainer</Filter>
     </ClInclude>
     <ClInclude Include="include\Trainer\Trainer8SWSH.h">
-      <Filter>Header Files\Trainer</Filter>
+      <Filter>include\Trainer</Filter>
     </ClInclude>
     <ClInclude Include="include\Trainer\Trainer9LZA.h">
-      <Filter>Header Files\Trainer</Filter>
+      <Filter>include\Trainer</Filter>
+    </ClInclude>
+    <ClInclude Include="include\Trainer\Trainer9SV.h">
+      <Filter>include\Trainer</Filter>
     </ClInclude>
     <ClInclude Include="include\UI\BackupSelectionScreen.h">
-      <Filter>Header Files\UI</Filter>
+      <Filter>include\UI</Filter>
     </ClInclude>
     <ClInclude Include="include\UI\Common.h">
-      <Filter>Header Files\UI</Filter>
+      <Filter>include\UI</Filter>
     </ClInclude>
-    <ClInclude Include="include\UI\PKSEFramebuffer.h">
-      <Filter>Header Files\UI</Filter>
+    <ClInclude Include="include\UI\Dialogs\DialogFrame.h">
+      <Filter>include\UI\Dialogs</Filter>
     </ClInclude>
-    <ClInclude Include="include\UI\SpriteManager.h">
-      <Filter>Header Files\UI</Filter>
-    </ClInclude>
-    <ClInclude Include="include\UI\TitleSelectionScreen.h">
-      <Filter>Header Files\UI</Filter>
-    </ClInclude>
-    <ClInclude Include="include\UI\TrainerViewScreen.h">
-      <Filter>Header Files\UI</Filter>
-    </ClInclude>
-    <ClInclude Include="include\UI\UI.h">
-      <Filter>Header Files\UI</Filter>
-    </ClInclude>
-    <ClInclude Include="include\UI\UIScreen.h">
-      <Filter>Header Files\UI</Filter>
-    </ClInclude>
-    <ClInclude Include="include\UI\UserSelectionScreen.h">
-      <Filter>Header Files\UI</Filter>
+    <ClInclude Include="include\UI\Dialogs\EditControls.h">
+      <Filter>include\UI\Dialogs</Filter>
     </ClInclude>
     <ClInclude Include="include\UI\Dialogs\ItemEditDialog.h">
-      <Filter>Header Files\UI\Dialogs</Filter>
+      <Filter>include\UI\Dialogs</Filter>
+    </ClInclude>
+    <ClInclude Include="include\UI\Dialogs\PickerDialog.h">
+      <Filter>include\UI\Dialogs</Filter>
     </ClInclude>
     <ClInclude Include="include\UI\Dialogs\SaveConfirmDialog.h">
-      <Filter>Header Files\UI\Dialogs</Filter>
+      <Filter>include\UI\Dialogs</Filter>
     </ClInclude>
     <ClInclude Include="include\UI\Dialogs\StatEditDialog.h">
-      <Filter>Header Files\UI\Dialogs</Filter>
+      <Filter>include\UI\Dialogs</Filter>
     </ClInclude>
     <ClInclude Include="include\UI\Modals\PokemonDetailsModal.h">
-      <Filter>Header Files\UI\Modals</Filter>
+      <Filter>include\UI\Modals</Filter>
     </ClInclude>
     <ClInclude Include="include\UI\Panels\BoxPokemonPanel.h">
-      <Filter>Header Files\UI\Panels</Filter>
+      <Filter>include\UI\Panels</Filter>
+    </ClInclude>
+    <ClInclude Include="include\UI\Panels\HomeMenuPanel.h">
+      <Filter>include\UI\Panels</Filter>
     </ClInclude>
     <ClInclude Include="include\UI\Panels\ItemsPanel.h">
-      <Filter>Header Files\UI\Panels</Filter>
-    </ClInclude>
-    <ClInclude Include="include\UI\Panels\ModeSelectorPanel.h">
-      <Filter>Header Files\UI\Panels</Filter>
+      <Filter>include\UI\Panels</Filter>
     </ClInclude>
     <ClInclude Include="include\UI\Panels\PartyPokemonPanel.h">
-      <Filter>Header Files\UI\Panels</Filter>
+      <Filter>include\UI\Panels</Filter>
     </ClInclude>
-    <ClInclude Include="include\UI\Panels\TrainerInfoPanel.h">
-      <Filter>Header Files\UI\Panels</Filter>
+    <ClInclude Include="include\UI\Panels\StoragePanel.h">
+      <Filter>include\UI\Panels</Filter>
+    </ClInclude>
+    <ClInclude Include="include\UI\PKSEFramebuffer.h">
+      <Filter>include\UI</Filter>
+    </ClInclude>
+    <ClInclude Include="include\UI\SaveSelectScreen.h">
+      <Filter>include\UI</Filter>
+    </ClInclude>
+    <ClInclude Include="include\UI\ScreenChrome.h">
+      <Filter>include\UI</Filter>
+    </ClInclude>
+    <ClInclude Include="include\UI\SpriteManager.h">
+      <Filter>include\UI</Filter>
+    </ClInclude>
+    <ClInclude Include="include\UI\SystemIcons.h">
+      <Filter>include\UI</Filter>
+    </ClInclude>
+    <ClInclude Include="include\UI\TouchInput.h">
+      <Filter>include\UI</Filter>
+    </ClInclude>
+    <ClInclude Include="include\UI\TrainerViewScreen.h">
+      <Filter>include\UI</Filter>
+    </ClInclude>
+    <ClInclude Include="include\UI\UI.h">
+      <Filter>include\UI</Filter>
+    </ClInclude>
+    <ClInclude Include="include\UI\UIScreen.h">
+      <Filter>include\UI</Filter>
     </ClInclude>
     <ClInclude Include="include\Utils\FileUtilities.h">
-      <Filter>Header Files\Utils</Filter>
+      <Filter>include\Utils</Filter>
     </ClInclude>
     <ClInclude Include="include\Utils\HelperUtilities.h">
-      <Filter>Header Files\Utils</Filter>
+      <Filter>include\Utils</Filter>
+    </ClInclude>
+    <ClInclude Include="include\Utils\Keyboard.h">
+      <Filter>include\Utils</Filter>
     </ClInclude>
     <ClInclude Include="include\Utils\Logger.h">
-      <Filter>Header Files\Utils</Filter>
+      <Filter>include\Utils</Filter>
+    </ClInclude>
+    <ClInclude Include="include\Utils\MD5.h">
+      <Filter>include\Utils</Filter>
+    </ClInclude>
+    <ClInclude Include="include\Utils\NXTypes.h">
+      <Filter>include\Utils</Filter>
     </ClInclude>
     <ClInclude Include="include\Utils\SCXorShift32.h">
-      <Filter>Header Files\Utils</Filter>
+      <Filter>include\Utils</Filter>
+    </ClInclude>
+    <ClInclude Include="include\Utils\Settings.h">
+      <Filter>include\Utils</Filter>
     </ClInclude>
     <ClInclude Include="include\Utils\SHA256.h">
-      <Filter>Header Files\Utils</Filter>
+      <Filter>include\Utils</Filter>
     </ClInclude>
     <ClInclude Include="include\Utils\StringHelpers.h">
-      <Filter>Header Files\Utils</Filter>
+      <Filter>include\Utils</Filter>
+    </ClInclude>
+    <ClInclude Include="nanovg\fontstash.h">
+      <Filter>nanovg</Filter>
+    </ClInclude>
+    <ClInclude Include="nanovg\nanovg_gl_utils.h">
+      <Filter>nanovg</Filter>
+    </ClInclude>
+    <ClInclude Include="nanovg\nanovg_gl.h">
+      <Filter>nanovg</Filter>
+    </ClInclude>
+    <ClInclude Include="nanovg\nanovg.h">
+      <Filter>nanovg</Filter>
+    </ClInclude>
+    <ClInclude Include="nanovg\stb_truetype.h">
+      <Filter>nanovg</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

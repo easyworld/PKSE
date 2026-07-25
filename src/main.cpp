@@ -1,3 +1,6 @@
+#define SDL_MAIN_HANDLED
+#include <SDL2/SDL.h>
+
 #include <switch.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -9,16 +12,17 @@
 #include "Globals.h"
 #include "Save/GetSaveFileContents.h"
 #include "UI/SpriteManager.h"
+#include "UI/SystemIcons.h"
 #include "UI/UI.h"
 #include "Utils/Logger.h"
 #include "Utils/HelperUtilities.h"
 #include "Utils/FileUtilities.h"
+#include "Utils/Settings.h"
 
 int main()
 {
     logInfoToFile("Initializing PKSE...");
 
-    // Clean up old log files
     Utils::cleanupOldLogs();
 
     // Initialize the ns service
@@ -48,11 +52,20 @@ int main()
         romfsInitialized = true;
     }
 
+    // Initialize SDL for the window, GL context and input only -- rendering is NanoVG on GL.
+    // SDL_image and SDL_ttf are deliberately NOT initialised: PNGs are decoded by stb_image in
+    // SpriteManager and text is drawn by NanoVG's own font atlas, so neither library is used.
+    Utils::logInfoToFile("Initializing SDL...");
+    SDL_SetMainReady();
+    if (SDL_Init(SDL_INIT_VIDEO) != 0) {
+        logErrorToFile("SDL_Init(VIDEO) failed");
+        logErrorToFile(SDL_GetError());
+    }
+
     // Initialize sprite manager for Pokemon images
     Utils::logInfoToFile("Initializing Sprite Manager...");
     UI::SpriteManager::init();
 
-    // Test sprite loading
     Utils::logInfoToFile("Testing sprite loading...");
     UI::Sprite* testSprite = UI::SpriteManager::getSprite(25, false); // Pikachu
     if (testSprite && testSprite->data) {
@@ -63,14 +76,22 @@ int main()
         Utils::logInfoToFile("WARNING: Test sprite failed to load - sprites may not be available");
     }
 
+    // Load persisted settings (theme + auto-backup) before any screen draws.
+    Utils::loadSettings();
+
     Utils::logInfoToFile("Starting UI Manager...");
 
-    UI::UIManager uiManager;
-    uiManager.run();
+    {
+        UI::UIManager uiManager;
+        uiManager.run();
+    }  // UIManager (and its SDL-backed framebuffer) destroyed here, before SDL_Quit
 
     // Cleanup
     Utils::logInfoToFile("Cleaning up Sprite Manager...");
     UI::SpriteManager::cleanup();
+    UI::SystemIcons::cleanup();
+
+    SDL_Quit();
 
     if (romfsInitialized) {
         Utils::logInfoToFile("Cleaning up ROMFS...");

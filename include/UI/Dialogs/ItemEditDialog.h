@@ -10,6 +10,8 @@ namespace UI {
 namespace UI {
 namespace Dialogs {
     void drawItemEditDialog(UI::TrainerViewScreen& screen, UI::PKSEFramebuffer& fb);
+    // Confirm dialog for removing the selected item from the Items list (Y). Red frame, B/A glyphs.
+    void drawItemRemoveConfirm(UI::TrainerViewScreen& screen, UI::PKSEFramebuffer& fb);
 }
 }
 

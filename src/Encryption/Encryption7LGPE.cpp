@@ -18,6 +18,43 @@ namespace Encryption {
     // Encryption/Decryption Functions
     // ========================================
 
+    void cryptArray7LGPE(std::span<std::byte> data, uint32_t seed)
+    {
+        /**
+         * Encrypts/decrypts data using a Linear Congruential Generator (LCG).
+         *
+         * This is a symmetric operation - calling it twice with the same seed
+         * restores the original data. The LCG formula used is:
+         *   seed = (0x41C64E6D * seed) + 0x00006073
+         *
+         * The upper 16 bits of each generated value are used as XOR masks.
+         * This is the standard Pokemon encryption used across Generations 6-8.
+         *
+         * @param data Span of bytes to encrypt/decrypt (modified in place)
+         * @param seed Initial seed value (typically the Pokemon's Encryption Constant)
+         */
+
+        // Process data as 16-bit chunks
+        const size_t numUInt16 = data.size() / sizeof(uint16_t);
+
+        for (size_t i = 0; i < numUInt16; ++i)
+        {
+            // Advance LCG state: seed = (multiplier * seed) + increment
+            seed = (0x41C64E6D * seed) + 0x00006073;
+
+            // Extract upper 16 bits for XOR mask
+            // The lower 16 bits are less random, so we use upper 16 bits
+            const uint16_t xorValue = static_cast<uint16_t>(seed >> 16);
+
+            // Read current uint16 value from data (little-endian)
+            const size_t byteOffset = i * sizeof(uint16_t);
+            uint16_t* valuePointer = reinterpret_cast<uint16_t*>(data.data() + byteOffset);
+
+            // XOR the value with the mask (symmetric operation)
+            *valuePointer ^= xorValue;
+        }
+    }
+
     void cryptPokemon7LGPE(std::span<std::byte> data, uint32_t personalityValue, size_t blockSize, size_t blockCount)
     {
         /**
@@ -28,24 +65,35 @@ namespace Encryption {
          * - Bytes 8-231: Four 56-byte blocks (Growth, Attacks, EVs, Misc) - ENCRYPTED
          * - Bytes 232-259: Additional data (varies by format) - ENCRYPTED
          *
-         * All data is encrypted as one continuous block after the header.
-         *
          * Block size:
          * - 56 bytes per block (SIZE_BLOCK7_LGPE)
          */
 
-        constexpr int start = 8; // Skip first 8 bytes (encryption constant + checksum)
+        constexpr size_t start = 8;               // header (EC + checksum) is not crypted
+        const size_t stored = SIZE_STORED7_LGPE;  // 0xE8: end of the shuffled/checksummed body
 
-        // Gen 7 encrypts everything after the header as one continuous block
-        // Calculate total encrypted size: data size - header size
-        const size_t encryptedSize = data.size() - start;
-
-        if (encryptedSize > 0) {
-            auto encryptedSpan = data.subspan(start, encryptedSize);
-
-            // TODO: Functions needs to be implemented
-            cryptArray7LGPE(encryptedSpan, personalityValue);
+        // PKHeX Decrypt67 crypts the body [8, 0xE8) and the party tail [0xE8, end) as TWO SEPARATE
+        // CryptArray passes, each RESTARTING the LCG at the EC -- NOT one continuous pass. A single pass
+        // gives the tail (Level / battle stats / CP at 0xEC-0xFF) the wrong keystream: it round-trips
+        // inside PKSE but the game decrypts it to garbage (absurd stats / CP). Split at the stored-size
+        // boundary so both passes key from the EC. (blockSize/blockCount are unused here.)
+        (void)blockSize; (void)blockCount;
+        if (data.size() > start) {
+            const size_t bodyEnd = std::min(data.size(), stored);
+            cryptArray7LGPE(data.subspan(start, bodyEnd - start), personalityValue);
         }
+        if (data.size() > stored) {
+            cryptArray7LGPE(data.subspan(stored, data.size() - stored), personalityValue);
+        }
+    }
+
+    void cryptPokemon7LGPE(std::span<std::byte> data, uint32_t personalityValue, size_t blockSize)
+    {
+        /**
+         * 3-parameter overload that defaults to BLOCK_COUNT7_LGPE (4 blocks).
+         * Forwards to the 4-parameter version.
+         */
+        cryptPokemon7LGPE(data, personalityValue, blockSize, BLOCK_COUNT7_LGPE);
     }
 
     void shuffleArray7LGPE(std::span<const std::byte> data, std::span<std::byte> result, uint32_t shuffleValue, size_t blockSize)

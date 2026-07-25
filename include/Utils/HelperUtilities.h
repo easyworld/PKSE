@@ -3,7 +3,7 @@
 
 #include <cstdint>
 #include <string>
-#include <switch.h>
+#include "Utils/NXTypes.h"   // u64; <switch.h> on console, plain typedefs off it (#50)
 #include <cstdint>
 
 #include "Utils/StringHelpers.h"
@@ -19,23 +19,22 @@ namespace Utils {
     /// Helper to read little-endian uint32_t from a byte pointer.
     uint32_t readUInt32LittleEndian(const uint8_t* ptr);
 
+    /// Helper to read little-endian uint64_t from a byte pointer.
+    uint64_t readUInt64LittleEndian(const uint8_t* ptr);
+
     /// Helper to write little-endian uint16_t to a byte pointer.
     void writeUInt16LittleEndian(uint8_t* ptr, uint16_t value);
-
-    /// Helper to write little-endian int32_t to a byte pointer.
-    void writeInt32LittleEndian(uint8_t* ptr, int32_t value);
 
     /// Helper to write little-endian uint32_t to a byte pointer.
     void writeUInt32LittleEndian(uint8_t* ptr, uint32_t value);
 
-    uint16_t reverseEndianness(uint16_t value);
+    /// Returns a pseudo-random 32-bit value. Backed by a process-lifetime std::mt19937 seeded
+    /// once from the libnx system tick. Used by the Pokemon creator for a new mon's PID /
+    /// EncryptionConstant (a unique-per-call value is sufficient there).
+    uint32_t rand32() noexcept;
 
-    /// Sanitize the file name as some titles have unsupported UTF-8 characters
-    std::string sanitizeTitleName(std::string input);
-    /// Format game title to Pascal Case
-    std::string formatPascalCase(std::string input);
-
-    std::string getTitleName(u64 titleId);
+    /// Gets the version string for a title from its NACP data (e.g., "1.0.1", "1.3.2")
+    std::string getTitleVersion(u64 titleId);
 }
 
 #endif

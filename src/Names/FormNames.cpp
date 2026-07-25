@@ -167,8 +167,8 @@ namespace Names {
 
             // Kyurem - Fusions
             case 646: // Kyurem
-                if (formId == 1) return "白色酋雷姆";
-                if (formId == 2) return "黑色酋雷姆";
+                if (formId == 1) return "焰白酋雷姆";
+                if (formId == 2) return "暗黑酋雷姆";
                 break;
 
             // Keldeo - Resolute
@@ -187,8 +187,8 @@ namespace Names {
             case 710: // Pumpkaboo
             case 711: // Gourgeist
                 if (formId == 0) return "普通尺寸";
-                if (formId == 1) return "小颗种";
-                if (formId == 2) return "大颗种";
+                if (formId == 1) return "小尺寸";
+                if (formId == 2) return "大尺寸";
                 if (formId == 3) return "特大尺寸";
                 break;
 
@@ -200,7 +200,7 @@ namespace Names {
                 break;
 
             // Hoopa - Forms
-            case 720: // Zygarde
+            case 720: // Hoopa
                 if (formId == 0) return "惩戒胡帕";
                 if (formId == 1) return "解放胡帕";
                 break;
@@ -217,7 +217,7 @@ namespace Names {
             case 745: // Lycanroc
                 if (formId == 0) return "白昼的样子";
                 if (formId == 1) return "黑夜的样子";
-                if (formId == 2) return "黄昏之鬃";
+                if (formId == 2) return "黄昏的样子";
                 break;
 
             // Necrozma - Fusions
@@ -264,7 +264,8 @@ namespace Names {
 
             // Maushold - Family size
             case 925: // Maushold
-                if (formId == 1) return "三只家庭";
+                if (formId == 0) return "三只家庭";
+                if (formId == 1) return "四只家庭";
                 break;
 
             // Squawkabilly - Plumages
@@ -292,8 +293,10 @@ namespace Names {
 
             // Poltchageist/Sinistcha - Forms
             case 1012: // Poltchageist
-            case 1013: // Sinistcha
                 if (formId == 1) return "高档货的样子";
+                break;
+            case 1013: // Sinistcha
+                if (formId == 1) return "杰作的样子";
                 break;
 
             // Ogerpon - Masks (permanent forms when holding masks)
@@ -312,5 +315,15 @@ namespace Names {
 
         // If no match found, return empty string
         return "";
+    }
+
+    std::string getDisplayName(uint16_t speciesId, uint8_t formId, const std::string& baseName) {
+        const char* form = getFormName(speciesId, formId);
+        if (form && form[0] != '\0') {
+            const std::string formName(form);
+            if (formName.find(baseName) != std::string::npos) return formName;
+            return formName + " " + baseName;
+        }
+        return baseName;
     }
 }

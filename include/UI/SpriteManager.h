@@ -19,7 +19,6 @@ namespace UI {
     // Sprite manager for loading and caching Pokemon sprites
     class SpriteManager {
     public:
-        // Initialize the sprite manager
         static void init();
 
         // Cleanup and free all cached sprites
@@ -40,14 +39,12 @@ namespace UI {
         // Get icon sprite for a Pokemon with specific form
         static Sprite* getIconSprite(uint16_t speciesId, uint8_t formId, bool isShiny);
 
-        // Check if a sprite exists
         static bool spriteExists(uint16_t speciesId, bool isShiny = false);
 
         // Get type sprite by type ID (0-17)
         // Returns nullptr if sprite not found
         static Sprite* getTypeSprite(uint8_t typeId);
 
-        // Check if type sprite exists
         static bool typeSpriteExists(uint8_t typeId);
 
     private:

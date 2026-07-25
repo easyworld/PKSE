@@ -19,14 +19,6 @@ namespace Pokemon {
      *         Returns speciesId if no specific form sprite exists.
      */
     uint32_t getFormSpriteId(uint16_t speciesId, uint8_t formId);
-
-    /**
-     * Checks if a form has a distinct sprite from the base form.
-     * @param speciesId Pokemon species ID
-     * @param formId Form ID
-     * @return true if form has its own sprite, false otherwise
-     */
-    bool formHasDistinctSprite(uint16_t speciesId, uint8_t formId);
 }
 
 #endif

@@ -55,11 +55,10 @@ namespace UI {
         unsigned char* data = stbi_load(fullPath.c_str(), &width, &height, &channels, 0);
 
         if (!data) {
-            logInfoToFile("Failed to load sprite", fullPath.c_str());
+            // Not an error — callers probe several paths (HD -> 96px -> base form).
             return nullptr;
         }
 
-        // Create sprite object
         Sprite* sprite = new Sprite();
         sprite->data = data;
         sprite->width = width;
@@ -77,7 +76,6 @@ namespace UI {
     Sprite* SpriteManager::getSprite(uint16_t speciesId, uint8_t formId, bool isShiny) {
         if (!initialized) init();
 
-        // Generate cache key
         uint32_t cacheKey = makeCacheKey(speciesId, formId, isShiny, false);
 
         // Check cache first
@@ -88,27 +86,23 @@ namespace UI {
 
         // Get the sprite ID for this form
         uint32_t spriteId = Pokemon::getFormSpriteId(speciesId, formId);
+        std::string suffix = isShiny ? "s" : "";
+        std::string sid = std::to_string(spriteId);
 
-        // Build sprite path
-        std::string path = "sprites/pokemon/";
-        path += std::to_string(spriteId);
-        if (isShiny) {
-            path += "s";  // Shiny variant
+        // Prefer the HD render (transparent Pokemon HOME PNG) for this sprite id, then
+        // fall back to the bundled 96px sprite.
+        Sprite* sprite = loadSprite("sprites/pokemon_hd/" + sid + suffix + ".png");
+        if (!sprite) {
+            sprite = loadSprite("sprites/pokemon/" + sid + suffix + ".png");
         }
-        path += ".png";
 
-        // Load sprite
-        Sprite* sprite = loadSprite(path);
-
-        // If form sprite not found and this is a form, try base form
+        // If a form had no sprite of its own, fall back to the base species (HD then 96px).
         if (!sprite && formId > 0) {
-            path = "sprites/pokemon/";
-            path += std::to_string(speciesId);  // Fall back to species ID
-            if (isShiny) {
-                path += "s";
+            std::string base = std::to_string(speciesId);
+            sprite = loadSprite("sprites/pokemon_hd/" + base + suffix + ".png");
+            if (!sprite) {
+                sprite = loadSprite("sprites/pokemon/" + base + suffix + ".png");
             }
-            path += ".png";
-            sprite = loadSprite(path);
         }
 
         // Cache it (even if nullptr, so we don't keep trying to load missing sprites)
@@ -153,7 +147,6 @@ namespace UI {
         path += std::to_string(typeId);
         path += ".png";
 
-        // Load sprite
         Sprite* sprite = loadSprite(path);
 
         // Cache it (even if nullptr)

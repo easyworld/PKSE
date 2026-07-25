@@ -1,4 +1,3 @@
-#include <cstdio>
 #include <string>
 
 #include "UI/Panels/PartyPokemonPanel.h"
@@ -8,147 +7,142 @@
 #include "Trainer/Trainer.h"
 #include "Pokemon/Pokemon.h"
 #include "Pokemon/PokemonTypes.h"
+#include "Names/FormNames.h"   // getDisplayName -- variant prefix ("Alolan Raichu", "Combat Breed Tauros")
 
 using namespace Trainer;
 
 namespace UI {
 namespace Panels {
-    void drawPartyPokemon(PKSEFramebuffer& fb, const std::vector<std::unique_ptr<Pokemon::Pokemon>>& party, uint32_t trainerID32, int x, int y, int width, int height, int selectedIndex) {
-        fb.drawFilledRect(x, y, width, height, Colors::Panel);
-        fb.drawRect(x, y, width, height, Colors::Border);
 
-        fb.drawText(x + 20, y + 20, "Party Pokemon", Colors::Text);
-        fb.drawFilledRect(x + 20, y + 45, width - 40, 2, Colors::Border);
+    // Draw a type ICON sprite scaled to `h` px tall at (x, y); returns drawn width (0 if none).
+    // Named apart from PKSEFramebuffer::drawTypeBadge deliberately -- that one renders a coloured
+    // text pill, this one blits the type's artwork. They are different things, not a duplication.
+    static int drawTypeIcon(PKSEFramebuffer& fb, Sprite* type, int x, int y, int h) {
+        if (!type || !type->data) return 0;
+        int w = (type->width * h) / type->height;
+        fb.drawImageScaled(x, y, type->width, type->height, w, h, type->data, type->channels);
+        return w;
+    }
 
-        // Draw in two columns: Slot 1-3 on left, Slot 4-6 on right
-        int lineHeight = 20;
-        int columnWidth = (width - 60) / 2;  // Dynamic column width based on panel width
+    void drawPartyPokemon(PKSEFramebuffer& fb, const Trainer::Trainer& trainer,
+                          int x, int y, int width, int height, int selectedIndex) {
+        const auto& party = trainer.party;
 
-        for (size_t i = 0; i < party.size() && i < 6; i++) {
-            const Pokemon::Pokemon* pokemon = party[i].get();
-            if (!pokemon) continue;
+        fb.drawCard(x, y, width, height);
+        fb.drawText(x + 16, y + 12, "同行宝可梦", Colors::Text, TextStyle::Heading);
+        fb.drawHDivider(x + 16, y + 48, width - 32);
 
-            // Determine column (0 = left, 1 = right)
-            int column = (i >= 3) ? 1 : 0;
-            int slotInColumn = (i >= 3) ? (i - 3) : i;
+        // Two columns of three slots (1-3 left, 4-6 right).
+        constexpr int gutter = 16;
+        constexpr int slotGap = 12;
+        const int gridTop = y + 58;
+        const int colW = (width - 3 * gutter) / 2;
+        const int colX[2] = { x + gutter, x + gutter + colW + gutter };
+        const int slotH = (height - (gridTop - y) - 2 * slotGap - gutter) / 3;
 
-            // Calculate position
-            int colX = x + 20 + (column * columnWidth);
-            int colY = y + 60 + (slotInColumn * 170);  // Each slot takes ~170px vertically
+        for (int i = 0; i < 6; i++) {
+            const int col = (i >= 3) ? 1 : 0;
+            const int rowInCol = (i >= 3) ? (i - 3) : i;
+            const int cardX = colX[col];
+            const int cardY = gridTop + rowInCol * (slotH + slotGap);
+            const bool selected = (selectedIndex >= 0 && i == selectedIndex);
 
-            // Highlight selected Pokemon
-            if (selectedIndex >= 0 && static_cast<int>(i) == selectedIndex) {
-                fb.drawFilledRect(colX - 5, colY - 5, columnWidth - 10, 165, Colors::Selected);
-            }
+            // Slot card (rounded, HOME-style — matches the cards used everywhere else in the app).
+            // A soft shadow + accent border mark the selection, replacing the old square fill and the
+            // 4px left edge that didn't sit right against rounded corners.
+            constexpr int slotR = 12;
+            if (selected) fb.drawSoftShadow(cardX, cardY, colW, slotH, slotR);
+            fb.drawFilledRoundedRect(cardX, cardY, colW, slotH, slotR, selected ? Colors::Selected : Colors::PanelAlt);
+            fb.drawRoundedRect(cardX, cardY, colW, slotH, slotR, selected ? Colors::Accent : Colors::Border, selected ? 2 : 1);
 
-            if (pokemon->speciesID() == 0) {
-                std::string slotText = "栏位 " + std::to_string(i + 1) + ": 空";
-                fb.drawText(colX, colY, slotText, Colors::TextDim);
+            constexpr int pad = 14;
+            const Pokemon::Pokemon* pokemon = (i < static_cast<int>(party.size())) ? party[i].get() : nullptr;
+
+            if (!pokemon || pokemon->speciesID() == 0) {
+                fb.drawText(cardX + pad, cardY + slotH / 2 - 12,
+                            "槽位 " + std::to_string(i + 1) + "：空", Colors::TextDim);
                 continue;
             }
 
-            // Load Pokemon sprite (form-aware) - will draw later at bottom of cell
-            bool isShiny = pokemon->isShiny(pokemon->id32(), pokemon->species());
-            Sprite* sprite = SpriteManager::getSprite(pokemon->speciesID(), pokemon->form(), isShiny);
+            const bool isShiny = pokemon->isShiny(pokemon->id32(), pokemon->species());
+            const bool av = pokemon->hasAwakeningValues();
 
-            // Draw header: "Slot X: Species"
-            std::string headerText = "栏位 " + std::to_string(i + 1) + ": " + std::string(pokemon->species());
-            int textX = colX;
-            fb.drawText(colX, colY, headerText, Colors::Text);
-            textX += headerText.length() * 8;  // Approximate character width
+            // --- Header row: slot number, species, gender/shiny/partner markers, level ---
+            int hx = cardX + pad;
+            const int hy = cardY + 9;
 
-            // Draw gender symbol next to species name
-            std::string genderSymbol = pokemon->genderSymbol();
-            if (genderSymbol != "?" && genderSymbol != "Genderless" && std::string(genderSymbol) != "") {
-                Color genderColor = (genderSymbol == "♂") ? Colors::Blue : Colors::Magenta;
-                fb.drawText(textX, colY, std::string(" ") + genderSymbol, genderColor);
-                textX += 16;  // Space + symbol width
+            std::string num = std::to_string(i + 1);
+            fb.drawText(hx, hy, num, Colors::Accent);
+            int numW, numH; fb.measureText(num, numW, numH);
+            hx += numW + 10;
+
+            std::string species = Names::getDisplayName(pokemon->speciesID(), pokemon->form(), pokemon->species());
+            fb.drawText(hx, hy, species, Colors::Text);
+            int spW, spH; fb.measureText(species, spW, spH);
+            hx += spW + 6;
+
+            std::string gender = pokemon->genderSymbol();
+            if (gender != "?" && gender != "无性别" && gender != "") {
+                fb.drawSymbol(hx, hy, gender, (gender == "♂") ? Colors::Blue : Colors::Magenta);
+                hx += 20;
+            }
+            if (isShiny) { fb.drawShinyMark(hx, hy, 16, Colors::ShinyStar); hx += 20; }
+            if (trainer.isPartyPokemonStarter(i)) { fb.drawSymbol(hx, hy, "♥", Colors::PartnerHeart); hx += 20; }
+
+            std::string lvl = "等级 " + std::to_string(pokemon->level());
+            int lvW, lvH; fb.measureText(lvl, lvW, lvH);
+            fb.drawText(cardX + colW - pad - lvW, hy, lvl, Colors::TextDim);
+
+            // --- Stat table: fixed columns for alignment, caption-size data text ---
+            struct StatRow { const char* name; int base, iv, evav, stat; };
+            const StatRow rows[6] = {
+                {"HP",  pokemon->baseHP(),  pokemon->ivHP(),  av ? pokemon->avHP()  : pokemon->evHP(),  pokemon->statHPMax()},
+                {"攻击", pokemon->baseATK(), pokemon->ivATK(), av ? pokemon->avATK() : pokemon->evATK(), pokemon->statATK()},
+                {"防御", pokemon->baseDEF(), pokemon->ivDEF(), av ? pokemon->avDEF() : pokemon->evDEF(), pokemon->statDEF()},
+                {"特攻", pokemon->baseSPA(), pokemon->ivSPA(), av ? pokemon->avSPA() : pokemon->evSPA(), pokemon->statSPA()},
+                {"特防", pokemon->baseSPD(), pokemon->ivSPD(), av ? pokemon->avSPD() : pokemon->evSPD(), pokemon->statSPD()},
+                {"速度", pokemon->baseSPE(), pokemon->ivSPE(), av ? pokemon->avSPE() : pokemon->evSPE(), pokemon->statSPE()},
+            };
+
+            const int labelX = cardX + pad;
+            const int cBase  = cardX + 56;
+            const int cIV    = cardX + 104;
+            const int cEV    = cardX + 144;
+            const int cStat  = cardX + 190;
+            int tY = cardY + 38;
+            constexpr int lineH = 16;
+
+            const Color colHdr = selected ? Colors::Text : Colors::TextDim;
+            fb.drawText(cBase, tY, "种族值",           colHdr, TextStyle::Caption);
+            fb.drawText(cIV,   tY, "IV",             colHdr, TextStyle::Caption);
+            fb.drawText(cEV,   tY, av ? "AV" : "EV", colHdr, TextStyle::Caption);
+            fb.drawText(cStat, tY, "能力值",           colHdr, TextStyle::Caption);
+            tY += lineH;
+
+            for (const auto& r : rows) {
+                fb.drawText(labelX, tY, r.name,                 Colors::TextDim, TextStyle::Caption);
+                fb.drawText(cBase,  tY, std::to_string(r.base), Colors::Text,    TextStyle::Caption);
+                fb.drawText(cIV,    tY, std::to_string(r.iv),   Colors::Text,    TextStyle::Caption);
+                fb.drawText(cEV,    tY, std::to_string(r.evav), Colors::Text,    TextStyle::Caption);
+                fb.drawText(cStat,  tY, std::to_string(r.stat), Colors::Accent,  TextStyle::Caption);
+                tY += lineH;
             }
 
-            // Draw shiny star in red after gender
-            // if (pokemon->isShiny(trainerID32, pokemon->species())) {
-            if (pokemon->isShiny(pokemon->id32(), pokemon->species())) {
-                fb.drawText(textX, colY, " ★", Colors::Red);
-                textX += 16;
-            }
-
-            // Draw level
-            std::string levelText = " - Lv." + std::to_string(pokemon->level());
-            fb.drawText(textX, colY, levelText, Colors::Text);
-
-            int TYPE_SPRITE_HEIGHT = 14;
+            // --- Type badges (stacked) + sprite (right side) ---
             Pokemon::TypePair types = Pokemon::getPokemonTypes(pokemon->speciesID(), pokemon->form());
-            Sprite* type1Sprite = SpriteManager::getTypeSprite(types.type1);
-            Sprite* type2Sprite = Pokemon::hasSecondType(types) ? SpriteManager::getTypeSprite(types.type2) : nullptr;
-
-            // Calculate total width needed for types
-            int type1Width = 0, type2Width = 0;
-            if (type1Sprite && type1Sprite->data) {
-                type1Width = (type1Sprite->width * TYPE_SPRITE_HEIGHT) / type1Sprite->height;
-            }
-            if (type2Sprite && type2Sprite->data) {
-                type2Width = (type2Sprite->width * TYPE_SPRITE_HEIGHT) / type2Sprite->height;
-            }
-            // int totalTypeWidth = type1Width + (type2Width > 0 ? 5 + type2Width : 0);
-
-            // Position types at fixed position
-            int typeX = colX + 280;
-            if (type1Sprite && type1Sprite->data) {
-                fb.drawImageScaled(typeX, colY, type1Sprite->width, type1Sprite->height,
-                    type1Width, TYPE_SPRITE_HEIGHT,
-                    type1Sprite->data, type1Sprite->channels);
-                typeX += type1Width + 5;
-            }
-            if (type2Sprite && type2Sprite->data) {
-                fb.drawImageScaled(typeX, colY, type2Sprite->width, type2Sprite->height,
-                    type2Width, TYPE_SPRITE_HEIGHT,
-                    type2Sprite->data, type2Sprite->channels);
+            const int typeX = cardX + 286;
+            drawTypeIcon(fb, SpriteManager::getTypeSprite(types.type1), typeX, cardY + 42, 16);
+            if (Pokemon::hasSecondType(types)) {
+                drawTypeIcon(fb, SpriteManager::getTypeSprite(types.type2), typeX, cardY + 63, 16);
             }
 
-            colY += lineHeight;
-
-            // Draw stats header
-            fb.drawText(colX + 20, colY, "    基础 | IV | EV  | 能力", Colors::TextDim);
-            colY += lineHeight;
-
-            // Draw each stat
-            char statLine[100];
-            snprintf(statLine, sizeof(statLine), "HP : %03d | %02d | %03d | %03d",
-                pokemon->baseHP(), pokemon->ivHP(), pokemon->evHP(), pokemon->statHPMax());
-            fb.drawText(colX + 20, colY, statLine, Colors::Text);
-            colY += lineHeight;
-
-            snprintf(statLine, sizeof(statLine), "攻击: %03d | %02d | %03d | %03d",
-                pokemon->baseATK(), pokemon->ivATK(), pokemon->evATK(), pokemon->statATK());
-            fb.drawText(colX + 20, colY, statLine, Colors::Text);
-            colY += lineHeight;
-
-            snprintf(statLine, sizeof(statLine), "防御: %03d | %02d | %03d | %03d",
-                pokemon->baseDEF(), pokemon->ivDEF(), pokemon->evDEF(), pokemon->statDEF());
-            fb.drawText(colX + 20, colY, statLine, Colors::Text);
-            colY += lineHeight;
-
-            snprintf(statLine, sizeof(statLine), "特攻: %03d | %02d | %03d | %03d",
-                pokemon->baseSPA(), pokemon->ivSPA(), pokemon->evSPA(), pokemon->statSPA());
-            fb.drawText(colX + 20, colY, statLine, Colors::Text);
-            colY += lineHeight;
-
-            snprintf(statLine, sizeof(statLine), "特防: %03d | %02d | %03d | %03d",
-                pokemon->baseSPD(), pokemon->ivSPD(), pokemon->evSPD(), pokemon->statSPD());
-            fb.drawText(colX + 20, colY, statLine, Colors::Text);
-            colY += lineHeight;
-
-            snprintf(statLine, sizeof(statLine), "速度: %03d | %02d | %03d | %03d",
-                pokemon->baseSPE(), pokemon->ivSPE(), pokemon->evSPE(), pokemon->statSPE());
-            fb.drawText(colX + 20, colY, statLine, Colors::Text);
-
-            // Draw Pokemon sprite at bottom-right of cell
+            Sprite* sprite = SpriteManager::getSprite(pokemon->speciesID(), pokemon->form(), isShiny);
             if (sprite && sprite->data) {
-                int cellStartY = y + 60 + (((i >= 3) ? (i - 3) : i) * 170);
-                int spriteX = colX + 280;
-                int spriteY = cellStartY + 60;
-                fb.drawImage(spriteX, spriteY, sprite->width, sprite->height,
-                    sprite->data, sprite->channels);
+                const int SP = 96;
+                int spX = cardX + colW - pad - SP;
+                int spY = cardY + 30;
+                fb.drawSpriteIdle(spX, spY, SP, SP, sprite->width, sprite->height,
+                                  sprite->data, sprite->channels, static_cast<float>(i) * 1.1f);
             }
         }
     }

@@ -10,6 +10,8 @@ namespace UI {
 namespace UI {
 namespace Panels {
     void drawBoxPokemon(UI::TrainerViewScreen& screen, UI::PKSEFramebuffer& fb, int x, int y, int width, int height);
+    // HOME summary side-panel (render + hexagon + info) shown right of the box when entered.
+    void drawBoxSummaryPanel(UI::TrainerViewScreen& screen, UI::PKSEFramebuffer& fb, int x, int y, int width, int height);
 }
 }
 

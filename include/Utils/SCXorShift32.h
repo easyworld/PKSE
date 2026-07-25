@@ -1,6 +1,7 @@
 #ifndef UTILS_SCXORSHIFT32_H
 #define UTILS_SCXORSHIFT32_H
 
+#include <bit>
 #include <cstdint>
 
 namespace Utils {
@@ -12,7 +13,10 @@ namespace Utils {
 
         static uint32_t GetInitialState(uint32_t state)
         {
-            int pop_count = __builtin_popcount(state); // Use GCC builtin; for MSVC use _popcnt
+            // std::popcount (C++20) rather than __builtin_popcount: the builtin is GCC/Clang-only,
+            // and the old comment ("for MSVC use _popcnt") shows the portability gap was known but
+            // never closed. Same codegen, no compiler dependence.
+            const int pop_count = std::popcount(state);
             for (int i = 0; i < pop_count; ++i)
             {
                 state = XorshiftAdvance(state);

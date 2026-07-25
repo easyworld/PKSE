@@ -7,7 +7,11 @@ namespace Names {
     extern const char* getSpeciesName(uint16_t speciesId);
     extern const char* getItemName(uint16_t itemId);
     extern const char* getNatureName(uint8_t natureId);
-    extern const char* getAbilityName(uint8_t abilityId);
+    // uint16_t, matching the real definition in Names/AbilityNames.cpp. This used to say uint8_t,
+    // which declared a DIFFERENT overload that does not exist anywhere -- so getAbilityNameGen89()
+    // below referenced a symbol that could never resolve. It went unnoticed because nothing calls
+    // it and --gc-sections drops the function before the linker ever has to find the target.
+    extern const char* getAbilityName(uint16_t abilityId);
 }
 
 namespace Pokemon {

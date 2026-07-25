@@ -18,6 +18,8 @@
 #include <string>
 #include <memory>
 
+#include "Enums/GameVersion.h"
+
 namespace Pokemon {
     /**
      * PKM - Abstract base class for Pokemon entity data
@@ -111,12 +113,6 @@ namespace Pokemon {
          * @return Form ID (0 = base form)
          */
         virtual uint8_t form() const noexcept = 0;
-
-        /**
-         * Gets the Pokemon's form name as a string.
-         * @return Form name (e.g., "Alolan", "Galarian")
-         */
-        // virtual const char* form() const noexcept = 0;
 
         /**
          * Gets the held item ID.
@@ -231,6 +227,237 @@ namespace Pokemon {
         virtual void setEV(int statIndex, uint8_t value) noexcept = 0;
 
         // ========================================
+        // Stats - Awakening Values (AVs) - Let's Go Only
+        // ========================================
+
+        /**
+         * Awakening Values (AVs) are unique to Pokemon Let's Go Pikachu/Eevee.
+         * They provide additional stat points similar to EVs but earned differently.
+         * Max 200 per stat, earned by using candies or catching Pokemon.
+         * Default implementation returns 0 for games without AVs.
+         */
+        virtual uint8_t avHP() const noexcept { return 0; }
+        virtual uint8_t avATK() const noexcept { return 0; }
+        virtual uint8_t avDEF() const noexcept { return 0; }
+        virtual uint8_t avSPE() const noexcept { return 0; }
+        virtual uint8_t avSPA() const noexcept { return 0; }
+        virtual uint8_t avSPD() const noexcept { return 0; }
+
+        /**
+         * Sets an Awakening Value for a specific stat (Let's Go only).
+         * @param statIndex 0=HP, 1=ATK, 2=DEF, 3=SPE, 4=SPA, 5=SPD
+         * @param value AV value (0-200)
+         * Default implementation is a no-op for games without AVs.
+         */
+        virtual void setAV(int statIndex, uint8_t value) noexcept { (void)statIndex; (void)value; }
+
+        /**
+         * Checks if this Pokemon format uses Awakening Values (AVs).
+         * @return true for Let's Go Pokemon, false otherwise
+         */
+        virtual bool hasAwakeningValues() const noexcept { return false; }
+
+        // ========================================
+        // Moves
+        // ========================================
+
+        /**
+         * Gets the move ID in a given slot.
+         * @param slot Move slot (0-3)
+         * @return Move ID (0 = empty slot). Default 0 for formats not yet wired.
+         */
+        virtual uint16_t move(int slot) const noexcept { (void)slot; return 0; }
+
+        /**
+         * Sets the move ID in a given slot.
+         * Moves are part of the checksummed data, so implementations must call
+         * refreshChecksum(). Does NOT auto-set PP (that needs a base-PP table) —
+         * set PP explicitly via setMovePP() when required.
+         * @param slot Move slot (0-3)
+         * @param moveID Move ID to store
+         */
+        virtual void setMove(int slot, uint16_t moveID) noexcept { (void)slot; (void)moveID; }
+
+        /**
+         * Gets the current PP of a move slot.
+         * @param slot Move slot (0-3)
+         */
+        virtual uint8_t movePP(int slot) const noexcept { (void)slot; return 0; }
+
+        /**
+         * Sets the current PP of a move slot.
+         * @param slot Move slot (0-3)
+         * @param pp PP value
+         */
+        virtual void setMovePP(int slot, uint8_t pp) noexcept { (void)slot; (void)pp; }
+
+        /**
+         * Gets the number of PP Ups applied to a move slot (0-3).
+         * @param slot Move slot (0-3)
+         */
+        virtual uint8_t movePPUps(int slot) const noexcept { (void)slot; return 0; }
+
+        /**
+         * Sets the number of PP Ups applied to a move slot.
+         * @param slot Move slot (0-3)
+         * @param ppUps PP Up count (0-3)
+         */
+        virtual void setMovePPUps(int slot, uint8_t ppUps) noexcept { (void)slot; (void)ppUps; }
+
+        /**
+         * Gets a relearn move ID (Gen 6+ "remembered" moves; 0 for older formats).
+         * @param slot Relearn slot (0-3)
+         */
+        virtual uint16_t relearnMove(int slot) const noexcept { (void)slot; return 0; }
+
+        /**
+         * Sets a relearn move ID (Gen 6+).
+         * @param slot Relearn slot (0-3)
+         * @param moveID Move ID to store
+         */
+        virtual void setRelearnMove(int slot, uint16_t moveID) noexcept { (void)slot; (void)moveID; }
+
+        // ========================================
+        // OT / Origin / Met data
+        // ========================================
+        // Getters default to 0 and setters are no-ops so a format that hasn't been
+        // wired yet still compiles. Wired formats must call refreshChecksum() in setters.
+
+        /** Game of origin (the Version byte). @return GameVersion numeric id (0 if unwired). */
+        virtual uint8_t originGame() const noexcept { return 0; }
+        virtual void setOriginGame(uint8_t version) noexcept { (void)version; }
+
+        /** Storage-format game group (which subclass this is), NOT the origin Version byte. */
+        virtual Enums::GameVersion getGameGroup() const noexcept = 0;
+
+        /** Original Trainer visible ID (TID16). */
+        virtual uint16_t tid16() const noexcept { return 0; }
+        virtual void setTID16(uint16_t value) noexcept { (void)value; }
+
+        /** Original Trainer secret ID (SID16). */
+        virtual uint16_t sid16() const noexcept { return 0; }
+        virtual void setSID16(uint16_t value) noexcept { (void)value; }
+
+        /** Sets the full 32-bit trainer ID (id32() is the getter). */
+        virtual void setId32(uint32_t value) noexcept { (void)value; }
+
+        /** Original Trainer gender (0 = Male, 1 = Female). */
+        virtual uint8_t otGender() const noexcept { return 0; }
+        virtual void setOTGender(uint8_t value) noexcept { (void)value; }
+
+        /** Original Trainer (base) friendship (0-255). */
+        virtual uint8_t otFriendship() const noexcept { return 0; }
+        virtual void setOTFriendship(uint8_t value) noexcept { (void)value; }
+
+        /** Language ID the Pokemon was raised in. */
+        virtual uint8_t language() const noexcept { return 0; }
+        virtual void setLanguage(uint8_t value) noexcept { (void)value; }
+
+        /** Poke Ball the Pokemon is contained in. */
+        virtual uint8_t ball() const noexcept { return 0; }
+        virtual void setBall(uint8_t value) noexcept { (void)value; }
+
+        /** Met location id (where the Pokemon was caught/received). */
+        virtual uint16_t metLocation() const noexcept { return 0; }
+        virtual void setMetLocation(uint16_t value) noexcept { (void)value; }
+
+        /** Met level (level at which the Pokemon was met). */
+        virtual uint8_t metLevel() const noexcept { return 0; }
+        virtual void setMetLevel(uint8_t value) noexcept { (void)value; }
+
+        /** Egg location id (0 = not hatched from an egg / not applicable). */
+        virtual uint16_t eggLocation() const noexcept { return 0; }
+        virtual void setEggLocation(uint16_t value) noexcept { (void)value; }
+
+        /** Met date components (year stored as years-since-2000). */
+        virtual uint8_t metYear() const noexcept { return 0; }
+        virtual void setMetYear(uint8_t value) noexcept { (void)value; }
+        virtual uint8_t metMonth() const noexcept { return 0; }
+        virtual void setMetMonth(uint8_t value) noexcept { (void)value; }
+        virtual uint8_t metDay() const noexcept { return 0; }
+        virtual void setMetDay(uint8_t value) noexcept { (void)value; }
+
+        /** Egg date components (year stored as years-since-2000). */
+        virtual uint8_t eggYear() const noexcept { return 0; }
+        virtual void setEggYear(uint8_t value) noexcept { (void)value; }
+        virtual uint8_t eggMonth() const noexcept { return 0; }
+        virtual void setEggMonth(uint8_t value) noexcept { (void)value; }
+        virtual uint8_t eggDay() const noexcept { return 0; }
+        virtual void setEggDay(uint8_t value) noexcept { (void)value; }
+
+        // ========================================
+        // Names & handler
+        // ========================================
+
+        /** Sets the nickname (UTF-16, max 12 chars). Does not change the isNicknamed flag. */
+        virtual void setNickname(const std::u16string& value) noexcept { (void)value; }
+
+        /** "Has a custom nickname" flag. Formats that don't wire it report false / ignore the set. */
+        virtual bool isNicknamed() const noexcept { return false; }
+        virtual void setIsNicknamed(bool value) noexcept { (void)value; }
+
+        /** Fateful-encounter ("obtained in a fateful encounter") flag; false / no-op where unwired. */
+        virtual bool isFatefulEncounter() const noexcept { return false; }
+        virtual void setFatefulEncounter(bool value) noexcept { (void)value; }
+
+        /** Original Trainer name (UTF-16; empty if unwired). */
+        virtual std::u16string otName() const { return std::u16string(); }
+        virtual void setOTName(const std::u16string& value) noexcept { (void)value; }
+
+        /** Handling (current) Trainer name (UTF-16; empty if unwired). */
+        virtual std::u16string htName() const { return std::u16string(); }
+        virtual void setHTName(const std::u16string& value) noexcept { (void)value; }
+
+        /** Handling Trainer gender (0 = Male, 1 = Female). */
+        virtual uint8_t htGender() const noexcept { return 0; }
+        virtual void setHTGender(uint8_t value) noexcept { (void)value; }
+
+        /** Handling Trainer friendship (0-255). */
+        virtual uint8_t htFriendship() const noexcept { return 0; }
+        virtual void setHTFriendship(uint8_t value) noexcept { (void)value; }
+
+        /** Current handler flag (0 = OT active, 1 = HT active). */
+        virtual uint8_t currentHandler() const noexcept { return 0; }
+        virtual void setCurrentHandler(uint8_t value) noexcept { (void)value; }
+
+        // ========================================
+        // Core editable setters
+        // ========================================
+        // Getters for most of these already exist above (speciesID/heldItem/ability/
+        // nature/statNature/form/pid/encryptionConstant/friendship/isEgg). These add
+        // the write side. Implementations refresh the checksum, and recalculate stats
+        // when the field affects them (species/form/statNature).
+
+        virtual void setSpecies(uint16_t species) noexcept { (void)species; }
+        virtual void setForm(uint8_t form) noexcept { (void)form; }
+        virtual void setHeldItem(uint16_t item) noexcept { (void)item; }
+        virtual void setAbility(uint16_t ability) noexcept { (void)ability; }
+
+        /** Ability slot number (which of the species' abilities: 1/2/H). */
+        virtual uint8_t abilityNumber() const noexcept { return 0; }
+        virtual void setAbilityNumber(uint8_t number) noexcept { (void)number; }
+
+        virtual void setNature(uint8_t nature) noexcept { (void)nature; }
+        virtual void setStatNature(uint8_t nature) noexcept { (void)nature; }
+        virtual void setPID(uint32_t pid) noexcept { (void)pid; }
+        virtual void setEncryptionConstant(uint32_t ec) noexcept { (void)ec; }
+        virtual void setFriendship(uint8_t value) noexcept { (void)value; }
+        virtual void setEgg(bool egg) noexcept { (void)egg; }
+
+        /** Sets gender (0 = Male, 1 = Female, 2 = Genderless). gender() is the getter. */
+        virtual void setGender(uint8_t gender) noexcept { (void)gender; }
+
+        /**
+         * Sets the Pokemon's level (level() is the getter). Writes the level's minimum
+         * total EXP, refreshes the cached party-level byte, then recalculates stats and
+         * checksum. Implementations clamp to [1,100].
+         */
+        virtual void setLevel(uint8_t level) noexcept {}   // default no-op; overridden where supported
+
+        /** Sets total EXP directly and re-derives the level; no-op where unwired. */
+        virtual void setExp(uint32_t value) noexcept { (void)value; }
+
+        // ========================================
         // Base Stats (Species-Dependent)
         // ========================================
 
@@ -300,6 +527,16 @@ namespace Pokemon {
          * @return true if cured, false otherwise
          */
         virtual bool isPokerusCured() const noexcept = 0;
+
+        /**
+         * Sets the raw Pokerus byte (high nibble = strain, low nibble = days remaining). Canonical
+         * editor values: 0x00 = none, 0x12 = freshly infected (strain 1, 2 days), 0x10 = cured.
+         * Default no-op for games with no Pokerus mechanic (Let's Go).
+         */
+        virtual void setPokerus(uint8_t /*value*/) noexcept {}
+
+        /** Whether this game actually has the Pokerus mechanic, so editing it is meaningful. */
+        virtual bool hasPokerus() const noexcept { return false; }
 
         // ========================================
         // Data Integrity
@@ -382,6 +619,9 @@ namespace Pokemon {
          * @return Const span view of the data buffer
          */
         std::span<const std::byte> getData() const noexcept { return data; }
+
+        /** Deep-copy this Pokemon into a new owning instance (nullptr if unsupported). */
+        virtual std::unique_ptr<Pokemon> clone() const { return nullptr; }
 
     protected:
         // Default constructor for derived classes

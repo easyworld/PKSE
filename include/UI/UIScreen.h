@@ -5,11 +5,12 @@
 
 namespace UI {
     class PKSEFramebuffer;
+    class TouchInput;
 
     class UIScreen {
     public:
         virtual ~UIScreen() = default;
-        virtual void update(const PadState& pad) = 0;
+        virtual void update(const PadState& pad, const TouchInput& touch) = 0;
         virtual void draw(PKSEFramebuffer& fb) = 0;
         virtual bool shouldExit() const { return false; }
     };

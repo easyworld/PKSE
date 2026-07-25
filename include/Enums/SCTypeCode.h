@@ -3,7 +3,7 @@
 
 #include <cstdint>
 
-#include <switch.h>
+#include "Utils/NXTypes.h"   // u8..s64; <switch.h> on console, plain typedefs off it (#50)
 
 namespace Enums {
     enum class SCTypeCode
@@ -30,22 +30,7 @@ namespace Enums {
         Double = 17,
     };
 
-    // Union representing all possible scalar values (like a manual variant)
-    union SCValueUnion {
-        u8    u8_val;
-        u16   u16_val;
-        u32   u32_val;
-        u64   u64_val;
-        s8    s8_val;
-        s16   s16_val;
-        s32   s32_val;
-        s64   s64_val;
-        float float_val;
-        double double_val;
-    };
-
     /// Gets the number of bytes occupied by a variable of a given type.
-    /// Type of the value
     size_t getTypeSize(SCTypeCode type);
 }
 

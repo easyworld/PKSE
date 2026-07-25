@@ -23,9 +23,6 @@ namespace Utils {
         uint8_t buffer[PKSE_SHA256_BLOCK_SIZE];
         size_t bufferSize;
     };
-
-    // Convenience function
-    void computeSHA256(const uint8_t* data, size_t length, uint8_t* hash);
 }
 
 #endif

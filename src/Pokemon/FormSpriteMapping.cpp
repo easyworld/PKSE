@@ -407,12 +407,4 @@ uint32_t getFormSpriteId(uint16_t speciesId, uint8_t formId) {
     return speciesId;
 }
 
-bool formHasDistinctSprite(uint16_t speciesId, uint8_t formId) {
-    if (formId == 0) return true; // Base form always has sprite
-
-    // Check if form has a distinct sprite ID
-    uint32_t spriteId = getFormSpriteId(speciesId, formId);
-    return spriteId != speciesId;
-}
-
 } // namespace Pokemon

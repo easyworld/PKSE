@@ -204,7 +204,7 @@ namespace Utils {
         return std::string(buffer);
     }
 
-    bool backupSaveData(AccountUid userUid, u64 titleId, std::string titleName) {
+    std::string backupSaveData(AccountUid userUid, u64 titleId, std::string titleName, bool timestamped) {
         char titleBuf[32];
         snprintf(titleBuf, sizeof(titleBuf), "0x%016llX", static_cast<unsigned long long>(titleId));
         logInfoToFile("Pokemon titleId: ", titleBuf);
@@ -214,28 +214,28 @@ namespace Utils {
         char gameDirectory[512];
         snprintf(gameDirectory, sizeof(gameDirectory), "%s/%s", BASE_SAVE_DIRECTORY.c_str(), titleName.c_str());
 
-        // Create timestamped backup directory: PKSE/{titleName}/{timestamp}/
-        std::string timestamp = getTimestamp();
-        char timestampedBackupDirectory[1024];
-        snprintf(timestampedBackupDirectory, sizeof(timestampedBackupDirectory), "%s/%s", gameDirectory, timestamp.c_str());
+        // History backup -> PKSE/{titleName}/{timestamp}/ ; auto-backup off -> reuse PKSE/{titleName}/Working/
+        std::string folderName = timestamped ? getTimestamp() : std::string("Working");
+        char backupDirectory[1024];
+        snprintf(backupDirectory, sizeof(backupDirectory), "%s/%s", gameDirectory, folderName.c_str());
 
-        logInfoToFile("Backup directory", timestampedBackupDirectory);
+        logInfoToFile("Backup directory", backupDirectory);
         logInfoToFile("Backing up save for title", titleName.c_str());
 
         if (mkdir(BASE_SAVE_DIRECTORY.c_str(), 0777) != 0 && errno != EEXIST) {
             logErrorToFile("Failed to create base directory", BASE_SAVE_DIRECTORY.c_str());
             logErrorToFile("mkdir error", strerror(errno));
-            return false;
+            return "";
         }
         if (mkdir(gameDirectory, 0777) != 0 && errno != EEXIST) {
             logErrorToFile("Failed to create game directory", gameDirectory);
             logErrorToFile("mkdir error", strerror(errno));
-            return false;
+            return "";
         }
-        if (mkdir(timestampedBackupDirectory, 0777) != 0 && errno != EEXIST) {
-            logErrorToFile("Failed to create timestamped backup directory", timestampedBackupDirectory);
+        if (mkdir(backupDirectory, 0777) != 0 && errno != EEXIST) {
+            logErrorToFile("Failed to create backup directory", backupDirectory);
             logErrorToFile("mkdir error", strerror(errno));
-            return false;
+            return "";
         }
 
         char buffer[LOG_BUFFER_SIZE];
@@ -245,22 +245,21 @@ namespace Utils {
         if (R_FAILED(result)) {
             snprintf(buffer, sizeof(buffer), "fsdevMountSaveData failed for titleId 0x%016lX: 0x%x", titleId, result);
             logErrorToFile(buffer);
-            return false;
+            return "";
         }
 
         logInfoToFile("Successfully mounted save:/");
 
-        bool copySuccess = copyDirectory("save:/", timestampedBackupDirectory);
+        bool copySuccess = copyDirectory("save:/", backupDirectory);
 
         fsdevUnmountDevice("save");
 
         if (copySuccess) {
             logInfoToFile("Backup completed successfully!");
-            return true;
-        } else {
-            logErrorToFile("Backup failed during file copying.");
-            return false;
+            return std::string(backupDirectory);
         }
+        logErrorToFile("Backup failed during file copying.");
+        return "";
     }
 
     bool restoreModifiedSave(AccountUid userUid, u64 titleId, const char* modifiedSavePath, const char* backupDir, std::vector<std::string> saveFiles) {
@@ -281,8 +280,6 @@ namespace Utils {
         // Pokemon Sword/Shield has: main, backup, poke_trade
         logInfoToFile("Copying original save files to save:/", backupDir);
 
-        // List of files to copy from the backup
-        // const char* saveFiles[] = {"main", "backup", "poke_trade"};
         bool copyAllSuccess = true;
 
         for (size_t i = 0; i < saveFiles.size(); i++) {
@@ -305,16 +302,26 @@ namespace Utils {
             return false;
         }
 
-        // Then, overwrite the 'main' file with the modified version
-        logInfoToFile("Overwriting main file with modified version");
+        // Then, overwrite the primary save file with the modified version. The primary
+        // filename differs by generation (SWSH/LZA: "main"; LGPE: "savedata.bin") and is
+        // always saveFiles[0] — the file that the ModifiedSave directory actually contains.
+        if (saveFiles.empty()) {
+            logErrorToFile("No save files specified for restore");
+            fsdevUnmountDevice("save");
+            return false;
+        }
+
+        logInfoToFile("Overwriting primary save file with modified version", saveFiles[0].c_str());
 
         char modifiedMainPath[512];
-        snprintf(modifiedMainPath, sizeof(modifiedMainPath), "%s/main", modifiedSavePath);
+        char destMainPath[512];
+        snprintf(modifiedMainPath, sizeof(modifiedMainPath), "%s/%s", modifiedSavePath, saveFiles[0].c_str());
+        snprintf(destMainPath, sizeof(destMainPath), "save:/%s", saveFiles[0].c_str());
 
-        bool copyModifiedSuccess = copyFile(modifiedMainPath, "save:/main");
+        bool copyModifiedSuccess = copyFile(modifiedMainPath, destMainPath);
 
         if (!copyModifiedSuccess) {
-            logErrorToFile("Failed to restore modified main file.");
+            logErrorToFile("Failed to restore modified primary save file.", saveFiles[0].c_str());
             fsdevUnmountDevice("save");
             return false;
         }
@@ -339,13 +346,24 @@ namespace Utils {
         return true;
     }
 
+    // True only for an auto-history folder shaped exactly like getTimestamp(): YYYYMMDD_HHMMSS.
+    // User-named backups (#47) and the reusable "Working" copy are, by definition, everything else.
+    static bool isTimestampName(const std::string& name) {
+        if (name.length() != 15 || name[8] != '_') return false;
+        for (size_t i = 0; i < name.length(); ++i) {
+            if (i == 8) continue;
+            if (name[i] < '0' || name[i] > '9') return false;
+        }
+        return true;
+    }
+
     std::vector<std::string> listBackupDirectories(const char* gameDirectory) {
         std::vector<std::string> backupDirs;
 
-        // TODO: Directory listing could be empty, no save backups. We don't need to log an error in that case.
+        // A missing game directory just means "no backups for this title yet" — the ordinary state
+        // before the first backup — so don't treat opendir failing as an error worth logging.
         DIR* dir = opendir(gameDirectory);
         if (!dir) {
-            logErrorToFile("Failed to open game directory for backup listing", gameDirectory);
             return backupDirs;
         }
 
@@ -355,67 +373,33 @@ namespace Utils {
                 continue;
             }
 
-            // Check if it's a directory and matches timestamp format (YYYYMMDD_HHMMSS)
+            // "Working" is the internal reusable staging copy used when auto-backup is off, not a
+            // user backup — keep it out of the picker so it never reads as one (C5).
+            if (strcmp(entry->d_name, "Working") == 0) {
+                continue;
+            }
+
+            // Every other subdirectory of the game folder IS a user-facing backup: an auto-history
+            // timestamp or a user-named backup. (ModifiedSave lives one level deeper, inside each
+            // backup, so it never shows up here.) The old code kept only the timestamp shape, which
+            // hid every custom-named backup the destination picker can create (#47).
             if (entry->d_type == DT_DIR) {
-                std::string dirName = entry->d_name;
-                // Simple validation: timestamp should be 15 chars (YYYYMMDD_HHMMSS)
-                if (dirName.length() == 15 && dirName[8] == '_') {
-                    backupDirs.push_back(dirName);
-                }
+                backupDirs.push_back(entry->d_name);
             }
         }
         closedir(dir);
 
-        // Sort in descending order (newest first)
-        std::sort(backupDirs.begin(), backupDirs.end(), std::greater<std::string>());
+        // User-named backups first (alphabetical), then auto-history newest-first. A named backup is
+        // a deliberate choice, so it belongs at the top rather than sorted into the middle of the
+        // timestamps by ASCII accident.
+        std::sort(backupDirs.begin(), backupDirs.end(), [](const std::string& a, const std::string& b) {
+            const bool at = isTimestampName(a), bt = isTimestampName(b);
+            if (at != bt) return !at;   // named before timestamped
+            if (at)       return a > b; // both timestamps: lexicographically greatest (newest) first
+            return a < b;               // both named: alphabetical
+        });
 
         return backupDirs;
     }
 
-    void limitBackups(const char* gameDirectory, int maxBackups) {
-        std::vector<std::string> backupDirs = listBackupDirectories(gameDirectory);
-
-        // If we have more backups than the limit, delete the oldest ones
-        if (backupDirs.size() > static_cast<size_t>(maxBackups)) {
-            logInfoToFile("Limiting backups to maximum of", std::to_string(maxBackups).c_str());
-
-            for (size_t i = maxBackups; i < backupDirs.size(); i++) {
-                char backupPath[512];
-                snprintf(backupPath, sizeof(backupPath), "%s/%s", gameDirectory, backupDirs[i].c_str());
-
-                logInfoToFile("Deleting old backup", backupPath);
-
-                // Delete the directory recursively
-                // We'll use a simple approach: delete all files first, then the directory
-                DIR* dir = opendir(backupPath);
-                if (dir) {
-                    struct dirent* entry;
-                    while ((entry = readdir(dir)) != NULL) {
-                        if (strcmp(entry->d_name, ".") == 0 || strcmp(entry->d_name, "..") == 0) {
-                            continue;
-                        }
-
-                        char filePath[1024];
-                        snprintf(filePath, sizeof(filePath), "%s/%s", backupPath, entry->d_name);
-
-                        if (entry->d_type == DT_REG) {
-                            remove(filePath);
-                        } else if (entry->d_type == DT_DIR) {
-                            // For subdirectories, we need to delete recursively
-                            // For now, we'll just try to remove it (works if empty)
-                            rmdir(filePath);
-                        }
-                    }
-                    closedir(dir);
-
-                    // Remove the backup directory itself
-                    if (rmdir(backupPath) == 0) {
-                        logInfoToFile("Successfully deleted backup", backupDirs[i].c_str());
-                    } else {
-                        logErrorToFile("Failed to delete backup directory", backupPath);
-                    }
-                }
-            }
-        }
-    }
 }

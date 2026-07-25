@@ -11,80 +11,67 @@
 
 #include "Pokemon/Pokemon7LGPE.h"
 #include "Pokemon/BaseStatsGen7.h"
+#include "Pokemon/Experience.h"   // getLevelFromExp / getGrowthRate (real growth-table level)
+
+namespace Trainer {
+    // Forward declaration for species name lookup
+    extern const char* getSpeciesName(uint16_t speciesId);
+}
 
 namespace Pokemon {
-    // Forward declarations for external helper functions
-    extern const char* getSpeciesName(uint16_t speciesId);
-
     // ========================================
     // Species and Name Lookups
     // ========================================
 
-    const char* Pokemon7LGPE::species() const
+    const char* Pokemon7LGPE::species() const noexcept
     {
-        return getSpeciesName(speciesID());
+        return Trainer::getSpeciesName(speciesID());
     }
 
     // ========================================
     // Gender Determination
     // ========================================
 
-    uint8_t Pokemon7LGPE::gender() const
+    uint8_t Pokemon7LGPE::gender() const noexcept
     {
         /**
-         * Gender determination in Let's Go uses the encryption constant
-         *
-         * For simplicity, we use the same logic as PK8 but with EC instead of PID.
+         * Gender is a STORED 2-bit field at byte 0x1D (bits 1-2): 0=Male, 1=Female,
+         * 2=Genderless. It is independent of the PID and the Encryption Constant, so
+         * changing shininess must NOT change gender.
          */
-
-        uint16_t species = speciesID();
-
-        // Genderless species (simplified list)
-        if (species == 81 || species == 82 ||     // Magnemite, Magneton
-            species == 100 || species == 101 ||   // Voltorb, Electrode
-            species == 120 || species == 121 ||   // Staryu, Starmie
-            species == 132 ||                     // Ditto
-            species == 137 ||                     // Porygon
-            species == 144 || species == 145 || species == 146 || // Legendary birds
-            species == 150 || species == 151) {   // Mewtwo, Mew
-            return 2; // Genderless
-        }
-
-        // For most species, use lower byte of EC for gender determination
-        uint32_t ec = encryptionConstant();
-        return ((ec & 0xFF) < 127) ? 0 : 1;
+        return (static_cast<uint8_t>(data[0x1D]) >> 1) & 0x03;
     }
 
     // ========================================
     // Base Stats (Species-Dependent)
     // ========================================
 
-    uint8_t Pokemon7LGPE::baseHP() const
+    uint8_t Pokemon7LGPE::baseHP() const noexcept
     {
         return getBaseStatsGen7(speciesID(), form())->hp;
     }
 
-    uint8_t Pokemon7LGPE::baseATK() const
+    uint8_t Pokemon7LGPE::baseATK() const noexcept
     {
         return getBaseStatsGen7(speciesID(), form())->atk;
     }
 
-    uint8_t Pokemon7LGPE::baseDEF() const
+    uint8_t Pokemon7LGPE::baseDEF() const noexcept
     {
         return getBaseStatsGen7(speciesID(), form())->def;
     }
 
-    uint8_t Pokemon7LGPE::baseSPE() const
+    uint8_t Pokemon7LGPE::baseSPE() const noexcept
     {
         return getBaseStatsGen7(speciesID(), form())->spe;
     }
 
-    uint8_t Pokemon7LGPE::baseSPA() const
+    uint8_t Pokemon7LGPE::baseSPA() const noexcept
     {
         return getBaseStatsGen7(speciesID(), form())->spa;
     }
 
-    uint8_t Pokemon7LGPE::baseSPD() const
+    uint8_t Pokemon7LGPE::baseSPD() const noexcept
     {
         return getBaseStatsGen7(speciesID(), form())->spd;
     }
@@ -93,243 +80,196 @@ namespace Pokemon {
     // Level Calculation
     // ========================================
 
-    uint8_t Pokemon7LGPE::level() const
+    uint8_t Pokemon7LGPE::level() const noexcept
     {
         /**
-         * In Let's Go, level can be calculated from experience using the
-         * species' growth rate. For simplicity, we'll estimate it.
+         * Level is derived from EXP through the SPECIES' growth-rate table, per PKHeX
+         * PKM.CurrentLevel = Experience.GetLevel(EXP, PersonalInfo.EXPGrowth).
          *
-         * A more accurate implementation would use growth rate tables.
-         * For now, we'll use a simplified calculation.
+         * Do not approximate this with cbrt(exp): the cube root is only the Medium-Fast curve, so it
+         * silently under-reports the level of every species on one of the other five curves (a
+         * Medium-Slow Charmander holding the level-22 threshold of 7577 EXP read as 19). That error
+         * then cascades -- every stat getter below multiplies by level(), and the legality checker
+         * raises bogus "level does not match EXP" / "met level above current level" flags.
          */
+        return getLevelFromExp(exp(), getGrowthRate(speciesID()));
+    }
 
-        uint32_t expValue = exp();
-
-        // Simplified level calculation (assumes medium-fast growth rate)
-        // This is approximate and should be replaced with proper growth rate tables
-        if (expValue == 0) return 1;
-        if (expValue >= 1000000) return 100;
-
-        // Cube root approximation for medium-fast
-        double level = std::cbrt(expValue);
-        return static_cast<uint8_t>(std::min(100.0, std::max(1.0, level)));
+    void Pokemon7LGPE::setLevel(uint8_t level) noexcept
+    {
+        // Level is derived from EXP, so write this level's minimum total EXP (0x10); the stat getters
+        // read level() back from it. Without this override the level picker was a base no-op for LGPE.
+        if (level < 1) level = 1;
+        if (level > 100) level = 100;
+        uint32_t exp = getExpForLevel(level, getGrowthRate(speciesID()));
+        writeUInt32LittleEndian(reinterpret_cast<uint8_t*>(data.data() + 0x10), exp);
+        recalculateStats();
+        refreshChecksum();
     }
 
     // ========================================
     // Calculated Stats
     // ========================================
 
-    uint16_t Pokemon7LGPE::statHPMax() const
+    // Single source of truth for LGPE battle stats: the six display getters below AND recalculateStats()
+    // (which writes the stored Level/stat/CP tail the GAME reads) all funnel through here, so PKSE's
+    // summary can never drift from what the game shows. Formula per PKHeX PB7:
+    //   initial = (IV + 2*Base) * Level / 100
+    //   HP   = initial + Level + 10 + AV                         (no nature, no friendship)
+    //   else = friendship% * ( nature% * (initial + 5) ) + AV    (friendship% = 100..110; nature% = 90/100/110)
+    // idx 0..5 = HP, Atk, Def, Spe, SpA, SpD; the nature-table column is idx-1 in [Atk,Def,Spe,SpA,SpD]
+    // order. EVs are intentionally excluded -- LGPE trains via AVs, not EVs.
+    uint16_t Pokemon7LGPE::computeStat(int idx) const noexcept
     {
-        /**
-         * HP calculation in Let's Go includes Awakening Values (AVs):
-         * HP = ((2 * Base + IV + EV/4) * Level / 100) + Level + 10 + AV
-         *
-         * Friendship bonus is NOT applied to HP.
-         */
+        uint8_t lv = level();
+        if (lv == 0 || lv > 100) return 1;
 
-        uint8_t levelValue = level();
-        if (levelValue == 0 || levelValue > 100) return 1;
+        auto baseStat = [&](int i) -> int {
+            switch (i) { case 0: return baseHP(); case 1: return baseATK(); case 2: return baseDEF();
+                         case 3: return baseSPE(); case 4: return baseSPA(); default: return baseSPD(); }
+        };
+        auto ivStat = [&](int i) -> int {
+            switch (i) { case 0: return ivHP(); case 1: return ivATK(); case 2: return ivDEF();
+                         case 3: return ivSPE(); case 4: return ivSPA(); default: return ivSPD(); }
+        };
+        auto avStat = [&](int i) -> int {
+            switch (i) { case 0: return avHP(); case 1: return avATK(); case 2: return avDEF();
+                         case 3: return avSPE(); case 4: return avSPA(); default: return avSPD(); }
+        };
 
-        int hp = ((2 * baseHP() + ivHP() + (evHP() / 4)) * levelValue) / 100 + levelValue + 10;
-        hp += avHP(); // Add Awakening Value
+        const int initial = (ivStat(idx) + 2 * baseStat(idx)) * lv / 100;
+        if (idx == 0) return static_cast<uint16_t>(std::max(1, avStat(0) + initial + lv + 10));
 
-        return static_cast<uint16_t>(std::max(1, hp));
+        // Nature table, column order [Atk,Def,Spe,SpA,SpD]: 0 = -10% (90), 1 = neutral (100), 2 = +10% (110).
+        static const int8_t kNat[25][5] = {
+            {1,1,1,1,1},{2,0,1,1,1},{2,1,0,1,1},{2,1,1,0,1},{2,1,1,1,0},
+            {0,2,1,1,1},{1,1,1,1,1},{1,2,0,1,1},{1,2,1,0,1},{1,2,1,1,0},
+            {0,1,2,1,1},{1,0,2,1,1},{1,1,1,1,1},{1,1,2,0,1},{1,1,2,1,0},
+            {0,1,1,2,1},{1,0,1,2,1},{1,1,0,2,1},{1,1,1,1,1},{1,1,1,2,0},
+            {0,1,1,1,2},{1,0,1,1,2},{1,1,0,1,2},{1,1,1,0,2},{1,1,1,1,1},
+        };
+        const uint8_t nat = nature();
+        const int col = (nat < 25) ? kNat[nat][idx - 1] : 1;
+        const int natureMod = (col == 0) ? 90 : (col == 2 ? 110 : 100);
+
+        const int friendVal = friendship();
+        const int scalar = static_cast<int>(((friendVal / 255.0f / 10.0f) + 1.0f) * 100.0f);  // 100..110
+        const int amplified = (initial + 5) * natureMod / 100;
+        const int part = scalar * amplified / 100;
+        return static_cast<uint16_t>(std::max(1, avStat(idx) + part));
     }
 
-    uint16_t Pokemon7LGPE::statATK() const
-    {
-        uint8_t levelValue = level();
-        if (levelValue == 0 || levelValue > 100) return 1;
+    uint16_t Pokemon7LGPE::statHPMax() const noexcept { return computeStat(0); }
 
-        // Base calculation with Awakening Value
-        int stat = ((2 * baseATK() + ivATK() + (evATK() / 4)) * levelValue) / 100 + 5;
-        stat += avATK(); // Add Awakening Value
+    uint16_t Pokemon7LGPE::statATK() const noexcept { return computeStat(1); }
 
-        // Apply nature modifier (simplified - assumes no nature effect for now)
-        // Full implementation would check nature table
+    uint16_t Pokemon7LGPE::statDEF() const noexcept { return computeStat(2); }
 
-        // Apply friendship bonus (simplified - assumes 100% friendship = +10%)
-        int friendshipValue = friendship();
-        double friendshipBonus = 1.0 + (friendshipValue / 255.0 / 10.0);
-        stat = static_cast<int>(stat * friendshipBonus);
+    uint16_t Pokemon7LGPE::statSPE() const noexcept { return computeStat(3); }
 
-        return static_cast<uint16_t>(std::max(1, stat));
-    }
+    uint16_t Pokemon7LGPE::statSPA() const noexcept { return computeStat(4); }
 
-    uint16_t Pokemon7LGPE::statDEF() const
-    {
-        uint8_t levelValue = level();
-        if (levelValue == 0 || levelValue > 100) return 1;
-
-        int stat = ((2 * baseDEF() + ivDEF() + (evDEF() / 4)) * levelValue) / 100 + 5;
-        stat += avDEF();
-
-        int friendshipValue = friendship();
-        double friendshipBonus = 1.0 + (friendshipValue / 255.0 / 10.0);
-        stat = static_cast<int>(stat * friendshipBonus);
-
-        return static_cast<uint16_t>(std::max(1, stat));
-    }
-
-    uint16_t Pokemon7LGPE::statSPE() const
-    {
-        uint8_t levelValue = level();
-        if (levelValue == 0 || levelValue > 100) return 1;
-
-        int stat = ((2 * baseSPE() + ivSPE() + (evSPE() / 4)) * levelValue) / 100 + 5;
-        stat += avSPE();
-
-        int friendshipValue = friendship();
-        double friendshipBonus = 1.0 + (friendshipValue / 255.0 / 10.0);
-        stat = static_cast<int>(stat * friendshipBonus);
-
-        return static_cast<uint16_t>(std::max(1, stat));
-    }
-
-    uint16_t Pokemon7LGPE::statSPA() const
-    {
-        uint8_t levelValue = level();
-        if (levelValue == 0 || levelValue > 100) return 1;
-
-        int stat = ((2 * baseSPA() + ivSPA() + (evSPA() / 4)) * levelValue) / 100 + 5;
-        stat += avSPA();
-
-        int friendshipValue = friendship();
-        double friendshipBonus = 1.0 + (friendshipValue / 255.0 / 10.0);
-        stat = static_cast<int>(stat * friendshipBonus);
-
-        return static_cast<uint16_t>(std::max(1, stat));
-    }
-
-    uint16_t Pokemon7LGPE::statSPD() const
-    {
-        uint8_t levelValue = level();
-        if (levelValue == 0 || levelValue > 100) return 1;
-
-        int stat = ((2 * baseSPD() + ivSPD() + (evSPD() / 4)) * levelValue) / 100 + 5;
-        stat += avSPD();
-
-        int friendshipValue = friendship();
-        double friendshipBonus = 1.0 + (friendshipValue / 255.0 / 10.0);
-        stat = static_cast<int>(stat * friendshipBonus);
-
-        return static_cast<uint16_t>(std::max(1, stat));
-    }
+    uint16_t Pokemon7LGPE::statSPD() const noexcept { return computeStat(5); }
 
     // ========================================
     // Stat Recalculation
     // ========================================
 
-    void Pokemon7LGPE::recalculateStats()
+    void Pokemon7LGPE::recalculateStats() noexcept
     {
-        /**
-         * In Let's Go, stats are calculated and stored differently than other generations.
-         * The stat calculation includes:
-         * 1. Base stats (species-dependent)
-         * 2. IVs (0-31)
-         * 3. EVs (0-252 per stat, max 510 total)
-         * 4. Awakening Values (AVs) - unique to Let's Go! (0-200 per stat)
-         * 5. Nature modifiers
-         * 6. Friendship bonus (up to +10%)
-         *
-         * For now, we implement a simplified version.
-         * A full implementation would match the exact Let's Go formula and
-         * store calculated stats in the appropriate locations.
-         *
-         * Note: Let's Go doesn't have a separate "party stats" section like Gen 8,
-         * so recalculation is less critical for save file integrity.
-         */
+        // Let's Go stores Level + battle stats + Combat Power in the (un-checksummed) party tail at
+        // 0xEC..0xFF. The on-the-fly getters recompute for our display, but the GAME reads these stored
+        // bytes -- so a freshly built mon (e.g. a cross-game conversion) needs them written or it shows
+        // Level/CP 0. Formula per PKHeX PB7 (LoadStats + CalcCP): the 5 non-HP stats carry the friendship
+        // scalar + nature amp + AV; CP = min(10000, BaseCP + AwakeCP).
+        const uint16_t species = speciesID();
+        uint8_t lvl = getLevelFromExp(exp(), getGrowthRate(species));
+        if (lvl < 1) lvl = 1; else if (lvl > 100) lvl = 100;
+        data[0xEC] = static_cast<std::byte>(lvl);   // Stat_Level
 
-        // Stats are calculated on-the-fly in Let's Go
-        // No need to store them in specific offsets like Gen 8
-        // The CP (Combat Power) value should be recalculated, but we'll skip that for now
+        // Every stat comes from computeStat() (shared with the display getters) so the stored tail the
+        // GAME reads is exactly what PKSE shows -- nature, friendship and AV all included.
+        const int hp  = computeStat(0);
+        const int atk = computeStat(1);
+        const int def = computeStat(2);
+        const int spe = computeStat(3);
+        const int spa = computeStat(4);
+        const int spd = computeStat(5);
+
+        auto put = [&](size_t off, int v) {
+            if (v < 1) v = 1; else if (v > 65535) v = 65535;
+            writeUInt16LittleEndian(reinterpret_cast<uint8_t*>(data.data() + off), static_cast<uint16_t>(v));
+        };
+        put(0xF0, hp); put(0xF2, hp);           // Stat_HPCurrent / Stat_HPMax
+        put(0xF4, atk); put(0xF6, def);         // ATK / DEF
+        put(0xF8, spe); put(0xFA, spa);         // SPE / SPA
+        put(0xFC, spd);                         // SPD
+
+        // CP (PKHeX CalcCP): base part from the NON-AV portion of every stat, plus an AV bonus. Each
+        // stat's non-AV portion is (stat - its AV), so statSum = (sum of all six stats) - (sum of AVs).
+        const int avSum = avHP() + avATK() + avDEF() + avSPE() + avSPA() + avSPD();
+        const int statSum = hp + atk + def + spe + spa + spd - avSum;
+        int baseCP = static_cast<int>(static_cast<float>(statSum) * 6.0f * lvl / 100.0f);
+        const int awakeCP = (avSum > 0) ? static_cast<int>(avSum * ((lvl * 4.0f / 100.0f) + 2.0f)) : 0;
+        int cp = baseCP + awakeCP;
+        if (cp > 10000) cp = 10000; else if (cp < 0) cp = 0;
+        writeUInt16LittleEndian(reinterpret_cast<uint8_t*>(data.data() + 0xFE), static_cast<uint16_t>(cp));  // Stat_CP
     }
 
     // ========================================
     // Advanced Modification
     // ========================================
 
-    void Pokemon7LGPE::regeneratePID(uint32_t trainerID32)
+    void Pokemon7LGPE::regeneratePID(uint32_t trainerID32) noexcept
     {
         /**
-         * Regenerates the Encryption Constant to maintain legality.
-         * In Let's Go (Pokemon7LGPE), the EC serves as the PID for shiny/gender calculations.
-         *
-         * This generates a new EC while preserving:
-         * - Current shiny status
+         * Re-seeds the Encryption Constant (0x00). In LGPE the EC is ONLY the crypto seed —
+         * PID (0x18), gender (0x1D) and shininess (PID-derived) are all independent of it —
+         * so re-seeding is harmless and leaves the Pokemon's identity untouched.
          */
-
-        bool wasShiny = isShiny(trainerID32, species());
-
-        // Generate new EC from current values
+        (void)trainerID32;
         uint32_t oldEC = encryptionConstant();
         uint32_t newEC = (oldEC ^ 0x10101010) + speciesID();
-
-        // Write the new EC
         writeUInt32LittleEndian(reinterpret_cast<uint8_t*>(data.data() + 0x00), newEC);
-
-        // Restore shiny status if it was shiny
-        if (wasShiny) {
-            setShiny(true, trainerID32);
-        }
-
         refreshChecksum();
     }
 
-    void Pokemon7LGPE::setShiny(bool makeShiny, uint32_t trainerID32)
+    void Pokemon7LGPE::setShiny(bool makeShiny, uint32_t trainerID32) noexcept
     {
         /**
-         * Sets the Pokemon's shiny status by modifying the Encryption Constant.
-         * In Let's Go, EC is used for shiny calculations (similar to PID).
-         *
-         * Algorithm:
-         * - For shiny: XOR of (EC ^ trainerID32) must be < 16
-         * - For non-shiny: XOR must be >= 16
+         * Sets shininess by modifying the PID (0x18) only — NOT the Encryption Constant
+         * and NOT the stored gender byte (0x1D). Shiny iff (TID^SID^PIDhi^PIDlo) < 16.
          */
 
         if (trainerID32 == 0) {
             return; // Cannot set shiny without trainer ID
         }
 
-        uint32_t ec = encryptionConstant();
+        uint32_t p = pid();  // real PID at 0x18
         uint16_t tidHigh = (trainerID32 >> 16) & 0xFFFF;
         uint16_t tidLow = trainerID32 & 0xFFFF;
 
         if (makeShiny) {
-            /**
-             * Make Pokemon shiny.
-             * Set EC so that XOR < 16 (star shiny with XOR = 1)
-             */
+            // Keep the high word of the PID; pick a low word that yields XOR == 1 (star shiny).
+            uint32_t pHigh = (p >> 16) & 0xFFFF;
+            uint32_t H = pHigh ^ tidHigh;
+            uint32_t L = H ^ 1;
+            uint32_t pLow = L ^ tidLow;
 
-            // Keep high word of EC, calculate new low word for shiny
-            uint32_t ecHigh = (ec >> 16) & 0xFFFF;
-            uint32_t H = ecHigh ^ tidHigh;
-            uint32_t L = H ^ 1; // XOR = 1 for star shiny
-            uint32_t ecLow = L ^ tidLow;
-
-            uint32_t newEC = (ecHigh << 16) | ecLow;
-            writeUInt32LittleEndian(reinterpret_cast<uint8_t*>(data.data() + 0x00), newEC);
+            uint32_t newPID = (pHigh << 16) | pLow;
+            writeUInt32LittleEndian(reinterpret_cast<uint8_t*>(data.data() + 0x18), newPID);
             refreshChecksum();
 
         } else {
-            /**
-             * Make Pokemon non-shiny.
-             * Set EC so that XOR >= 16
-             */
+            uint32_t newPID = p ^ 0x10001000;
 
-            uint32_t newEC = ec ^ 0x10001000;
-
-            // Verify it's non-shiny
-            uint32_t xorComponent = newEC ^ trainerID32;
+            uint32_t xorComponent = newPID ^ trainerID32;
             uint32_t xorResult = (xorComponent ^ (xorComponent >> 16)) & 0xFFFF;
-
             if (xorResult < 16) {
-                // Still shiny, flip more bits
-                newEC ^= 0x01000100;
+                newPID ^= 0x01000100;  // still shiny, flip more bits
             }
 
-            writeUInt32LittleEndian(reinterpret_cast<uint8_t*>(data.data() + 0x00), newEC);
+            writeUInt32LittleEndian(reinterpret_cast<uint8_t*>(data.data() + 0x18), newPID);
             refreshChecksum();
         }
     }

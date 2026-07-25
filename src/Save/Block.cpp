@@ -92,9 +92,10 @@ namespace Save {
     }
 
     // Main function to parse all blocks into an array (vector) for manual searching
-    std::vector<Block> parseAllBlocks(const uint8_t* data, size_t data_size) {
+    std::vector<Block> parseAllBlocks(const uint8_t* data, size_t data_size, size_t* outConsumed) {
         std::vector<Block> blocks;
         size_t offset = 0;
+        size_t consumed = 0;   // end of the last SUCCESSFULLY parsed block
 
         while (offset + 4 <= data_size) { // Need at least key
             uint32_t key = readUInt32LittleEndian(data + offset);
@@ -102,12 +103,15 @@ namespace Save {
 
             Block b;
             if (!tryReadBlock(data, data_size, key, offset, b)) {
-                // Handle error: invalid block, stop or log
+                // Invalid block: stop. Callers must check outConsumed — everything from here on is
+                // dropped, and a later serialize would write a short file. See the header.
                 break;
             }
             blocks.push_back(b);
+            consumed = offset;
         }
 
+        if (outConsumed) *outConsumed = consumed;
         return blocks;
     }
 

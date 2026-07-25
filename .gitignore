@@ -14,6 +14,11 @@
 
 # Ignore VS settings
 /.vs/
+*.vcxproj.user
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
 
 # Ignore log files
 *.log
@@ -39,7 +44,8 @@ debug.log
 # Ignore ROMFS and data directories if generated dynamically
 /romfs/
 /data/
-/fonts/
 
-# Ignore CodeQL analysis files
-_codeql_detected_source_root
+# Python cache from the code-generator scripts in tools/
+tools/__pycache__/
+# PKHeX source/resource files the gen_*.py scripts fetch from GitHub (tools/pkhex_source.py)
+tools/.pkhex_cache/

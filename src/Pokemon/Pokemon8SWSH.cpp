@@ -10,16 +10,12 @@
 
 #include "Pokemon/Pokemon8SWSH.h"
 #include "Pokemon/BaseStatsGen89.h"
+#include "Pokemon/Experience.h"
 
 namespace Pokemon {
     // Forward declarations for external helper functions
     // These are defined in other files and provide species/item/nature name lookups
     extern const char* getSpeciesNameGen89(uint16_t speciesId);
-    extern const char* getItemNameGen89(uint16_t itemId);
-    extern const char* getNatureNameGen89(uint8_t natureId);
-    extern const char* getAbilityNameGen89(uint16_t abilityId);
-
-    extern const BaseStatsGen89* getBaseStatsGen89(uint16_t speciesId);
 
     // ========================================
     // Species and Name Lookups
@@ -27,10 +23,6 @@ namespace Pokemon {
 
     const char* Pokemon8SWSH::species() const noexcept
     {
-        /**
-         * Converts the Pokemon's Species ID to its name string.
-         * Uses an external lookup table (defined elsewhere) to get the species name.
-         */
         return getSpeciesNameGen89(speciesID());
     }
 
@@ -40,42 +32,12 @@ namespace Pokemon {
 
     uint8_t Pokemon8SWSH::gender() const noexcept
     {
-        /**
-         * Determines the Pokemon's gender based on species and PID.
-         *
-         * Gender is determined by:
-         * 1. Species gender ratio (some species are genderless, male-only, or female-only)
-         * 2. PID value for species with mixed genders
-         *
-         * Gender Ratios (simplified):
-         * - Genderless: Always return 2
-         * - Male-only: Always return 0
-         * - Female-only: Always return 1
-         * - Mixed: Use (PID & 0xFF) compared against gender threshold
-         *
-         * This is a simplified implementation. A full implementation would include
-         * a lookup table for all species' gender ratios.
-         */
-
-        uint16_t species = speciesID();
-
-        // Genderless species (simplified list)
-        // These Pokemon have no gender
-        if (species == 81 || species == 82 ||     // Magnemite, Magneton
-            species == 100 || species == 101 ||   // Voltorb, Electrode
-            species == 120 || species == 121 ||   // Staryu, Starmie
-            species == 132 ||                     // Ditto
-            species == 137 || species == 233 ||   // Porygon, Porygon2
-            species == 144 || species == 145 || species == 146 || // Legendary birds
-            species == 150 || species == 151 ||   // Mewtwo, Mew
-            species == 201) {                     // Unown
-            return 2; // Genderless
-        }
-
-        // For most species, use PID % 256 < 127 for gender determination
-        // This is simplified - real implementation would need species gender ratios
-        // Typical ratios: 50/50, 87.5/12.5, 75/25, 100/0, 0/100
-        return ((pid() & 0xFF) < 127) ? 0 : 1;
+        // Gen 8 stores gender explicitly (0 = Male, 1 = Female, 2 = Genderless) in
+        // bits 2-3 of byte 0x22. This is authoritative — the stored value already
+        // encodes genderless species as 2 — and is independent of the PID, so it
+        // survives shiny/PID edits (unlike the old PID-derived approximation, which
+        // was wrong for fixed-gender species and flipped when the PID changed).
+        return (static_cast<uint8_t>(data[0x22]) >> 2) & 0x03;
     }
 
     // ========================================
@@ -84,10 +46,6 @@ namespace Pokemon {
 
     uint8_t Pokemon8SWSH::baseHP() const noexcept
     {
-        /**
-         * Looks up the base HP stat for this Pokemon's species.
-         * Base stats are fixed per species and determine stat growth.
-         */
         return getBaseStatsGen89(speciesID(), form())->hp;
     }
 
@@ -210,6 +168,10 @@ namespace Pokemon {
         // Calculate HP (different formula from other stats)
         int hp = ((2 * baseHP() + ivHP() + (evHP() / 4)) * levelValue) / 100 + levelValue + 10;
         writeUInt16LittleEndian(reinterpret_cast<uint8_t*>(data.data() + 0x14A), static_cast<uint16_t>(hp));
+        // Pin current HP (Stat_HPCurrent @ 0x8A, in checksummed Block B) to max HP: a freshly-created
+        // all-zero mon reads 0 here and the game shows it FAINTED. Keeping it at max heals created +
+        // edited mons (matches PKHeX ResetPartyStats). (#F1F2)
+        writeUInt16LittleEndian(reinterpret_cast<uint8_t*>(data.data() + 0x8A), static_cast<uint16_t>(hp));
 
         // Calculate other stats (ATK, DEF, SPE, SPA, SPD)
         int stats[5];
@@ -235,6 +197,39 @@ namespace Pokemon {
     }
 
     // ========================================
+    // Set Level
+    // ========================================
+
+    void Pokemon8SWSH::setLevel(uint8_t level) noexcept
+    {
+        // Clamp to the valid level range [1,100].
+        if (level < 1) level = 1;
+        if (level > 100) level = 100;
+
+        // EXP (0x10) is the source of truth for level: write this level's minimum total EXP.
+        uint32_t exp = getExpForLevel(level, getGrowthRate(speciesID()));
+        writeUInt32LittleEndian(reinterpret_cast<uint8_t*>(data.data() + 0x10), exp);
+
+        // Update the cached party-stat level byte that level() reads (0x148).
+        data[0x148] = static_cast<std::byte>(level);
+
+        recalculateStats();
+        refreshChecksum();
+    }
+
+    void Pokemon8SWSH::setExp(uint32_t value) noexcept
+    {
+        // Write raw total EXP (0x10), then re-derive and cache the level from it (0x148).
+        writeUInt32LittleEndian(reinterpret_cast<uint8_t*>(data.data() + 0x10), value);
+        uint8_t level = getLevelFromExp(value, getGrowthRate(speciesID()));
+        if (level < 1) level = 1;
+        if (level > 100) level = 100;
+        data[0x148] = static_cast<std::byte>(level);
+        recalculateStats();
+        refreshChecksum();
+    }
+
+    // ========================================
     // PID Regeneration
     // ========================================
 
@@ -253,7 +248,6 @@ namespace Pokemon {
 
         // Save current properties
         bool wasShiny = isShiny(trainerID32, species());
-        // uint8_t currentGender = gender();
         uint32_t currentPID = pid();
         uint8_t genderByte = currentPID & 0xFF;
 
@@ -451,20 +445,5 @@ namespace Pokemon {
             writeUInt32LittleEndian(reinterpret_cast<uint8_t*>(data.data() + 0x1C), newPID);
             refreshChecksum();
         }
-    }
-
-    // ========================================
-    // Utility Functions
-    // ========================================
-
-    std::string Pokemon8SWSH::toHex(uint32_t value)
-    {
-        /**
-         * Converts a uint32_t value to a hexadecimal string.
-         * Format: 0xXXXXXXXX (8 hex digits with 0x prefix)
-         */
-        char buf[16];
-        snprintf(buf, sizeof(buf), "0x%08X", value);
-        return std::string(buf);
     }
 }

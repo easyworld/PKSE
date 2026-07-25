@@ -9,6 +9,7 @@
 #define NAMES_FORM_NAMES_H
 
 #include <cstdint>
+#include <string>
 
 namespace Names {
     /**
@@ -24,6 +25,19 @@ namespace Names {
      * - getFormName(25, 0) = "" (base Pikachu)
      */
     const char* getFormName(uint16_t speciesId, uint8_t formId);
+
+    /**
+     * Composes the user-facing display name: the variant label prefixed to the base species name,
+     * e.g. "Alolan Raichu", "Combat Breed Tauros", "Hisuian Zoroark". Falls back to just `baseName`
+     * when the form has no variant label (base form, or a form this table doesn't name). Use this at
+     * every place the UI shows a species name so a variant reads as what it is instead of the plain
+     * base species.
+     *
+     * @param speciesId species id (for the form lookup)
+     * @param formId    the mon's form index (Pokemon::form())
+     * @param baseName  the game-appropriate base species string (e.g. Pokemon::species())
+     */
+    std::string getDisplayName(uint16_t speciesId, uint8_t formId, const std::string& baseName);
 }
 
 #endif

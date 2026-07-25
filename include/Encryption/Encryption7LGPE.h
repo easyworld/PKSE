@@ -97,25 +97,7 @@ namespace Encryption {
     void cryptPokemon7LGPE(std::span<std::byte> data, uint32_t personalityValue, size_t blockSize, size_t blockCount);
 
     /**
-     * Unshuffles the 4 data blocks based on the shuffle value.
-     *
-     * During encryption, Pokemon data blocks are shuffled in a deterministic order
-     * based on the shuffle value derived from the personality value. This function
-     * reverses that shuffling to restore blocks to their natural order:
-     *   Block A (Growth)    - Species, items, EVs, etc.
-     *   Block B (Attacks)   - Moves, IVs, nickname
-     *   Block C (EVs)       - Contest stats, ribbons
-     *   Block D (Misc)      - OT info, encounter data
-     *
-     * @param data Source encrypted data (read-only)
-     * @param result Destination for unshuffled data (must be same size as data)
-     * @param shuffleValue (0-31), derived from (personalityValue >> 13) & 31
-     */
-    void shuffleArray7LGPE(std::span<const std::byte> data, std::span<std::byte> result, uint32_t shuffleValue);
-
-    /**
      * The LCRNG algorithm is identical across generations.
-     * See Gen8Encryption.h for the implementation.
      */
 
     /**

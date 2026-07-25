@@ -13,27 +13,32 @@ namespace Enums {
 
         // The following values are IDs stored within PKM data, and can also identify individual games.
 
+        // Gen 3 (GBA) -- values match the Origins version field in PK3
+        FR = 4,  // Pokemon FireRed
+        LG = 5,  // Pokemon LeafGreen
+
         // Nintendo Switch
-        GP = 42, // Pokémon: Let's Go, Pikachu!
-        GE = 43, // Pokémon: Let's Go, Eevee!
-        SW = 44, // Pokémon Sword
-        SH = 45, // Pokémon Shield
+        GP = 42, // Pokemon: Let's Go, Pikachu!
+        GE = 43, // Pokemon: Let's Go, Eevee!
+        SW = 44, // Pokemon Sword
+        SH = 45, // Pokemon Shield
         // HOME = 46, // Not used (?)
-        PLA = 47, // Pokémon Legends: Arceus
-        BD = 48,  // Pokémon Brilliant Diamond
-        SP = 49,  // Pokémon Shining Pearl
-        SL = 50,  // Pokémon Scarlet
-        VL = 51,  // Pokémon Violet
-        ZA = 52,  // Pokémon Legends: Z-A
+        PLA = 47, // Pokemon Legends: Arceus
+        BD = 48,  // Pokemon Brilliant Diamond
+        SP = 49,  // Pokemon Shining Pearl
+        SL = 50,  // Pokemon Scarlet
+        VL = 51,  // Pokemon Violet
+        ZA = 52,  // Pokemon Legends: Z-A
 
         // The following values are not actually stored values in pk data,
         // These values are assigned as properties for various logic branching.
 
         // Game Groupings
-        GG = 73,   // Pokémon Let's Go Pikachu & Eevee group
-        SWSH = 74, // Pokémon Sword & Shield group
-        BDSP = 75, // Pokémon Brilliant Diamond & Shining Pearl group
-        SV = 76,   // Pokémon Scarlet & Violet group
+        FRLG = 72, // Pokemon FireRed & LeafGreen group
+        GG = 73,   // Pokemon Let's Go Pikachu & Eevee group
+        SWSH = 74, // Pokemon Sword & Shield group
+        BDSP = 75, // Pokemon Brilliant Diamond & Shining Pearl group
+        SV = 76,   // Pokemon Scarlet & Violet group
 
         // Generational Groupings
         Gen7B = 84,
@@ -53,24 +58,28 @@ namespace Enums {
      */
     inline GameVersion getGameVersion(uint64_t titleId) {
         switch (titleId) {
+            // Gen 3 - FireRed/LeafGreen (Nintendo Switch Online GBA release)
+            case 0x0100554023408000: return GameVersion::FR;  // FireRed   (title ids from real Switch backups)
+            case 0x010034D02340E000: return GameVersion::LG;  // LeafGreen
+
             // // Gen 7 - Let's Go
-            // case 0x010003F003A34000: return GameVersion::GP;  // Let's Go Pikachu
-            // case 0x0100187003A36000: return GameVersion::GE;  // Let's Go Eevee
+            case 0x010003F003A34000: return GameVersion::GP;  // Let's Go Pikachu
+            case 0x0100187003A36000: return GameVersion::GE;  // Let's Go Eevee
 
             // Gen 8 - Sword/Shield
             case 0x0100ABF008968000: return GameVersion::SW;  // Sword
             case 0x01008DB008C2C000: return GameVersion::SH;  // Shield
 
-            // // Gen 8 - BDSP
-            // case 0x0100000011D90000: return GameVersion::BD;  // Brilliant Diamond
-            // case 0x010018E011D92000: return GameVersion::SP;  // Shining Pearl
+            // Gen 8 - BDSP
+            case 0x0100000011D90000: return GameVersion::BD;  // Brilliant Diamond
+            case 0x010018E011D92000: return GameVersion::SP;  // Shining Pearl
 
-            // // Gen 8 - Legends Arceus
-            // case 0x01001F5010DFA000: return GameVersion::PLA;
+            // Gen 8 - Legends Arceus
+            case 0x01001F5010DFA000: return GameVersion::PLA;
 
-            // // Gen 9 - Scarlet/Violet
-            // case 0x0100A3D008C5C000: return GameVersion::SL;  // Scarlet
-            // case 0x01008F6008C5E000: return GameVersion::VL;  // Violet
+            // Gen 9 - Scarlet/Violet (reuse the Gen 9 save path with packed slots)
+            case 0x0100A3D008C5C000: return GameVersion::SL;  // Scarlet
+            case 0x01008F6008C5E000: return GameVersion::VL;  // Violet
 
             // Gen 9 - Legends: Z-A
             case 0x0100F43008C44000: return GameVersion::ZA;
@@ -90,6 +99,10 @@ namespace Enums {
      */
     inline GameVersion getGameGroup(GameVersion version) {
         switch (version) {
+            case GameVersion::FR:
+            case GameVersion::LG:
+                return GameVersion::FRLG;  // FireRed/LeafGreen group
+
             case GameVersion::GP:
             case GameVersion::GE:
                 return GameVersion::GG;  // Let's Go group
@@ -125,8 +138,11 @@ namespace Enums {
      */
     inline std::string getGameVersionName(GameVersion version) {
         switch (version) {
-            case GameVersion::GP: return "Let's Go! 皮卡丘";
-            case GameVersion::GE: return "Let's Go! 伊布";
+            case GameVersion::FR: return "火红";
+            case GameVersion::LG: return "叶绿";
+            case GameVersion::FRLG: return "火红／叶绿";
+            case GameVersion::GP: return "Let's Go！皮卡丘";
+            case GameVersion::GE: return "Let's Go！伊布";
             case GameVersion::SW: return "剑";
             case GameVersion::SH: return "盾";
             case GameVersion::BD: return "晶灿钻石";
@@ -134,11 +150,11 @@ namespace Enums {
             case GameVersion::PLA: return "传说 阿尔宙斯";
             case GameVersion::SL: return "朱";
             case GameVersion::VL: return "紫";
-            case GameVersion::ZA: return "传说 Z-A";
-            case GameVersion::GG: return "Let's Go! 皮卡丘/伊布";
-            case GameVersion::SWSH: return "剑/盾";
-            case GameVersion::BDSP: return "晶灿钻石/明亮珍珠";
-            case GameVersion::SV: return "朱/紫";
+            case GameVersion::ZA: return "传说 宝可梦Z-A";
+            case GameVersion::GG: return "Let's Go！皮卡丘／伊布";
+            case GameVersion::SWSH: return "剑／盾";
+            case GameVersion::BDSP: return "晶灿钻石／明亮珍珠";
+            case GameVersion::SV: return "朱／紫";
             default: return "未知";
         }
     }
@@ -158,11 +174,30 @@ namespace Enums {
         switch (group) {
             case GameVersion::GG: return "savedata.bin";  // Let's Go
             case GameVersion::SWSH: return "main";        // Sword/Shield
-            case GameVersion::BDSP: return "main";        // BDSP (TODO: Verify)
-            case GameVersion::PLA: return "main";         // Legends Arceus (TODO: Verify)
-            case GameVersion::SV: return "main";          // Scarlet/Violet (TODO: Verify)
+            case GameVersion::BDSP: return "SaveData.bin"; // BDSP (verified via Checkpoint backup)
+            case GameVersion::PLA: return "main";         // Legends: Arceus
+            case GameVersion::SV: return "main";          // Scarlet/Violet
             default: return "main";
         }
+    }
+
+    /**
+     * True if a Pokemon originating from `version` displays its trainer ID as the Gen 7+
+     * SIX-DIGIT id, rather than the classic 16-bit TID.
+     *
+     * The games pick this from the Pokemon's ORIGIN generation, not from the save it currently
+     * lives in -- so a FireRed Rattata sitting in Shining Pearl still shows its 16-bit TID while
+     * a native BDSP mon beside it shows six digits. Mirrors PKHeX
+     * (GameDataCore.TrainerIDDisplayFormat: `Version.Generation >= 7 ? SixDigit : SixteenBit`).
+     *
+     * Takes a raw version byte rather than a GameVersion, because a banked mon can carry an origin
+     * from a game PKSE does not itself support (a HOME-transferred Sun/Moon or Gen 4/5/6 mon), and
+     * those ids are absent from the enum above. Gen 7+ is versions 30-33 (SM/USUM) plus 42 and up
+     * (Let's Go, Gen 8, Gen 9). Note 35-41 are the Gen 1/2 Virtual Console games, which sit ABOVE
+     * the Gen 7 SM/USUM ids numerically but are of course 16-bit.
+     */
+    inline bool usesSixDigitTrainerID(uint8_t version) {
+        return (version >= 30 && version <= 33) || version >= 42;
     }
 
     /**
@@ -175,18 +210,21 @@ namespace Enums {
      */
     inline bool isGameSupported(GameVersion version) {
         switch (version) {
+            case GameVersion::FR:  // FireRed
+            case GameVersion::LG:  // LeafGreen
             case GameVersion::GP:  // Let's Go Pikachu
             case GameVersion::GE:  // Let's Go Eevee
             case GameVersion::SW:  // Sword
             case GameVersion::SH:  // Shield
+            case GameVersion::ZA:  // Legends: Z-A
+            case GameVersion::SL:  // Scarlet
+            case GameVersion::VL:  // Violet
+            case GameVersion::PLA: // Legends: Arceus
+            case GameVersion::BD:  // Brilliant Diamond
+            case GameVersion::SP:  // Shining Pearl
                 return true;
 
             // Not yet implemented:
-            case GameVersion::BD:
-            case GameVersion::SP:
-            case GameVersion::PLA:
-            case GameVersion::SL:
-            case GameVersion::VL:
             default:
                 return false;
         }

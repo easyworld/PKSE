@@ -1,7 +1,7 @@
 /**
  * Trainer9LZA.cpp - Generation 9 Trainer Implementation
  *
- * This file implements the Trainer9LZA class for Pokemon Sword/Shield save files.
+ * This file implements the Trainer9LZA class for Pokemon Legends: Z-A save files.
  * Handles Gen 9-specific block parsing, Pokemon encryption/decryption, and
  * save file serialization.
  */
@@ -10,6 +10,7 @@
 
 #include "Trainer/Trainer9LZA.h"
 #include "Trainer/Inventory9LZA.h"
+#include "Names/ItemPouches.h"   // getPouchItems -- per-pouch legal ids (#41)
 #include "Utils/Logger.h"
 
 using namespace Utils;
@@ -31,9 +32,6 @@ namespace Trainer {
             case MONEY9_LZA:
                 parseMoneyBlock(block);
                 break;
-            // case TRAINER_CARD:
-            //     parseTrainerCardBlock(block);
-            //     break;
             case ITEM9_LZA:
                 parseItemBlock(block);
                 break;
@@ -42,6 +40,12 @@ namespace Trainer {
                 break;
             case BOX_LAYOUT9_LZA:
                 parseBoxLayoutBlock(block);
+                break;
+            case CURRENT_BOX9_LZA:
+                parseCurrentBoxBlock(block);
+                break;
+            case SAVE_REVISION9_LZA:
+                parseSaveRevisionBlock(block);
                 break;
             // Additional blocks can be handled here
             default:
@@ -73,6 +77,7 @@ namespace Trainer {
         size_t nameLength = std::min(static_cast<size_t>(0x10), static_cast<size_t>(0x1A));
         auto nameSpan = std::span<const uint8_t>(block.data.data() + 0x10, nameLength);
         this->trainerName = utf16ToUtf8(getString(nameSpan.data(), nameLength));
+        this->trainerGender = block.data[0x05] & 1;   // 0x05: gender (0=M, 1=F)
         logInfoToFile("Parsed Trainer Name", this->trainerName.c_str());
     }
 
@@ -94,8 +99,8 @@ namespace Trainer {
 
         for (size_t slot = 0; slot < MAX_PARTY_SLOTS; ++slot)
         {
-            // Calculate offset to this slot (includes gap from previous slots)
-            const size_t offset = slot * PARTY_SLOT_SIZE9_LZA;
+            // Calculate offset to this slot (packed for S/V, gapped for Z-A)
+            const size_t offset = slot * m_partySlotStride;
             if (offset + SIZE_PARTY9_LZA > block.data.size())
                 break;
 
@@ -156,11 +161,14 @@ namespace Trainer {
 
         // For each pouch, iterate through valid item IDs
         for (int i = 0; i < static_cast<int>(POUCH_COUNT9_LZA); i++) {
-            PouchType9LZA pouchType = static_cast<PouchType9LZA>(i);
             items[i].clear();
 
-            // Get the list of valid item IDs for this pouch
-            const auto& validIds = getValidItemIds9LZA(pouchType);
+            // Legal ids for this pouch, from the generated PKHeX-derived table. This replaced a
+            // hand-written list that was byte-identical to the other Gen 9 game's and wrong for
+            // both (task #41) -- it bucketed vitamins under Battle Items and claimed pockets the
+            // game does not have. Pouch membership is display-only: the write below is keyed on
+            // item id, not pouch.
+            const auto validIds = Names::getPouchItems(Enums::GameVersion::ZA, static_cast<size_t>(i));
 
             for (uint16_t itemId : validIds) {
                 // Calculate offset: itemID * 0x10
@@ -178,9 +186,6 @@ namespace Trainer {
                 if (item.count > 0) {
                     items[i].push_back(item);
                 }
-
-                // Add all items, even with count 0
-                // items[p].push_back(item9.toInventoryItem());
             }
         }
     }
@@ -209,8 +214,8 @@ namespace Trainer {
 
         for (size_t boxIndex = 0; boxIndex < BOX_COUNT9_LZA; ++boxIndex) {
             for (size_t slot = 0; slot < BOX_SLOTS; ++slot) {
-                // Calculate offset: (boxIndex * slots per box + slot) * bytes per slot (including gap)
-                const size_t offset = (boxIndex * BOX_SLOTS + slot) * BOX_SLOT_SIZE9_LZA;
+                // Calculate offset (packed for S/V, gapped for Z-A)
+                const size_t offset = (boxIndex * BOX_SLOTS + slot) * m_boxSlotStride;
                 if (offset + SIZE_PARTY9_LZA > block.data.size()) {
                     break;
                 }
@@ -261,15 +266,85 @@ namespace Trainer {
 
                 // If box name is empty, use default
                 if (boxName.empty()) {
-                    boxName = "Box " + std::to_string(boxIndex + 1);
+                    boxName = "盒子 " + std::to_string(boxIndex + 1);
                 }
 
                 boxNames[boxIndex] = boxName;
             } else {
                 // Default name if data is insufficient
-                boxNames[boxIndex] = "Box " + std::to_string(boxIndex + 1);
+                boxNames[boxIndex] = "盒子 " + std::to_string(boxIndex + 1);
             }
         }
+    }
+
+    void Trainer9LZA::parseCurrentBoxBlock(const Block& block)
+    {
+        // "U32 Box Index" -- a scalar block; PKHeX reads it as a byte (0..31 fits one byte).
+        if (block.data.empty()) return;
+        uint8_t box = block.data[0];
+        if (box < BOX_COUNT9_LZA) this->currentBox = box;
+    }
+
+    void Trainer9LZA::updateCurrentBoxBlock()
+    {
+        // Inverse of parseCurrentBoxBlock: write the low byte and clear the rest of the scalar
+        // (PKHeX stores it via SetValue<byte>, so the upper bytes are 0).
+        for (auto& block : blocks) {
+            if (block.key != CURRENT_BOX9_LZA || block.data.empty()) continue;
+            block.data[0] = static_cast<uint8_t>(currentBox);
+            for (size_t i = 1; i < block.data.size() && i < 4; ++i) block.data[i] = 0;
+            break;
+        }
+    }
+
+    void Trainer9LZA::parseSaveRevisionBlock(const Block& block)
+    {
+        /**
+         * SAVE_REVISION Block Structure (Pokemon Legends Z-A):
+         * Contains a u64 (8 bytes) value indicating the save revision:
+         * - 0: Base game (version 1.0.x)
+         * - 1: Mega Dimension DLC (version 2.0.0+)
+         *
+         * This value is critical for determining:
+         * - Which Pokemon species are available
+         * - Which moves are legal
+         * - Which items exist
+         * - Block key compatibility
+         */
+        if (block.data.size() < 8) {
+            // Default to base game if block is missing or too small
+            this->saveRevision = 0;
+            this->saveRevisionString = "Base";
+            this->gameVersionString = "v1.0";
+            logInfoToFile("SAVE_REVISION block too small, defaulting to Base");
+            return;
+        }
+
+        // Read the u64 revision value
+        uint64_t revision = readUInt64LittleEndian(block.data.data());
+        this->saveRevision = static_cast<int>(revision);
+
+        // Map revision to human-readable string and version
+        switch (this->saveRevision) {
+            case 0:
+                this->saveRevisionString = "Base";
+                this->gameVersionString = "v1.0";  // Base game v1.0.x
+                break;
+            case 1:
+                this->saveRevisionString = "Mega Dimension";
+                this->gameVersionString = "v2.0";  // Mega Dimension DLC requires v2.0.0+
+                break;
+            default:
+                // Future DLC/updates
+                this->saveRevisionString = "Rev " + std::to_string(this->saveRevision);
+                this->gameVersionString = "v" + std::to_string(this->saveRevision + 1) + ".0";
+                break;
+        }
+
+        char buffer[128];
+        snprintf(buffer, sizeof(buffer), "Detected save revision: %d (%s, %s)",
+            this->saveRevision, this->saveRevisionString.c_str(), this->gameVersionString.c_str());
+        logInfoToFile(buffer);
     }
 
     // ========================================
@@ -293,19 +368,19 @@ namespace Trainer {
         for (auto& block : blocks) {
             if (block.key == PARTY9_LZA) {
                 // Ensure the block data is large enough (including gaps)
-                size_t requiredSize = MAX_PARTY_SLOTS * PARTY_SLOT_SIZE9_LZA;
+                size_t requiredSize = MAX_PARTY_SLOTS * m_partySlotStride;
                 if (block.data.size() < requiredSize) {
                     block.data.resize(requiredSize, 0);
                 }
 
                 // Write each party Pokemon
                 for (size_t i = 0; i < party.size() && i < MAX_PARTY_SLOTS; ++i) {
-                    // Calculate offset with gaps
-                    const size_t offset = i * PARTY_SLOT_SIZE9_LZA;
+                    // Calculate offset (packed for S/V, gapped for Z-A)
+                    const size_t offset = i * m_partySlotStride;
 
                     if (party[i] && party[i]->speciesID() != 0) {
                         // Pokemon exists - encrypt and write
-                        const Pokemon::Pokemon* pokemon = party[i].get();
+                        const ::Pokemon::Pokemon* pokemon = party[i].get();
                         uint32_t ec = readUInt32LittleEndian(
                             reinterpret_cast<const uint8_t*>(pokemon->getData().data())
                         );
@@ -322,25 +397,42 @@ namespace Trainer {
                         // Write encrypted data to block (only SIZE_PARTY9_LZA bytes)
                         std::memcpy(&block.data[offset], encryptedData, pokemon->getDataSize());
 
-                        // Zero out the gap after the Pokemon data
-                        std::memset(&block.data[offset + SIZE_PARTY9_LZA], 0, GAP_BOX_SLOT9_LZA);
+                        // Zero out the gap after the Pokemon data (0 bytes for S/V's packed layout)
+                        std::memset(&block.data[offset + SIZE_PARTY9_LZA], 0, m_slotGapZero);
 
                         // Clean up encrypted buffer
                         delete[] encryptedData;
                     } else {
                         // Empty slot - write zeros for entire slot (data + gap)
-                        std::memset(&block.data[offset], 0, PARTY_SLOT_SIZE9_LZA);
+                        std::memset(&block.data[offset], 0, m_partySlotStride);
                     }
                 }
 
                 // Zero out any remaining slots
                 for (size_t i = party.size(); i < MAX_PARTY_SLOTS; ++i) {
-                    const size_t offset = i * PARTY_SLOT_SIZE9_LZA;
-                    std::memset(&block.data[offset], 0, PARTY_SLOT_SIZE9_LZA);
+                    const size_t offset = i * m_partySlotStride;
+                    std::memset(&block.data[offset], 0, m_partySlotStride);
                 }
 
                 break;
             }
+        }
+    }
+
+    void Trainer9LZA::updateBoxNameBlock()
+    {
+        // Inverse of parseBoxLayoutBlock. See Trainer8SWSH::updateBoxNameBlock for why the block is
+        // bounds-checked rather than resized.
+        for (auto& block : blocks) {
+            if (block.key != BOX_LAYOUT9_LZA) continue;
+            for (size_t boxIndex = 0; boxIndex < BOX_COUNT9_LZA && boxIndex < boxNames.size(); ++boxIndex) {
+                if (!isBoxNameDirty(boxIndex)) continue;   // never persist a display default (#50)
+                const size_t offset = boxIndex * BOX_NAME_LENGTH9_LZA;
+                if (offset + BOX_NAME_LENGTH9_LZA > block.data.size()) break;
+                setString(block.data.data() + offset, BOX_NAME_LENGTH9_LZA,
+                          utf8ToUtf16(boxNames[boxIndex]), BOX_NAME_LENGTH9_LZA / 2 - 1);
+            }
+            break;
         }
     }
 
@@ -359,18 +451,49 @@ namespace Trainer {
         for (auto& block : blocks) {
             if (block.key == BOX9_LZA) {
                 // Ensure the block data is large enough for all boxes (including gaps)
-                size_t requiredSize = BOX_COUNT9_LZA * BOX_SLOTS * BOX_SLOT_SIZE9_LZA;
+                size_t requiredSize = BOX_COUNT9_LZA * BOX_SLOTS * m_boxSlotStride;
                 if (block.data.size() < requiredSize) {
                     block.data.resize(requiredSize, 0);
+                }
+
+                // Empty box slots in the real save are an ENCRYPTED blank that DECRYPTS to species 0 —
+                // NOT literal zeros. The game decrypts every box slot and checks species; a zeroed slot
+                // decrypts to garbage and renders a BAD EGG. So reuse the game's own blank: copy the raw
+                // bytes of an existing empty (species-0) slot. If every box is full (no blank to copy),
+                // synthesize one from an all-zero PK9 encrypted with EC 0 (decrypts back to species 0).
+                std::vector<uint8_t> blankSlot;
+                for (size_t bi = 0; bi < BOX_COUNT9_LZA && blankSlot.empty(); ++bi) {
+                    for (size_t s = 0; s < BOX_SLOTS; ++s) {
+                        if (boxes[bi][s] && boxes[bi][s]->speciesID() == 0) {
+                            const size_t off = (bi * BOX_SLOTS + s) * m_boxSlotStride;
+                            if (off + m_boxSlotStride <= block.data.size()) {
+                                blankSlot.assign(block.data.begin() + off,
+                                                 block.data.begin() + off + m_boxSlotStride);
+                                break;
+                            }
+                        }
+                    }
+                }
+                if (blankSlot.empty()) {
+                    std::vector<std::byte> zero(SIZE_PARTY9_LZA, std::byte{0});
+                    std::byte* enc = encryptArray9LZA(
+                        std::span<const std::byte>(zero.data(), SIZE_PARTY9_LZA), 0);
+                    blankSlot.assign(reinterpret_cast<const uint8_t*>(enc),
+                                     reinterpret_cast<const uint8_t*>(enc) + SIZE_PARTY9_LZA);
+                    blankSlot.resize(m_boxSlotStride, 0);  // pad the Z-A slot gap with zeros
+                    delete[] enc;
                 }
 
                 // Write each Pokemon back to the block
                 for (size_t boxIndex = 0; boxIndex < BOX_COUNT9_LZA; ++boxIndex) {
                     for (size_t slot = 0; slot < BOX_SLOTS; ++slot) {
-                        // Calculate offset with gaps
-                        const size_t offset = (boxIndex * BOX_SLOTS + slot) * BOX_SLOT_SIZE9_LZA;
+                        // Calculate offset (packed for S/V, gapped for Z-A)
+                        const size_t offset = (boxIndex * BOX_SLOTS + slot) * m_boxSlotStride;
 
-                        if (boxes[boxIndex][slot]) {
+                        // Gate on species, not just the pointer (matches updatePartyBlock). A slot left
+                        // holding a non-null but blank/species-0 mon (e.g. after a bank move) must be
+                        // zeroed to read as EMPTY in-game — re-encrypting a blank writes a bad egg.
+                        if (boxes[boxIndex][slot] && boxes[boxIndex][slot]->speciesID() != 0) {
                             // Pokemon exists - encrypt and write
                             const auto& pokemon = boxes[boxIndex][slot];
 
@@ -391,20 +514,36 @@ namespace Trainer {
                             // Write encrypted data to block (only SIZE_PARTY9_LZA bytes)
                             std::memcpy(&block.data[offset], encryptedData, pokemon->getDataSize());
 
-                            // Zero out the gap after the Pokemon data
-                            std::memset(&block.data[offset + SIZE_PARTY9_LZA], 0, GAP_BOX_SLOT9_LZA);
+                            // Zero out the gap after the Pokemon data (0 bytes for S/V's packed layout)
+                            std::memset(&block.data[offset + SIZE_PARTY9_LZA], 0, m_slotGapZero);
 
                             // Clean up encrypted buffer
                             delete[] encryptedData;
                         } else {
-                            // Empty slot - write zeros for entire slot (data + gap)
-                            std::memset(&block.data[offset], 0, BOX_SLOT_SIZE9_LZA);
+                            // Empty/cleared slot: write the game's encrypted blank, NOT zeros. Zeros
+                            // decrypt to garbage in-game and show as a BAD EGG in every empty slot.
+                            std::memcpy(&block.data[offset], blankSlot.data(), m_boxSlotStride);
                         }
                     }
                 }
                 break;
             }
         }
+    }
+
+    std::unique_ptr<::Pokemon::Pokemon> Trainer9LZA::createBlankPokemon() const
+    {
+        // Mirror updateBoxBlock()'s encrypted-blank fallback: a zeroed *decrypted* PK9 buffer
+        // encrypted with EC/seed 0, then fed to the ctor (which decrypts it straight back to zeros)
+        // -> a clean species-0, Sanity-0, checksum-valid entity. Raw zeros in the ctor would decrypt
+        // to garbage (BAD EGG); the encrypt->decrypt round-trip is what makes the blank valid.
+        std::vector<std::byte> zero(SIZE_PARTY9_LZA, std::byte{0});
+        std::byte* enc = encryptArray9LZA(
+            std::span<const std::byte>(zero.data(), SIZE_PARTY9_LZA), 0);
+        auto p = std::make_unique<Pokemon9LZA>(
+            std::span<const std::byte>(enc, SIZE_PARTY9_LZA));
+        delete[] enc;
+        return p;
     }
 
     void Trainer9LZA::updateItemBlock()
@@ -423,48 +562,44 @@ namespace Trainer {
          */
 
         for (auto& block : blocks) {
-            if (block.key == ITEM9_LZA) {
-                // Ensure the block data is large enough
-                if (block.data.size() < ITEM_BLOCK_SIZE9_LZA) {
-                    block.data.resize(ITEM_BLOCK_SIZE9_LZA, 0);
-                }
+            if (block.key != ITEM9_LZA) continue;
 
-                // First, zero out the entire block
-                std::memset(block.data.data(), 0, ITEM_BLOCK_SIZE9_LZA);
+            // Size-preserving in-place write. Gen 9 stores every item at a fixed index (itemId * 0x10)
+            // as {pouchId@0x00, count@0x04 (int32 LE), flags@0x08 (isNew=bit0, isFavorite=bit1)}.
+            //
+            // PKSE places each item in a pouch by legal-list membership (getPouchItems, mirroring
+            // PKHeX's spans); the GAME instead keys the bag off the pouchId in each record. A freshly
+            // CREATED item (add or change-type, #39/E10) lands in a never-held slot whose pouchId is
+            // the "none" sentinel, so the game hides it even with the count set -- exactly the "Canari
+            // Bread shows in PKSE but not in-game" report. We stamp the pouch's canonical pouchId
+            // (PKHeX InventoryItem9a.Pouch*) on every present item -- a no-op for items the game already
+            // had, the fix for new ones. Index by PouchType9LZA. (See task #16: never resize/rebuild.)
+            static const uint32_t POUCH_ID9_LZA[POUCH_COUNT9_LZA] = { 0, 1, 5, 2, 6, 7, 3, 4 };
+            const size_t blockSize = block.data.size();
+            for (int i = 0; i < static_cast<int>(POUCH_COUNT9_LZA); i++) {
+                for (const auto& item : items[i]) {
+                    const size_t offset = static_cast<size_t>(item.itemId) * ITEM_SIZE9_LZA;
+                    if (offset + ITEM_SIZE9_LZA > blockSize) continue;
 
-                // Write each pouch's items to their indexed positions
-                for (int i = 0; i < static_cast<int>(POUCH_COUNT9_LZA); i++) {
-                    PouchType9LZA pouchType = static_cast<PouchType9LZA>(i);
-                    const auto& pouch = items[i];
+                    const int32_t count = static_cast<int32_t>(item.count);
+                    block.data[offset + 4] = static_cast<uint8_t>(count & 0xFF);
+                    block.data[offset + 5] = static_cast<uint8_t>((count >> 8) & 0xFF);
+                    block.data[offset + 6] = static_cast<uint8_t>((count >> 16) & 0xFF);
+                    block.data[offset + 7] = static_cast<uint8_t>((count >> 24) & 0xFF);
 
-                    // Write all items from this pouch
-                    for (const auto& item : pouch) {
-                        uint16_t itemId = item.itemId;
-
-                        // Calculate offset: itemID * 0x10
-                        size_t offset = itemId * ITEM_SIZE9_LZA;
-
-                        // Make sure we're within bounds
-                        if (offset + ITEM_SIZE9_LZA > block.data.size()) {
-                            continue;
-                        }
-
-                        // Create InventoryItem9 with pouch ID
-                        InventoryItem9LZA item9;
-                        item9.pouchId = static_cast<uint32_t>(pouchType);
-                        item9.itemId = itemId;
-                        item9.count = static_cast<int32_t>(item.count);
-                        item9.flags = 0;
-                        if (item.isNew) item9.flags |= 0x1;
-                        if (item.isFavorite) item9.flags |= 0x2;
-
-                        // Write to block at indexed position
-                        item9.toBytes(&block.data[offset]);
+                    if (item.count > 0) {
+                        const uint32_t pid = POUCH_ID9_LZA[i];
+                        block.data[offset + 0] = static_cast<uint8_t>(pid & 0xFF);
+                        block.data[offset + 1] = static_cast<uint8_t>((pid >> 8) & 0xFF);
+                        block.data[offset + 2] = static_cast<uint8_t>((pid >> 16) & 0xFF);
+                        block.data[offset + 3] = static_cast<uint8_t>((pid >> 24) & 0xFF);
+                        // isNew = flags bit 0. Only SET (freshly-added items); never clear, so the
+                        // game's own "new" markers on existing items survive round-trips.
+                        if (item.isNew) block.data[offset + 8] = static_cast<uint8_t>(block.data[offset + 8] | 0x01);
                     }
                 }
-
-                break;
             }
+            break;
         }
     }
 }

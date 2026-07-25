@@ -1,4 +1,6 @@
 #include <algorithm>
+#include <string>
+#include <vector>
 
 #include "UI/Panels/ItemsPanel.h"
 #include "UI/TrainerViewScreen.h"
@@ -6,9 +8,17 @@
 #include "UI/PKSEFramebuffer.h"
 #include "Trainer/Trainer.h"
 #include "Trainer/Inventory9LZA.h"
+#include "Trainer/Inventory9SV.h"
+#include "Trainer/Inventory8LA.h"
+#include "Trainer/Inventory8BDSP.h"
 #include "Trainer/Inventory8SWSH.h"
+#include "Trainer/Inventory7LGPE.h"
+#include "Trainer/Inventory3FRLG.h"
 #include "Enums/GameVersion.h"
 #include "Utils/HelperUtilities.h"
+#include "Names/MoveNames.h"
+#include "Names/TMMoves.h"
+#include "Names/ItemNames.h"
 
 using namespace Trainer;
 using namespace Enums;
@@ -17,98 +27,77 @@ using namespace Utils;
 namespace UI {
 namespace Panels {
     void drawItems(TrainerViewScreen& screen, PKSEFramebuffer& fb, int x, int y, int width, int height) {
-        fb.drawFilledRect(x, y, width, height, Colors::Panel);
-        fb.drawRect(x, y, width, height, Colors::Border);
+        fb.drawFilledRoundedRect(x, y, width, height, 16, Colors::Panel);
+        fb.drawRoundedRect(x, y, width, height, 16, Colors::Border, 1);
 
-        // Get current pouch info based on game version
+        // Header band + pouch name.
+        constexpr int hH = 46;
+        fb.drawFilledRoundedRect(x, y, width, hH, 16, Colors::AccentDim);
+        fb.drawFilledRect(x, y + hH - 16, width, 16, Colors::AccentDim);
         GameVersion gameGroup = screen.trainer.getGameGroup();
         const char* pouchName = nullptr;
+        if (gameGroup == GameVersion::ZA)      pouchName = getPouchInfo9LZA(static_cast<PouchType9LZA>(screen.selectedCategory)).name;
+        else if (gameGroup == GameVersion::SV) pouchName = getPouchInfo9SV(static_cast<PouchType9SV>(screen.selectedCategory)).name;
+        else if (gameGroup == GameVersion::PLA) pouchName = getPouchInfo8LA(static_cast<PouchType8LA>(screen.selectedCategory)).name;
+        else if (gameGroup == GameVersion::BDSP) pouchName = getPouchInfo8BDSP(static_cast<PouchType8BDSP>(screen.selectedCategory)).name;
+        else if (gameGroup == GameVersion::GG) pouchName = getPouchInfo7LGPE(static_cast<PouchType7LGPE>(screen.selectedCategory)).name;
+        else if (gameGroup == GameVersion::FRLG) pouchName = getPouchInfo3FRLG(static_cast<PouchType3FRLG>(screen.selectedCategory)).name;
+        else                                   pouchName = getPouchInfo8SWSH(static_cast<PouchType8SWSH>(screen.selectedCategory)).name;
+        fb.drawText(x + 22, y + (hH - fb.lineHeight(TextStyle::Heading)) / 2, std::string("道具 - ") + pouchName, Colors::Text, TextStyle::Heading);
 
-        if (gameGroup == GameVersion::ZA) {
-            // Gen 9 Legends Z-A uses PouchType9
-            PouchType9LZA pouchType = static_cast<PouchType9LZA>(screen.selectedCategory);
-            const PouchInfo9LZA& info = getPouchInfo9LZA(pouchType);
-            pouchName = info.name;
-        } else {
-            // Gen 8 use PouchType
-            PouchType8SWSH pouchType = static_cast<PouchType8SWSH>(screen.selectedCategory);
-            const PouchInfo8SWSH& info = getPouchInfo8SWSH(pouchType);
-            pouchName = info.name;
+        screen.touchButtons.clear();
+
+        if (screen.selectedCategory < 0 || screen.selectedCategory >= static_cast<int>(screen.trainer.items.size())) {
+            fb.drawText(x + 24, y + hH + 30, "无效分类", Colors::TextDim);
+            return;
         }
+        const auto& pouch = screen.trainer.items[screen.selectedCategory];
+        // Only visible items (count > 0); "已有但为空" slots are hidden but kept in the data.
+        std::vector<int> visible = screen.visibleItemIndices();
+        if (visible.empty()) {
+            fb.drawText(x + 24, y + hH + 30, "此分类中没有道具", Colors::TextDim);
+            return;
+        }
+        const int total = static_cast<int>(visible.size());
 
-        // Header with category name
-        std::string headerText = std::string("道具 - ") + pouchName;
-        // if (screen.detailViewActive) {
-        //     headerText += " [DETAIL VIEW]";
-        // }
-        fb.drawText(x + 20, y + 20, headerText, Colors::Text);
-        fb.drawFilledRect(x + 20, y + 45, width - 40, 2, Colors::Border);
+        // Single-column touch-friendly tiles (this geometry mirrors the nav math in
+        // TrainerViewScreen::update() — keep them in sync).
+        constexpr int rowPitch = 52, tileH = 46;
+        const int itemsPerPage = (height - 106) / rowPitch;
+        const int totalPages = (total + itemsPerPage - 1) / itemsPerPage;
+        const int tileW = std::min(width - 60, 860);
+        const int tileX = x + (width - tileW) / 2;
 
-        // Get items from trainer
-        if (screen.selectedCategory >= 0 && screen.selectedCategory < static_cast<int>(screen.trainer.items.size())) {
-            const auto& pouch = screen.trainer.items[screen.selectedCategory];
+        std::string countText = std::to_string(total) + " 个道具";
+        if (totalPages > 1) countText += "      第 " + std::to_string(screen.currentPage + 1) + " / " + std::to_string(totalPages);
+        fb.drawText(tileX, y + hH + 10, countText, Colors::TextDim, TextStyle::Caption);
 
-            if (pouch.empty()) {
-                fb.drawText(x + 20, y + 80, "此类别中没有道具", Colors::TextDim);
-                return;
+        const int startIdx = screen.currentPage * itemsPerPage;
+        const int endIdx = std::min(startIdx + itemsPerPage, total);
+        int ry = y + hH + 40;
+        for (int i = startIdx; i < endIdx; ++i) {
+            const InventoryItem& item = pouch[visible[i]];
+            const bool selected = screen.detailViewActive && i == screen.selectedItemIndex;
+            fb.drawSoftShadow(tileX, ry, tileW, tileH, tileH / 2);
+            fb.drawFilledRoundedRect(tileX, ry, tileW, tileH, 12, selected ? Colors::Primary : Colors::PanelAlt);
+            const Color nameCol = selected ? Colors::PrimaryText : (item.isNew ? Colors::Accent : Colors::Text);
+            int nx = tileX + 22;
+            if (item.isFavorite) { fb.drawSymbol(nx, ry + (tileH - 20) / 2, "\xE2\x98\x85", Colors::Yellow); nx += 24; }
+            const char* itemName = (gameGroup == GameVersion::FRLG)
+                ? Names::getItemNameG3(item.itemId)   // Gen 3 ids differ -> convert then name
+                : getItemName(item.itemId);
+            fb.drawText(nx, ry + (tileH - fb.lineHeight(TextStyle::Body)) / 2, itemName, nameCol, TextStyle::Body);
+            // TM/HM/TR items: show the move the machine teaches (dim, after the item name).
+            if (uint16_t tmMove = Names::getTMMove(gameGroup, item.itemId)) {
+                int iw, ih; fb.measureText(itemName, iw, ih, TextStyle::Body);
+                const Color moveCol = selected ? Colors::PrimaryText : Colors::TextDim;
+                fb.drawText(nx + iw + 14, ry + (tileH - fb.lineHeight(TextStyle::Body)) / 2, Names::getMoveName(tmMove), moveCol, TextStyle::Body);
             }
-
-            // Calculate layout based on detail view state
-            int lineHeight = 20;
-            int columnWidth = (width - 60) / 2;  // Dynamic column width based on panel width
-            int itemsPerColumn = (height - 120) / lineHeight;  // Dynamic items per column based on height
-            int itemsPerPage = itemsPerColumn * 2;  // Two columns
-
-            // Display item count and page info
-            int totalPages = (pouch.size() + itemsPerPage - 1) / itemsPerPage;
-            std::string countText = std::to_string(pouch.size()) + " items";
-            if (screen.detailViewActive && totalPages > 1) {
-                countText += " (Page " + std::to_string(screen.currentPage + 1) + "/" + std::to_string(totalPages) + ")";
-            }
-            fb.drawText(x + 20, y + 70, countText, Colors::TextDim);
-
-            // Calculate which items to display based on pagination
-            size_t startIdx = screen.detailViewActive ? (screen.currentPage * itemsPerPage) : 0;
-            size_t endIdx = screen.detailViewActive ? std::min(startIdx + itemsPerPage, pouch.size()) : std::min(pouch.size(), (size_t)itemsPerPage);
-
-            // Draw items in two columns
-            for (size_t i = startIdx; i < endIdx; i++) {
-                const InventoryItem& item = pouch[i];
-
-                // Calculate display index (relative to current page)
-                size_t displayIdx = i - startIdx;
-
-                // Determine column (0 = left, 1 = right)
-                int column = (static_cast<int>(displayIdx) >= itemsPerColumn) ? 1 : 0;
-                int itemInColumn = (static_cast<int>(displayIdx) >= itemsPerColumn) ? (displayIdx - itemsPerColumn) : displayIdx;
-
-                // Calculate position
-                int colX = x + 20 + (column * columnWidth);
-                int colY = y + 100 + (itemInColumn * lineHeight);
-
-                // Highlight selected item in detail view
-                if (screen.detailViewActive && static_cast<int>(i) == screen.selectedItemIndex) {
-                    fb.drawFilledRect(colX - 5, colY - 2, columnWidth - 10, lineHeight - 2, Colors::Selected);
-                }
-
-                // Format: "Item Name x5" or with favorite marker
-                char itemText[64];
-                const char* marker = item.isFavorite ? "*" : " ";
-                const char* cursor = (screen.detailViewActive && static_cast<int>(i) == screen.selectedItemIndex) ? "" : " ";
-                snprintf(itemText, sizeof(itemText), "%s%s x%-3d %s",
-                        cursor, marker, item.count, getItemName(item.itemId));
-
-                Color textColor = item.isNew ? Colors::Yellow : Colors::Text;
-                fb.drawText(colX, colY, itemText, textColor);
-            }
-
-            // Show pagination hint if there are more items and not in detail view
-            if (!screen.detailViewActive && static_cast<int>(pouch.size()) > itemsPerPage) {
-                std::string moreText = "... and " + std::to_string(pouch.size() - itemsPerPage) + " more items";
-                fb.drawText(x + 363, y + height - 30, moreText, Colors::TextDim);
-            }
-        } else {
-            fb.drawText(x + 20, y + 80, "Invalid category", Colors::TextDim);
+            std::string cnt = "\xC3\x97" + std::to_string(item.count);  // ×N
+            int cw, ch; fb.measureText(cnt, cw, ch, TextStyle::Body);
+            fb.drawText(tileX + tileW - 24 - cw, ry + (tileH - ch) / 2, cnt, selected ? Colors::PrimaryText : Colors::TextDim, TextStyle::Body);
+            screen.touchButtons.push_back({ i, tileX, ry, tileW, tileH });  // id = absolute item index
+            ry += rowPitch;
         }
     }
 }

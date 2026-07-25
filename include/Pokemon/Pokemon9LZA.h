@@ -73,6 +73,18 @@ namespace Pokemon {
         Pokemon9LZA(Pokemon9LZA&&) noexcept = default;
         Pokemon9LZA& operator=(Pokemon9LZA&&) noexcept = default;
 
+        /** Deep-copy: re-encrypt the decrypted buffer and rebuild via the encrypted-span ctor. */
+        std::unique_ptr<Pokemon> clone() const override {
+            uint32_t ec = readUInt32LittleEndian(reinterpret_cast<const uint8_t*>(data.data()));
+            std::byte* enc = encryptArray9LZA(std::span<const std::byte>(data.data(), dataSize), ec);
+            auto c = std::make_unique<Pokemon9LZA>(std::span<const std::byte>(enc, dataSize));
+            delete[] enc;
+            return c;
+        }
+
+        /** Storage-format game group (this subclass), NOT the origin Version byte. */
+        Enums::GameVersion getGameGroup() const noexcept override { return Enums::GameVersion::ZA; }
+
         // ========================================
         // Core Data Properties (Block A - Growth)
         // ========================================
@@ -221,6 +233,88 @@ namespace Pokemon {
         }
 
         // ========================================
+        // Moves (Block B)
+        // ========================================
+
+        /**
+         * Gets the move ID in a given slot.
+         * Location: 0x72 + slot*2 (2 bytes each, slots 0-3). Shares the Gen 8/9 Block B layout.
+         * @param slot Move slot (0-3)
+         * @return Move ID (0 = empty slot)
+         */
+        uint16_t move(int slot) const noexcept override
+        {
+            if (slot < 0 || slot > 3) return 0;
+            return readUInt16LittleEndian(reinterpret_cast<const uint8_t*>(data.data() + 0x72 + slot * 2));
+        }
+
+        /**
+         * Sets the move ID in a given slot and refreshes the checksum.
+         * @param slot Move slot (0-3)
+         * @param moveID Move ID to store
+         */
+        void setMove(int slot, uint16_t moveID) noexcept override
+        {
+            if (slot < 0 || slot > 3) return;
+            writeUInt16LittleEndian(reinterpret_cast<uint8_t*>(data.data() + 0x72 + slot * 2), moveID);
+            refreshChecksum();
+        }
+
+        /**
+         * Gets the current PP of a move slot.
+         * Location: 0x7A + slot (1 byte each, slots 0-3).
+         */
+        uint8_t movePP(int slot) const noexcept override
+        {
+            if (slot < 0 || slot > 3) return 0;
+            return static_cast<uint8_t>(data[0x7A + slot]);
+        }
+
+        /** Sets the current PP of a move slot and refreshes the checksum. */
+        void setMovePP(int slot, uint8_t pp) noexcept override
+        {
+            if (slot < 0 || slot > 3) return;
+            data[0x7A + slot] = static_cast<std::byte>(pp);
+            refreshChecksum();
+        }
+
+        /**
+         * Gets the number of PP Ups applied to a move slot.
+         * Location: 0x7E + slot (1 byte each, slots 0-3).
+         */
+        uint8_t movePPUps(int slot) const noexcept override
+        {
+            if (slot < 0 || slot > 3) return 0;
+            return static_cast<uint8_t>(data[0x7E + slot]);
+        }
+
+        /** Sets the number of PP Ups applied to a move slot and refreshes the checksum. */
+        void setMovePPUps(int slot, uint8_t ppUps) noexcept override
+        {
+            if (slot < 0 || slot > 3) return;
+            data[0x7E + slot] = static_cast<std::byte>(ppUps);
+            refreshChecksum();
+        }
+
+        /**
+         * Gets a relearn move ID.
+         * Location: 0x82 + slot*2 (2 bytes each, slots 0-3).
+         */
+        uint16_t relearnMove(int slot) const noexcept override
+        {
+            if (slot < 0 || slot > 3) return 0;
+            return readUInt16LittleEndian(reinterpret_cast<const uint8_t*>(data.data() + 0x82 + slot * 2));
+        }
+
+        /** Sets a relearn move ID and refreshes the checksum. */
+        void setRelearnMove(int slot, uint16_t moveID) noexcept override
+        {
+            if (slot < 0 || slot > 3) return;
+            writeUInt16LittleEndian(reinterpret_cast<uint8_t*>(data.data() + 0x82 + slot * 2), moveID);
+            refreshChecksum();
+        }
+
+        // ========================================
         // Block D (Misc)
         // ========================================
 
@@ -232,7 +326,7 @@ namespace Pokemon {
          */
         uint8_t friendship() const noexcept override
         {
-            return static_cast<uint8_t>(data[0xCA]);
+            return currentHandler() == 0 ? otFriendship() : htFriendship();
         }
 
         /**
@@ -254,7 +348,7 @@ namespace Pokemon {
          */
         uint8_t pokerus() const noexcept
         {
-            return static_cast<uint8_t>(data[0xCB]);
+            return static_cast<uint8_t>(data[0x32]);
         }
 
         /**
@@ -275,6 +369,254 @@ namespace Pokemon {
         {
             return (pokerus() & 0xF0) > 0 && (pokerus() & 0xF) == 0;
         }
+
+        /** Writes the Pokerus byte (0x32). Z-A (PA9) carries it exactly like PK9/SV. */
+        void setPokerus(uint8_t value) noexcept override { data[0x32] = static_cast<std::byte>(value); refreshChecksum(); }
+
+        /** Z-A has the Pokerus field (PA9 PokerusState @ 0x32) -- make the row editable, like SV. */
+        bool hasPokerus() const noexcept override { return true; }
+
+        // ========================================
+        // OT / Origin / Met (Block D + Block A ids)
+        // ========================================
+
+        /** Game of origin (Version byte). Location: 0xCE (PA9 differs from PK8's 0xDE). */
+        uint8_t originGame() const noexcept override { return static_cast<uint8_t>(data[0xCE]); }
+        void setOriginGame(uint8_t version) noexcept override { data[0xCE] = static_cast<std::byte>(version); refreshChecksum(); }
+
+        /** OT visible ID (TID16). Location: 0x0C. */
+        uint16_t tid16() const noexcept override { return readUInt16LittleEndian(reinterpret_cast<const uint8_t*>(data.data() + 0x0C)); }
+        void setTID16(uint16_t value) noexcept override { writeUInt16LittleEndian(reinterpret_cast<uint8_t*>(data.data() + 0x0C), value); refreshChecksum(); }
+
+        /** OT secret ID (SID16). Location: 0x0E. */
+        uint16_t sid16() const noexcept override { return readUInt16LittleEndian(reinterpret_cast<const uint8_t*>(data.data() + 0x0E)); }
+        void setSID16(uint16_t value) noexcept override { writeUInt16LittleEndian(reinterpret_cast<uint8_t*>(data.data() + 0x0E), value); refreshChecksum(); }
+
+        /** Sets the full 32-bit trainer ID. Location: 0x0C (4 bytes). */
+        void setId32(uint32_t value) noexcept override { writeUInt32LittleEndian(reinterpret_cast<uint8_t*>(data.data() + 0x0C), value); refreshChecksum(); }
+
+        /** OT gender (0=Male, 1=Female). Location: 0x125 bit 7. */
+        uint8_t otGender() const noexcept override { return (static_cast<uint8_t>(data[0x125]) >> 7) & 0x01; }
+        void setOTGender(uint8_t value) noexcept override {
+            uint8_t b = (static_cast<uint8_t>(data[0x125]) & 0x7F) | ((value & 0x01) << 7);
+            data[0x125] = static_cast<std::byte>(b);
+            refreshChecksum();
+        }
+
+        /** OT (base) friendship. Location: 0x112. */
+        uint8_t otFriendship() const noexcept override { return static_cast<uint8_t>(data[0x112]); }
+        void setOTFriendship(uint8_t value) noexcept override { data[0x112] = static_cast<std::byte>(value); refreshChecksum(); }
+
+        /** Language id. Location: 0xD5 (PA9 differs from PK8's 0xE2). */
+        uint8_t language() const noexcept override { return static_cast<uint8_t>(data[0xD5]); }
+        void setLanguage(uint8_t value) noexcept override { data[0xD5] = static_cast<std::byte>(value); refreshChecksum(); }
+
+        /** Poke Ball id. Location: 0x124. */
+        uint8_t ball() const noexcept override { return static_cast<uint8_t>(data[0x124]); }
+        void setBall(uint8_t value) noexcept override { data[0x124] = static_cast<std::byte>(value); refreshChecksum(); }
+
+        /** Met location. Location: 0x122. */
+        uint16_t metLocation() const noexcept override { return readUInt16LittleEndian(reinterpret_cast<const uint8_t*>(data.data() + 0x122)); }
+        void setMetLocation(uint16_t value) noexcept override { writeUInt16LittleEndian(reinterpret_cast<uint8_t*>(data.data() + 0x122), value); refreshChecksum(); }
+
+        /** Met level. Location: 0x125 low 7 bits. */
+        uint8_t metLevel() const noexcept override { return static_cast<uint8_t>(data[0x125]) & 0x7F; }
+        void setMetLevel(uint8_t value) noexcept override {
+            uint8_t b = (static_cast<uint8_t>(data[0x125]) & 0x80) | (value & 0x7F);
+            data[0x125] = static_cast<std::byte>(b);
+            refreshChecksum();
+        }
+
+        /** Egg location. Location: 0x120. */
+        uint16_t eggLocation() const noexcept override { return readUInt16LittleEndian(reinterpret_cast<const uint8_t*>(data.data() + 0x120)); }
+        void setEggLocation(uint16_t value) noexcept override { writeUInt16LittleEndian(reinterpret_cast<uint8_t*>(data.data() + 0x120), value); refreshChecksum(); }
+
+        /** Met date (year = years since 2000). Location: 0x11C/0x11D/0x11E. */
+        uint8_t metYear() const noexcept override { return static_cast<uint8_t>(data[0x11C]); }
+        void setMetYear(uint8_t value) noexcept override { data[0x11C] = static_cast<std::byte>(value); refreshChecksum(); }
+        uint8_t metMonth() const noexcept override { return static_cast<uint8_t>(data[0x11D]); }
+        void setMetMonth(uint8_t value) noexcept override { data[0x11D] = static_cast<std::byte>(value); refreshChecksum(); }
+        uint8_t metDay() const noexcept override { return static_cast<uint8_t>(data[0x11E]); }
+        void setMetDay(uint8_t value) noexcept override { data[0x11E] = static_cast<std::byte>(value); refreshChecksum(); }
+
+        /** Egg date (year = years since 2000). Location: 0x119/0x11A/0x11B. */
+        uint8_t eggYear() const noexcept override { return static_cast<uint8_t>(data[0x119]); }
+        void setEggYear(uint8_t value) noexcept override { data[0x119] = static_cast<std::byte>(value); refreshChecksum(); }
+        uint8_t eggMonth() const noexcept override { return static_cast<uint8_t>(data[0x11A]); }
+        void setEggMonth(uint8_t value) noexcept override { data[0x11A] = static_cast<std::byte>(value); refreshChecksum(); }
+        uint8_t eggDay() const noexcept override { return static_cast<uint8_t>(data[0x11B]); }
+        void setEggDay(uint8_t value) noexcept override { data[0x11B] = static_cast<std::byte>(value); refreshChecksum(); }
+
+        // ========================================
+        // Names & handler (Block B/C/D)
+        // ========================================
+
+        /** Sets the nickname (UTF-16, max 12 chars). Location: 0x58 (26 bytes). */
+        void setNickname(const std::u16string& value) noexcept override
+        {
+            setString(reinterpret_cast<uint8_t*>(data.data() + 0x58), 26, value, 12);
+            refreshChecksum();
+        }
+
+        /** Original Trainer name. Location: 0xF8 (26 bytes). */
+        std::u16string otName() const override
+        {
+            return getString(reinterpret_cast<const uint8_t*>(data.data() + 0xF8), 26);
+        }
+        void setOTName(const std::u16string& value) noexcept override
+        {
+            setString(reinterpret_cast<uint8_t*>(data.data() + 0xF8), 26, value, 12);
+            refreshChecksum();
+        }
+
+        /** Handling (current) Trainer name. Location: 0xA8 (26 bytes). */
+        std::u16string htName() const override
+        {
+            return getString(reinterpret_cast<const uint8_t*>(data.data() + 0xA8), 26);
+        }
+        void setHTName(const std::u16string& value) noexcept override
+        {
+            setString(reinterpret_cast<uint8_t*>(data.data() + 0xA8), 26, value, 12);
+            refreshChecksum();
+        }
+
+        /** Handling Trainer gender (0=Male, 1=Female). Location: 0xC2. */
+        uint8_t htGender() const noexcept override { return static_cast<uint8_t>(data[0xC2]); }
+        void setHTGender(uint8_t value) noexcept override { data[0xC2] = static_cast<std::byte>(value); refreshChecksum(); }
+
+        /** Handling Trainer friendship. Location: 0xC8. */
+        uint8_t htFriendship() const noexcept override { return static_cast<uint8_t>(data[0xC8]); }
+        void setHTFriendship(uint8_t value) noexcept override { data[0xC8] = static_cast<std::byte>(value); refreshChecksum(); }
+
+        /** Current handler flag (0 = OT active, 1 = HT active). Location: 0xC4. */
+        uint8_t currentHandler() const noexcept override { return static_cast<uint8_t>(data[0xC4]); }
+        void setCurrentHandler(uint8_t value) noexcept override { data[0xC4] = static_cast<std::byte>(value); refreshChecksum(); }
+
+        // ========================================
+        // Core editable setters (Block A)
+        // ========================================
+
+        /** Sets species (0x08) and recalculates stats (base stats change). */
+        void setSpecies(uint16_t species) noexcept override
+        {
+            writeUInt16LittleEndian(reinterpret_cast<uint8_t*>(data.data() + 0x08), species);
+            recalculateStats();
+            refreshChecksum();
+        }
+
+        /** Sets form (0x24) and recalculates stats (regional variants change base stats). */
+        void setForm(uint8_t formValue) noexcept override
+        {
+            data[0x24] = static_cast<std::byte>(formValue);
+            recalculateStats();
+            refreshChecksum();
+        }
+
+        /** Sets the held item id (0x0A). */
+        void setHeldItem(uint16_t item) noexcept override
+        {
+            writeUInt16LittleEndian(reinterpret_cast<uint8_t*>(data.data() + 0x0A), item);
+            refreshChecksum();
+        }
+
+        /** Sets the ability id (0x14). */
+        void setAbility(uint16_t abilityValue) noexcept override
+        {
+            writeUInt16LittleEndian(reinterpret_cast<uint8_t*>(data.data() + 0x14), abilityValue);
+            refreshChecksum();
+        }
+
+        /** Ability slot number (1/2/H). Location: 0x16 low 3 bits. */
+        uint8_t abilityNumber() const noexcept override { return static_cast<uint8_t>(data[0x16]) & 0x07; }
+        void setAbilityNumber(uint8_t number) noexcept override
+        {
+            uint8_t b = (static_cast<uint8_t>(data[0x16]) & ~0x07) | (number & 0x07);
+            data[0x16] = static_cast<std::byte>(b);
+            refreshChecksum();
+        }
+
+        /** Sets the original nature (0x20; cosmetic in Gen 8+). */
+        void setNature(uint8_t natureValue) noexcept override
+        {
+            data[0x20] = static_cast<std::byte>(natureValue);
+            refreshChecksum();
+        }
+
+        /** Sets the stat nature (0x21; the mint nature that affects stats in Gen 8+). */
+        void setStatNature(uint8_t natureValue) noexcept override
+        {
+            data[0x21] = static_cast<std::byte>(natureValue);
+            recalculateStats();
+            refreshChecksum();
+        }
+
+        /** Sets the PID (0x1C). */
+        void setPID(uint32_t pidValue) noexcept override
+        {
+            writeUInt32LittleEndian(reinterpret_cast<uint8_t*>(data.data() + 0x1C), pidValue);
+            refreshChecksum();
+        }
+
+        /** Sets the Encryption Constant (0x00). */
+        void setEncryptionConstant(uint32_t ec) noexcept override
+        {
+            writeUInt32LittleEndian(reinterpret_cast<uint8_t*>(data.data() + 0x00), ec);
+            refreshChecksum();
+        }
+
+        /** Sets the current friendship (handler-aware: OT or HT). */
+        void setFriendship(uint8_t value) noexcept override
+        {
+            if (currentHandler() == 0) setOTFriendship(value); else setHTFriendship(value);
+            refreshChecksum();
+        }
+
+        /** Sets/clears the egg flag (bit 30 of the packed IV32 at 0x8C). */
+        void setEgg(bool egg) noexcept override
+        {
+            uint32_t iv = iv32();
+            if (egg) iv |= 0x40000000u; else iv &= ~0x40000000u;
+            writeUInt32LittleEndian(reinterpret_cast<uint8_t*>(data.data() + 0x8C), iv);
+            refreshChecksum();
+        }
+
+        /** Reads/sets the "custom nickname" flag (bit 31 of the packed IV32 at 0x8C). */
+        bool isNicknamed() const noexcept override { return (iv32() & 0x80000000u) != 0; }
+        void setIsNicknamed(bool nicknamed) noexcept override
+        {
+            uint32_t iv = iv32();
+            if (nicknamed) iv |= 0x80000000u; else iv &= ~0x80000000u;
+            writeUInt32LittleEndian(reinterpret_cast<uint8_t*>(data.data() + 0x8C), iv);
+            refreshChecksum();
+        }
+
+        /** Sets gender (0=Male, 1=Female, 2=Genderless). Location: 0x22 bits 1-2 (PA9). */
+        void setGender(uint8_t value) noexcept override
+        {
+            uint8_t b = (static_cast<uint8_t>(data[0x22]) & 0xF9) | ((value & 0x03) << 1);
+            data[0x22] = static_cast<std::byte>(b);
+            refreshChecksum();
+        }
+
+        /** Fateful-encounter flag -- bit 0 of the gender byte at 0x22 (setGender leaves bit 0 alone). */
+        bool isFatefulEncounter() const noexcept override { return (static_cast<uint8_t>(data[0x22]) & 0x01) != 0; }
+        void setFatefulEncounter(bool value) noexcept override
+        {
+            uint8_t b = (static_cast<uint8_t>(data[0x22]) & ~0x01) | (value ? 0x01 : 0x00);
+            data[0x22] = static_cast<std::byte>(b);
+            refreshChecksum();
+        }
+
+        /**
+         * Sets the Pokemon's level (level() is the getter).
+         * Clamps to [1,100], writes the level's minimum total EXP (0x10), updates the
+         * cached party-stat level byte, then recalculates stats and refreshes the checksum.
+         * Defined in the .cpp alongside recalculateStats().
+         */
+        void setLevel(uint8_t level) noexcept override;
+
+        /** Sets total EXP (0x10) directly and re-derives the cached level. Defined in the .cpp. */
+        void setExp(uint32_t value) noexcept override;
 
         // ========================================
         // Shiny and Gender
@@ -305,7 +647,6 @@ namespace Pokemon {
 
         /**
          * Gets the Pokemon's gender.
-         * Gender is determined by PID and species gender ratio.
          * @return 0 = Male, 1 = Female, 2 = Genderless
          */
         uint8_t gender() const noexcept override;
@@ -529,13 +870,6 @@ namespace Pokemon {
          * @param trainerID32 The trainer's ID32 for shiny calculation
          */
         void setShiny(bool makeShiny, uint32_t trainerID32) noexcept override;
-
-        /**
-         * Helper to convert uint32_t to hex string.
-         * @param value Value to convert
-         * @return Hex string representation
-         */
-        static std::string toHex(uint32_t value);
     };
 }
 

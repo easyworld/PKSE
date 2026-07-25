@@ -143,10 +143,4 @@ namespace Utils {
             hash[i * 4 + 3] = state[i] & 0xFF;
         }
     }
-
-    void computeSHA256(const uint8_t* data, size_t length, uint8_t* hash) {
-        SHA256 sha;
-        sha.update(data, length);
-        sha.finalize(hash);
-    }
 }

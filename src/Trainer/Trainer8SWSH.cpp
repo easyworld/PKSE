@@ -45,6 +45,9 @@ namespace Trainer {
             case BOX_LAYOUT8_SWSH:
                 parseBoxLayoutBlock(block);
                 break;
+            case CURRENT_BOX8_SWSH:
+                parseCurrentBoxBlock(block);
+                break;
             // Additional blocks can be handled here
             default:
                 // Unknown block - skip
@@ -139,14 +142,10 @@ namespace Trainer {
          * 0x00: Trainer Name (26 bytes, UTF-16LE)
          * 0x1C: Trainer ID (4 bytes) - Legacy trainer ID format
          */
-        // Parse trainer ID
-        this->trainerID = block.data.size() >= 0x1C + 4
-            ? readInt32LittleEndian(block.data.data() + 0x1C)
-            : 0;
-
         // Parse trainer name (UTF-16LE string)
         size_t nameLength = std::min(static_cast<size_t>(0x1A), block.data.size());
         this->trainerName = utf16ToUtf8(getString(block.data.data(), nameLength));
+        if (block.data.size() > 0xA5) this->trainerGender = block.data[0xA5] & 1;   // 0xA5: gender
     }
 
     void Trainer8SWSH::parseItemBlock(const Block& block)
@@ -267,15 +266,59 @@ namespace Trainer {
 
                 // If box name is empty, use default
                 if (boxName.empty()) {
-                    boxName = "Box " + std::to_string(boxIndex + 1);
+                    boxName = "盒子 " + std::to_string(boxIndex + 1);
                 }
 
                 boxNames[boxIndex] = boxName;
             } else {
                 // Default name if data is insufficient
-                boxNames[boxIndex] = "Box " + std::to_string(boxIndex + 1);
+                boxNames[boxIndex] = "盒子 " + std::to_string(boxIndex + 1);
             }
         }
+    }
+
+    void Trainer8SWSH::detectSaveRevision()
+    {
+        /**
+         * Detects the save revision (DLC version) by checking for DLC Pokedex blocks.
+         *
+         * Revision detection logic:
+         * - If SAVE_REVISION8_R2_SWSH block exists with data -> Crown Tundra (revision 2)
+         * - If SAVE_REVISION8_R1_SWSH block exists with data -> Isle of Armor (revision 1)
+         * - Otherwise -> Base game (revision 0)
+         *
+         * Note: These blocks contain Pokedex data for each region, and their presence indicates DLC access.
+         */
+        bool hasR2 = false;
+        bool hasR1 = false;
+
+        for (const auto& block : this->blocks) {
+            if (block.key == SAVE_REVISION8_R2_SWSH && !block.data.empty()) {
+                hasR2 = true;
+            }
+            if (block.key == SAVE_REVISION8_R1_SWSH && !block.data.empty()) {
+                hasR1 = true;
+            }
+        }
+
+        if (hasR2) {
+            this->saveRevision = 2;
+            this->saveRevisionString = "Crown Tundra";
+            this->gameVersionString = "v1.3";  // Crown Tundra requires v1.3.0+
+        } else if (hasR1) {
+            this->saveRevision = 1;
+            this->saveRevisionString = "Isle of Armor";
+            this->gameVersionString = "v1.2";  // Isle of Armor requires v1.2.0+
+        } else {
+            this->saveRevision = 0;
+            this->saveRevisionString = "Base";
+            this->gameVersionString = "v1.0";  // Base game v1.0.x - v1.1.x
+        }
+
+        char buffer[128];
+        snprintf(buffer, sizeof(buffer), "Detected save revision: %d (%s, %s)",
+            this->saveRevision, this->saveRevisionString.c_str(), this->gameVersionString.c_str());
+        logInfoToFile(buffer);
     }
 
     // ========================================
@@ -310,7 +353,7 @@ namespace Trainer {
 
                     if (party[i] && party[i]->speciesID() != 0) {
                         // Pokemon exists - encrypt and write
-                        const Pokemon::Pokemon* pokemon = party[i].get();
+                        const ::Pokemon::Pokemon* pokemon = party[i].get();
                         uint32_t ec = readUInt32LittleEndian(
                             reinterpret_cast<const uint8_t*>(pokemon->getData().data())
                         );
@@ -346,6 +389,48 @@ namespace Trainer {
         }
     }
 
+    void Trainer8SWSH::updateBoxNameBlock()
+    {
+        /**
+         * The inverse of parseBoxLayoutBlock: 32 names of 0x22 bytes, UTF-16LE, null-terminated and
+         * zero-padded (Utils::setString does both, reserving the last slot for the terminator).
+         *
+         * Deliberately does NOT resize the block the way updateBoxBlock does. BOX_LAYOUT is a fixed
+         * 32 * 0x22 region in any real save, so a short block means the save is wrong -- growing it
+         * would paper over that and hand the game a block of an unexpected size.
+         */
+        for (auto& block : blocks) {
+            if (block.key != BOX_LAYOUT8_SWSH) continue;
+            for (size_t boxIndex = 0; boxIndex < BOX_COUNT8_SWSH && boxIndex < boxNames.size(); ++boxIndex) {
+                if (!isBoxNameDirty(boxIndex)) continue;   // never persist a display default (#50)
+                const size_t offset = boxIndex * BOX_NAME_LENGTH8_SWSH;
+                if (offset + BOX_NAME_LENGTH8_SWSH > block.data.size()) break;
+                setString(block.data.data() + offset, BOX_NAME_LENGTH8_SWSH,
+                          utf8ToUtf16(boxNames[boxIndex]), MAX_BOX_NAME_CHARS8_SWSH);
+            }
+            break;
+        }
+    }
+
+    void Trainer8SWSH::parseCurrentBoxBlock(const Block& block)
+    {
+        // "U32 Box Index" -- a scalar block; PKHeX reads it as a byte (0..31 fits one byte).
+        if (block.data.empty()) return;
+        uint8_t box = block.data[0];
+        if (box < BOX_COUNT8_SWSH) this->currentBox = box;
+    }
+
+    void Trainer8SWSH::updateCurrentBoxBlock()
+    {
+        // Inverse of parseCurrentBoxBlock: write the low byte and clear the rest of the scalar.
+        for (auto& block : blocks) {
+            if (block.key != CURRENT_BOX8_SWSH || block.data.empty()) continue;
+            block.data[0] = static_cast<uint8_t>(currentBox);
+            for (size_t i = 1; i < block.data.size() && i < 4; ++i) block.data[i] = 0;
+            break;
+        }
+    }
+
     void Trainer8SWSH::updateBoxBlock()
     {
         /**
@@ -366,12 +451,42 @@ namespace Trainer {
                     block.data.resize(requiredSize, 0);
                 }
 
+                // Empty box slots in the real save are an ENCRYPTED blank that DECRYPTS to species 0 —
+                // NOT literal zeros. The game decrypts every box slot and checks species; a zeroed slot
+                // decrypts to garbage and renders a BAD EGG. Reuse the game's own blank: copy the raw
+                // bytes of an existing empty (species-0) slot; synthesize one if every box is full.
+                std::vector<uint8_t> blankSlot;
+                for (size_t bi = 0; bi < BOX_COUNT8_SWSH && blankSlot.empty(); ++bi) {
+                    for (size_t s = 0; s < BOX_SLOTS; ++s) {
+                        if (boxes[bi][s] && boxes[bi][s]->speciesID() == 0) {
+                            const size_t off = (bi * BOX_SLOTS + s) * SIZE_PARTY8_SWSH;
+                            if (off + SIZE_PARTY8_SWSH <= block.data.size()) {
+                                blankSlot.assign(block.data.begin() + off,
+                                                 block.data.begin() + off + SIZE_PARTY8_SWSH);
+                                break;
+                            }
+                        }
+                    }
+                }
+                if (blankSlot.empty()) {
+                    std::vector<std::byte> zero(SIZE_PARTY8_SWSH, std::byte{0});
+                    std::byte* enc = encryptArray8SWSH(
+                        std::span<const std::byte>(zero.data(), SIZE_PARTY8_SWSH), 0);
+                    blankSlot.resize(SIZE_PARTY8_SWSH);
+                    for (size_t k = 0; k < SIZE_PARTY8_SWSH; ++k)
+                        blankSlot[k] = static_cast<uint8_t>(enc[k]);
+                    delete[] enc;
+                }
+
                 // Write each Pokemon back to the block
                 for (size_t boxIndex = 0; boxIndex < BOX_COUNT8_SWSH; ++boxIndex) {
                     for (size_t slot = 0; slot < BOX_SLOTS; ++slot) {
                         const size_t offset = (boxIndex * BOX_SLOTS + slot) * SIZE_PARTY8_SWSH;
 
-                        if (boxes[boxIndex][slot]) {
+                        // Gate on species, not just the pointer (matches Trainer9LZA/Trainer7LGPE). A
+                        // non-null but blank/species-0 slot (a "ghost" slot loaded from the save) must
+                        // be zeroed to read as EMPTY in-game — re-encrypting a blank writes a bad egg.
+                        if (boxes[boxIndex][slot] && boxes[boxIndex][slot]->speciesID() != 0) {
                             // Pokemon exists - encrypt and write
                             const auto& pokemon = boxes[boxIndex][slot];
 
@@ -395,14 +510,30 @@ namespace Trainer {
                             // Clean up encrypted buffer
                             delete[] encryptedData;
                         } else {
-                            // Empty slot - write zeros
-                            std::memset(&block.data[offset], 0, SIZE_PARTY8_SWSH);
+                            // Empty/cleared slot: write the game's encrypted blank, NOT zeros (zeros
+                            // decrypt to garbage in-game and show as a BAD EGG in every empty slot).
+                            std::memcpy(&block.data[offset], blankSlot.data(), SIZE_PARTY8_SWSH);
                         }
                     }
                 }
                 break;
             }
         }
+    }
+
+    std::unique_ptr<::Pokemon::Pokemon> Trainer8SWSH::createBlankPokemon() const
+    {
+        // Mirror updateBoxBlock()'s encrypted-blank fallback: a zeroed *decrypted* PK8 buffer
+        // encrypted with EC/seed 0, then fed to the ctor (which decrypts it straight back to zeros)
+        // -> a clean species-0, Sanity-0, checksum-valid entity. Raw zeros in the ctor would decrypt
+        // to garbage (BAD EGG); the encrypt->decrypt round-trip is what makes the blank valid.
+        std::vector<std::byte> zero(SIZE_PARTY8_SWSH, std::byte{0});
+        std::byte* enc = encryptArray8SWSH(
+            std::span<const std::byte>(zero.data(), SIZE_PARTY8_SWSH), 0);
+        auto p = std::make_unique<Pokemon8SWSH>(
+            std::span<const std::byte>(enc, SIZE_PARTY8_SWSH));
+        delete[] enc;
+        return p;
     }
 
     void Trainer8SWSH::updateItemBlock()
@@ -436,7 +567,6 @@ namespace Trainer {
                     for (const auto& item : pouch) {
                         size_t offset = info.offset + (itemIndex * 4);
                         if (offset + 4 <= block.data.size()) {
-                            // uint32_t itemValue = item.toValue();
                             
                             // Convert from InventoryItem (base class) to InventoryItem8SWSH
                             InventoryItem8SWSH item8;

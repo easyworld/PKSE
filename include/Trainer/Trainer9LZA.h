@@ -2,7 +2,6 @@
  * Generation 9 Legends: Z-A Trainer/Save File Data Management
  *
  * This file defines the Trainer9LZA class for Pokemon Generation 9 games:
- * - Pokemon Scarlet/Violet (SV)
  * - Pokemon Legends: Z-A (ZA)
  *
  * Trainer9LZA implements generation-specific logic for:
@@ -26,17 +25,39 @@ using namespace Encryption;
 
 namespace Trainer {
     // ========================================
-    // Generation 9 Save File Block Keys
+    // Generation 9 Legends: Z-A Save File Block Keys
+    // ========================================
+    // Block keys are consistent across all game versions.
+    // DLC/version content is tracked via the SAVE_REVISION block.
+    //
+    // Save Revision values (KSaveRevision):
+    // - 0: Base game (v1.0.x)
+    // - 1: Mega Dimension DLC (v2.0.0+)
+    //
+    // The save revision determines:
+    // - Which Pokemon species are available
+    // - Which moves are legal
+    // - Which items exist
     // ========================================
 
+    // Core game blocks (present in all versions)
     constexpr size_t MY_STATUS9_LZA = 0xE3E89BD1;           // Trainer Details
     constexpr size_t PARTY9_LZA = 0x3AA1A9AD;               // Party Data
-    constexpr size_t MONEY9_LZA = 0x4F35D0DD;               // Money
+    constexpr size_t MONEY9_LZA = 0x4F35D0DD;               // Money (u32)
     constexpr size_t PLAY_TIME9_LZA = 0xEDAFF794;           // Time Played
     constexpr size_t ITEM9_LZA = 0x21C9BD44;                // Items
     constexpr size_t BOX9_LZA = 0x0d66012c;                 // Box Data
     constexpr size_t BOX_LAYOUT9_LZA = 0x19722c89;          // Box Names
+    constexpr size_t CURRENT_BOX9_LZA = 0x017C3CBB;         // Current box index ("U32 Box Index")
     // constexpr size_t BOX_WALLPAPERS9_LZA = 0x2EB1B190;   // Box Wallpapers
+
+    // Version detection block
+    constexpr size_t SAVE_REVISION9_LZA = 0x0926555A;       // Save Revision (u64)
+
+    // Additional blocks (for future use)
+    // constexpr size_t POKEDEX9_LZA = 0x2D87BE5C;          // Pokedex completion
+    // constexpr size_t LAST_SAVED9_LZA = 0x1522C79C;       // Last save timestamp
+    // constexpr size_t EVENT_FLAG9_LZA = 0x58505C5E;       // Game event flags
 
     // Generation 9 constants
     constexpr size_t BOX_COUNT9_LZA = 32; // Number of boxes in Legends: Z-A
@@ -78,13 +99,16 @@ namespace Trainer {
          *
          * @param blocks Save file blocks parsed from Gen 9 save file
          */
+        // Legends: Z-A (PA9). Shares the Gen 9 SCBlock save + entity format with Scarlet/Violet, but
+        // Z-A GAPS its box/party slots (see the slot-stride members below) where S/V packs them.
+        // Trainer9SV is the Scarlet/Violet counterpart.
         explicit Trainer9LZA(std::vector<Block> blocks) : Trainer(std::move(blocks))
         {
             party.reserve(MAX_PARTY_SLOTS);
             boxes.resize(BOX_COUNT9_LZA);
             boxNames.resize(BOX_COUNT9_LZA);
 
-            // Parse all blocks to extract data
+            // Parse all blocks to extract data (includes SAVE_REVISION9_LZA -> parseSaveRevisionBlock).
             for (const auto& block : this->blocks) {
                 parseBlock(block);
             }
@@ -116,11 +140,23 @@ namespace Trainer {
          * Uses Gen 9 encryption (encryptArray9).
          */
         void updateBoxBlock() override;
+        void updateBoxNameBlock() override;
+        void updateCurrentBoxBlock() override;
+        bool supportsBoxNames() const noexcept override { return true; }
+        size_t getMaxBoxNameLength() const noexcept override { return BOX_NAME_LENGTH9_LZA / 2 - 1; }
 
         /**
          * Updates the ITEM_KEY block with modified inventory data.
          */
         void updateItemBlock() override;
+        bool itemsAreIdIndexed() const override { return true; }   // count at itemId * 0x10
+
+        /**
+         * Creates a species-0, checksum-valid blank PK9 entity (mirrors updateBoxBlock()'s
+         * encrypted-blank fallback: zeroed SIZE_PARTY9_LZA buffer -> encryptArray9LZA(seed 0)
+         * -> Pokemon9LZA). Starting point for the Pokemon creator.
+         */
+        std::unique_ptr<::Pokemon::Pokemon> createBlankPokemon() const override;
 
         /**
          * Gets the number of boxes available in Gen 9.
@@ -128,6 +164,14 @@ namespace Trainer {
          */
         size_t getBoxCount() const noexcept override {
             return BOX_COUNT9_LZA;
+        }
+
+        /**
+         * Gets the number of slots per box in Gen 9.
+         * @return 30 (Legends: Z-A has 30 slots per box, 6x5 grid)
+         */
+        size_t getSlotsPerBox() const noexcept override {
+            return BOX_SLOTS;
         }
 
         /**
@@ -147,6 +191,11 @@ namespace Trainer {
         }
 
     private:
+        // Legends: Z-A GAPS its slots: each box/party slot holds SIZE_PARTY9_LZA bytes of mon data
+        // followed by a GAP_BOX_SLOT9_LZA-byte gap. (Trainer9SV packs its slots — no gap.)
+        size_t m_partySlotStride = PARTY_SLOT_SIZE9_LZA;  // stride between party slots (gapped)
+        size_t m_boxSlotStride   = BOX_SLOT_SIZE9_LZA;    // stride between box slots (gapped)
+        size_t m_slotGapZero     = GAP_BOX_SLOT9_LZA;     // gap bytes zeroed after mon data on write
         /**
          * Parses a single block to extract relevant data.
          * Called during construction for each block in the save file.
@@ -174,12 +223,6 @@ namespace Trainer {
         void parseMoneyBlock(const Block& block);
 
         // THERE'S NO TRAINER CARD PARSING IN GEN 9
-        // /**
-        //  * Parses the TRAINER_CARD block to extract trainer name.
-        //  * Location: Name at offset 0x00 (26 bytes, UTF-16LE)
-        //  * Location: Trainer ID at offset 0x1C (4 bytes)
-        //  */
-        // void parseTrainerCardBlock(const Block& block);
 
         /**
          * Parses the ITEM block to extract inventory items.
@@ -198,6 +241,20 @@ namespace Trainer {
          * Format: 32 names * BOX_NAME_LENGTH (34 bytes, UTF-16LE)
          */
         void parseBoxLayoutBlock(const Block& block);
+
+        /**
+         * Parses the CURRENT_BOX block ("U32 Box Index") to extract which box the game was last
+         * left on, so the editor opens on the same box.
+         */
+        void parseCurrentBoxBlock(const Block& block);
+
+        /**
+         * Parses the SAVE_REVISION block to detect DLC version.
+         * Revision values:
+         * - 0: Base game
+         * - 1: Mega Dimension (MD) DLC
+         */
+        void parseSaveRevisionBlock(const Block& block);
     };
 }
 

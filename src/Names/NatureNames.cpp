@@ -24,8 +24,8 @@ namespace Names {
         "冷静",    // 17 Quiet
         "害羞",    // 18 Bashful
         "马虎",    // 19 Rash
-        "沉着",    // 20 Calm
-        "温和",    // 21 Gentle
+        "温和",    // 20 Calm
+        "温顺",    // 21 Gentle
         "自大",    // 22 Sassy
         "慎重",    // 23 Careful
         "浮躁"     // 24 Quirky

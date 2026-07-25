@@ -12,10 +12,13 @@ namespace UI {
 namespace Pokemon {
     class Pokemon;
 }
+namespace Trainer {
+    class Trainer;
+}
 
 namespace UI {
 namespace Panels {
-    void drawPartyPokemon(UI::PKSEFramebuffer& fb, const std::vector<std::unique_ptr<Pokemon::Pokemon>>& party, uint32_t trainerID32, int x, int y, int width, int height, int selectedIndex = -1);
+    void drawPartyPokemon(UI::PKSEFramebuffer& fb, const Trainer::Trainer& trainer, int x, int y, int width, int height, int selectedIndex = -1);
 }
 }
 

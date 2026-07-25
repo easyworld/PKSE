@@ -1,7 +1,0 @@
-
-    uint8_t equivalent to byte or Byte (unsigned byte).
-    int8_t equivalent to byte or SByte (signed byte).
-    uint16_t equivalent to ushort (unsigned short).
-    int16_t equivalent to short (signed short).
-    uint32_t equivalent to uint (unsigned integer).
-    int32_t equivalent to int (signed integer).

@@ -2,8 +2,7 @@
 #include "Globals.h"
 #include "Save/GetSaveFileContents.h"
 #include "UI/UI.h"
-#include "UI/UserSelectionScreen.h"
-#include "UI/TitleSelectionScreen.h"
+#include "UI/SaveSelectScreen.h"
 #include "UI/BackupSelectionScreen.h"
 #include "UI/TrainerViewScreen.h"
 #include "Utils/HelperUtilities.h"
@@ -15,10 +14,10 @@ using namespace Utils;
 using namespace Trainer;
 
 namespace UI {
-    // UIManager implementation
     UIManager::UIManager() : running(true) {
         padConfigureInput(1, HidNpadStyleSet_NpadStandard);
         padInitializeDefault(&pad);
+        hidInitializeTouchScreen();  // enable the touchscreen alongside the gamepad
     }
 
     UIManager::~UIManager() {
@@ -26,94 +25,76 @@ namespace UI {
 
     void UIManager::run() {
         while (appletMainLoop() && running) {
-            handleUserSelection();
+            handleSaveSelection();
         }
     }
 
-    void UIManager::handleUserSelection() {
-        UserSelectionScreen userScreen;
+    // Combined JKSV-style user + title picker: pick a user's avatar and one of their supported
+    // Pokemon game icons in a single screen, then go straight to backup selection.
+    void UIManager::handleSaveSelection() {
+        SaveSelectScreen selectScreen;
+        fb.startFade();
 
-        while (appletMainLoop() && !userScreen.shouldExit()) {
+        while (appletMainLoop() && running && !selectScreen.shouldExit()) {
             padUpdate(&pad);
-            userScreen.update(pad);
-            userScreen.draw(fb);
+            touch.update();
+            selectScreen.update(pad, touch);
+            selectScreen.draw(fb);
+            fb.drawFadeOverlay();
             fb.flush();
 
-            if (userScreen.hasSelectedUser()) {
-                handleTitleSelection(userScreen.getSelectedUser());
-                return;  // Start over with user selection
-            }
-        }
-
-        running = false;
-    }
-
-    void UIManager::handleTitleSelection(AccountUid userUid) {
-        while (appletMainLoop()) {
-            TitleSelectionScreen titleScreen(userUid);
-
-            while (appletMainLoop() && !titleScreen.shouldExit()) {
-                padUpdate(&pad);
-                titleScreen.update(pad);
-                titleScreen.draw(fb);
-                fb.flush();
-
-                if (titleScreen.hasSelectedTitle()) {
-                    handleBackupSelection(userUid, titleScreen.getSelectedTitleId(), titleScreen.getSelectedTitleName());
-                    // After backup selection, loop back to title selection
-                    break;
-                }
-            }
-
-            // If user pressed B in title selection, exit to user selection
-            if (titleScreen.shouldExit()) {
+            if (selectScreen.hasSelectedTitle()) {
+                handleBackupSelection(selectScreen.getSelectedUser(),
+                                      selectScreen.getSelectedTitleId(),
+                                      selectScreen.getSelectedTitleName());
+                // Back from backup/trainer -> return so run() rebuilds the picker (re-lists saves).
                 return;
             }
         }
+
+        running = false;   // + pressed -> exit the app
     }
 
     void UIManager::handleBackupSelection(AccountUid userUid, u64 titleId, const std::string& titleName) {
         BackupSelectionScreen backupScreen(titleId, titleName);
+        fb.startFade();
 
-        while (appletMainLoop() && !backupScreen.shouldExit()) {
+        while (appletMainLoop() && running && !backupScreen.shouldExit()) {
             padUpdate(&pad);
-            backupScreen.update(pad);
+            touch.update();
+            backupScreen.update(pad, touch);
             backupScreen.draw(fb);
+            fb.drawFadeOverlay();
             fb.flush();
 
             if (backupScreen.hasSelectedBackup()) {
                 if (backupScreen.shouldCreateNewBackup()) {
-                    // Create new backup from title
                     logInfoToFile("Creating new backup for", titleName.c_str());
 
-                    if (!backupSaveData(userUid, titleId, titleName)) {
+                    // Auto-backup ON -> new timestamped history folder (kept indefinitely; the user
+                    // decides when to delete backups, so we never prune). OFF -> reuse a single
+                    // "工作副本" copy so backups don't pile up.
+                    std::string backupPath = backupSaveData(userUid, titleId, titleName, g_autoBackupEnabled);
+                    if (backupPath.empty()) {
                         logErrorToFile("Failed to back up save data");
-                        return;
+                        // Tell the user and stay put. Returning here (the old behaviour) dropped them
+                        // back at the save picker with no message, which is exactly what pressing B
+                        // does -- so a failed backup was indistinguishable from a cancel (#48).
+                        backupScreen.reportFailure("无法创建备份。请检查 SD 卡空间后重试。");
+                        continue;
                     }
-
-                    char gameDir[512];
-
-                    snprintf(gameDir, sizeof(gameDir), "%s/%s", BASE_SAVE_DIRECTORY.c_str(), titleName.c_str());
-                    limitBackups(gameDir, BACKUP_SAVE_LIMIT);
-
-                    // Get the newest backup (most recent timestamp)
-                    std::vector<std::string> backupDirs = listBackupDirectories(gameDir);
-                    if (!backupDirs.empty()) {
-                        char backupPath[1024];
-                        snprintf(backupPath, sizeof(backupPath), "%s/%s", gameDir, backupDirs[0].c_str());
-                        handleTrainerView(userUid, titleId, titleName, std::string(backupPath));
-                    }
+                    handleTrainerView(userUid, titleId, titleName, backupPath, true);   // read from the live save
                 } else {
                     // Use existing backup
                     logInfoToFile("Loading existing backup", backupScreen.getSelectedBackupPath().c_str());
-                    handleTrainerView(userUid, titleId, titleName, backupScreen.getSelectedBackupPath());
+                    handleTrainerView(userUid, titleId, titleName, backupScreen.getSelectedBackupPath(), false);
                 }
                 return;
             }
         }
     }
 
-    void UIManager::handleTrainerView(AccountUid userUid, u64 titleId, const std::string& titleName, const std::string& backupDir) {
+    void UIManager::handleTrainerView(AccountUid userUid, u64 titleId, const std::string& titleName, const std::string& backupDir, bool loadedFromCart) {
         logInfoToFile("Loading save from", backupDir.c_str());
 
         // Read trainer data from the specified backup directory
@@ -122,12 +103,15 @@ namespace UI {
 
         // Use std::visit to extract reference and create TrainerViewScreen
         std::visit([&](auto& trainer) {
-            TrainerViewScreen trainerScreen(trainer, titleName, backupDir, titleId, userUid);
+            TrainerViewScreen trainerScreen(trainer, titleName, backupDir, titleId, userUid, loadedFromCart);
+            fb.startFade();
 
             while (appletMainLoop() && !trainerScreen.shouldExit() && !trainerScreen.hasRequestedExit()) {
                 padUpdate(&pad);
-                trainerScreen.update(pad);
+                touch.update();
+                trainerScreen.update(pad, touch);
                 trainerScreen.draw(fb);
+                fb.drawFadeOverlay();
                 fb.flush();
             }
 

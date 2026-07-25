@@ -2,7 +2,7 @@
  * Encryption9LZA.h - Generation 9 Legends: Z-A Pokemon Encryption/Decryption Utilities
  *
  * This file contains encryption and decryption utilities for Generation 9 Pokemon data
- * (Sword/Shield, Brilliant Diamond/Shining Pearl, Legends: Arceus).
+ * (Legends: Z-A — PK9).
  *
  * Pokemon data is stored in an encrypted format using:
  * 1. A Linear Congruential Generator (LCG) for XOR encryption
@@ -117,7 +117,7 @@ namespace Encryption {
     /**
      * Encrypts a Generation 9 Pokemon byte array.
      *
-     * This is the reverse of decryptArray8, used when saving Pokemon data
+     * This is the reverse of decryptArray9LZA, used when saving Pokemon data
      * back to the save file.
      *
      * Process:

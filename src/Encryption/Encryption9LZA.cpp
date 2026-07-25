@@ -113,7 +113,7 @@ namespace Encryption {
         /**
          * Main encryption function for Generation 9 Pokemon data.
          *
-         * This is the reverse of decryptArray8. It takes unencrypted, unshuffled
+         * This is the reverse of decryptArray9LZA. It takes unencrypted, unshuffled
          * Pokemon data and converts it back to the encrypted format used in save files.
          *
          * Process:
