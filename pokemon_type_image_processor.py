@@ -234,17 +234,23 @@ def process_all_png_files():
     # 检查文件夹是否存在，不存在则提示并返回
     if not os.path.exists(target_dir):
         print(f"错误：目标文件夹不存在 -> {os.path.abspath(target_dir)}")
-        return
+        return False
     if not os.path.isdir(target_dir):
         print(f"错误：指定路径不是文件夹 -> {os.path.abspath(target_dir)}")
-        return
+        return False
     
     # 获取目标文件夹下所有PNG文件（兼容Windows/Linux路径）
     png_files = glob.glob(os.path.join(target_dir, "*.png"))
     
     if not png_files:
         print("当前目录下没有找到PNG文件")
-        return
+        return False
+
+    expected_files = [os.path.join(target_dir, f"{type_number}.png") for type_number in TYPE_NAMES]
+    missing_files = [os.path.basename(path) for path in expected_files if not os.path.isfile(path)]
+    if missing_files:
+        print(f"错误：缺少属性图片 -> {', '.join(missing_files)}")
+        return False
     
     print(f"找到 {len(png_files)} 个PNG文件\n")
     
@@ -252,8 +258,8 @@ def process_all_png_files():
     skip_count = 0
     fail_count = 0
     
-    # 按文件名排序以便按顺序处理
-    png_files.sort()
+    # CI 使用的标准文件名为 0.png 到 17.png。
+    png_files = expected_files
     
     for png_file in png_files:
         result = process_image(png_file)
@@ -270,6 +276,7 @@ def process_all_png_files():
     print(f"失败: {fail_count} 个")
     print(f"跳过: {skip_count} 个")
     print(f"{'=' * 50}")
+    return success_count == len(TYPE_NAMES) and fail_count == 0 and skip_count == 0
 
 
 # 主程序
@@ -278,7 +285,7 @@ if __name__ == "__main__":
     print("宝可梦属性图片批量处理工具")
     print("=" * 50)
     print("支持的文件名格式: 0.png, 1.png, ..., 17.png")
-    print("或带前缀: type_0.png, pokemon_5.png 等")
     print("=" * 50 + "\n")
     
-    process_all_png_files()
+    if not process_all_png_files():
+        raise SystemExit(1)

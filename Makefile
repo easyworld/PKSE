@@ -196,9 +196,17 @@ all: sprites types forms hdsprites hdforms fonts $(BUILD)
 #---------------------------------------------------------------------------------
 SPRITE_DIR   := romfs/sprites/pokemon
 TYPE_DIR     := romfs/sprites/types
+TYPE_BASE_URL ?= https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/types/generation-ix/scarlet-violet
 SPRITE_START := 0
 SPRITE_END   := 1025
 MAX_JOBS     := 20        # increase the value if you want it to run faster
+SPRITE_BASE_URL ?= https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon
+DOWNLOAD_RETRIES ?= 5
+DOWNLOAD_RETRY_DELAY ?= 2
+DOWNLOAD_CONNECT_TIMEOUT ?= 15
+DOWNLOAD_MAX_TIME ?= 60
+
+export DOWNLOAD_RETRIES DOWNLOAD_RETRY_DELAY DOWNLOAD_CONNECT_TIMEOUT DOWNLOAD_MAX_TIME
 
 # Pokemon form sprite IDs to download (static/permanent forms only)
 # Regional variants and special forms that have different appearances
@@ -237,7 +245,7 @@ sprites:
 	@mkdir -p "$(SPRITE_DIR)"
 	@missing_list=""; \
 	for i in $$(seq $(SPRITE_START) $(SPRITE_END)); do \
-		[ -f "$(SPRITE_DIR)/$$i.png" ] && [ -f "$(SPRITE_DIR)/$${i}s.png" ] || missing_list="$$missing_list $$i"; \
+		[ -s "$(SPRITE_DIR)/$$i.png" ] && [ -s "$(SPRITE_DIR)/$${i}s.png" ] || missing_list="$$missing_list $$i"; \
 	done; \
 	if [ -z "$$missing_list" ]; then \
 		printf "All sprites already present — nothing to download.\n"; \
@@ -248,26 +256,20 @@ sprites:
 	printf "Downloading %d missing sprite(s) in parallel...\n" $$count; \
 	\
 	printf "$$missing_list" | tr ' ' '\n' | \
-	xargs -n 1 -P $(MAX_JOBS) -I{} sh -c '\
+	xargs -P $(MAX_JOBS) -I{} sh -c '\
 		id="{}"; \
 		dir="$(SPRITE_DIR)"; \
 		normal="$$dir/$$id.png"; \
 		shiny="$$dir/$${id}s.png"; \
-		if [ ! -f "$$normal" ]; then \
+		if [ ! -s "$$normal" ]; then \
 			printf "Downloading normal sprite #%d...\n" "$$id"; \
-			if command -v curl >/dev/null 2>&1; then \
-				curl -fsSL "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/$$id.png" -o "$$normal"; \
-			else \
-				wget -q "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/$$id.png" -O "$$normal"; \
-			fi || { printf "Failed normal #$$id"; exit 1; } \
+			sh tools/download_with_retry.sh "$(SPRITE_BASE_URL)/$$id.png" "$$normal" \
+				|| { printf "Failed normal #%s after retries\n" "$$id"; exit 1; }; \
 		fi; \
-		if [ ! -f "$$shiny" ]; then \
+		if [ ! -s "$$shiny" ]; then \
 			printf "Downloading shiny sprite #%d...\n" "$$id"; \
-			if command -v curl >/dev/null 2>&1; then \
-				curl -fsSL "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/shiny/$$id.png" -o "$$shiny"; \
-			else \
-				wget -q "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/shiny/$$id.png" -O "$$shiny"; \
-			fi || { echo "Failed shiny #$$id"; exit 1; } \
+			sh tools/download_with_retry.sh "$(SPRITE_BASE_URL)/shiny/$$id.png" "$$shiny" \
+				|| { printf "Failed shiny #%s after retries\n" "$$id"; exit 1; }; \
 		fi'; \
 	ret=$$?; \
 	if [ $$ret -ne 0 ]; then exit $$ret; fi
@@ -285,7 +287,7 @@ types:
 	@missing_list=""; \
 	for i in $$(seq 1 18); do \
 		local_id=$$((i - 1)); \
-		[ -f "$(TYPE_DIR)/$$local_id.png" ] || missing_list="$$missing_list $$i"; \
+		[ -s "$(TYPE_DIR)/$$local_id.png" ] || missing_list="$$missing_list $$i"; \
 	done; \
 	if [ -z "$$missing_list" ]; then \
 		printf "All type sprites already present — nothing to download.\n"; \
@@ -296,17 +298,14 @@ types:
 	printf "Downloading %d missing type sprite(s) in parallel...\n" $$count; \
 	\
 	printf "$$missing_list" | tr ' ' '\n' | \
-	xargs -n 1 -P $(MAX_JOBS) -I{} sh -c '\
+	xargs -P $(MAX_JOBS) -I{} sh -c '\
 		api_id="{}"; \
 		local_id=$$((api_id - 1)); \
 		dir="$(TYPE_DIR)"; \
 		outfile="$$dir/$$local_id.png"; \
 		printf "Downloading type sprite #%d (saving as %d)...\n" "$$api_id" "$$local_id"; \
-		if command -v curl >/dev/null 2>&1; then \
-			curl -fsSL "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/types/generation-ix/scarlet-violet/$$api_id.png" -o "$$outfile"; \
-		else \
-			wget -q "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/types/generation-ix/scarlet-violet/$$api_id.png" -O "$$outfile"; \
-		fi || { printf "Failed type #$$api_id\n"; exit 1; }'; \
+		sh tools/download_with_retry.sh "$(TYPE_BASE_URL)/$$api_id.png" "$$outfile" \
+			|| { printf "Failed type #%s after retries\n" "$$api_id"; exit 1; }'; \
 	ret=$$?; \
 	if [ $$ret -ne 0 ]; then exit $$ret; fi
 
