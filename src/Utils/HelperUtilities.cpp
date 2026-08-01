@@ -66,7 +66,7 @@ namespace Utils {
 #ifdef __SWITCH__
             const u64 tick = armGetSystemTick();
 #else
-            // Host builds (the round-trip harness, #50) have no system tick. The harness never
+            // Host builds (the round-trip harness) have no system tick. The harness never
             // generates Pokemon, so this only has to compile and be distinct per run.
             const u64 tick = static_cast<u64>(std::random_device{}());
 #endif
@@ -77,7 +77,7 @@ namespace Utils {
 
     // Title lookups go through the Switch's ns service, so they exist only on console. Deliberately
     // NOT stubbed for the host: a stub returning "UnknownGame" would let host code silently take a
-    // wrong path, whereas an unresolved symbol says plainly that this belongs on the Switch (#50).
+    // wrong path, whereas an unresolved symbol says plainly that this belongs on the Switch.
 #ifdef __SWITCH__
     std::string getTitleVersion(u64 titleId)
     {

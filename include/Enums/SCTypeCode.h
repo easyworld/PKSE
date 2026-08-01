@@ -3,7 +3,7 @@
 
 #include <cstdint>
 
-#include "Utils/NXTypes.h"   // u8..s64; <switch.h> on console, plain typedefs off it (#50)
+#include "Utils/NXTypes.h"   // u8..s64; <switch.h> on console, plain typedefs off it
 
 namespace Enums {
     enum class SCTypeCode

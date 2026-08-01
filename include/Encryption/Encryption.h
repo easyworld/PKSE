@@ -13,7 +13,7 @@ using namespace Save;
 namespace Encryption {
 
     // uint8_t, not u_int8_t: the latter is a BSD/glibc spelling that isn't standard C++ and doesn't
-    // exist outside those libcs, which broke the host build of the save layer (#50).
+    // exist outside those libcs, which broke the host build of the save layer.
     static const uint8_t StaticXorpad[] =
     {
         0xA0, 0x92, 0xD1, 0x06, 0x07, 0xDB, 0x32, 0xA1, 0xAE, 0x01, 0xF5, 0xC5, 0x1E, 0x84, 0x4F, 0xE3,

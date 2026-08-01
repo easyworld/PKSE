@@ -79,7 +79,7 @@ namespace UI {
                         logErrorToFile("Failed to back up save data");
                         // Tell the user and stay put. Returning here (the old behaviour) dropped them
                         // back at the save picker with no message, which is exactly what pressing B
-                        // does -- so a failed backup was indistinguishable from a cancel (#48).
+                        // does -- so a failed backup was indistinguishable from a cancel.
                         backupScreen.reportFailure("无法创建备份。请检查 SD 卡空间后重试。");
                         continue;
                     }

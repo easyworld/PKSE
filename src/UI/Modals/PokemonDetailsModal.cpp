@@ -199,11 +199,18 @@ namespace Modals {
             row("初训家 ID", buf);
         }
         { snprintf(buf, sizeof(buf), "等级 %u", p->metLevel()); editRow("相遇等级", buf, 18); }
-        { const char* loc = Names::getMetLocationName(p->originGame(), p->metLocation());
+        // Origin-generation location routing: a Gen 3/4 mon's MET id is remapped into the current
+        // format's numbering when it is transferred up (Gen 5+ keep their own table), so a Gen 3/4 met
+        // must be named with the format's table -- else a Platinum starter link-traded to SV reads "(none)".
+        const uint8_t fmtVer = Enums::getGroupRepVersion(p->getGameGroup());
+        { const char* loc = Names::getMetLocationName(Enums::locationTableVersion(p->originGame(), fmtVer, false), p->metLocation());
           editRow("相遇地点", (loc[0] != '\0') ? std::string(loc) : std::string("（无）"), 25); }
         // Met date -- every format records one except Gen 3 (FireRed/LeafGreen). Year byte is +2000.
         if (notGen3) {
-            snprintf(buf, sizeof(buf), "%02u/%02u/%04u", p->metDay(), p->metMonth(), 2000 + p->metYear());
+            // A transferred mon can carry no met date (00/00) -- show "(none)" instead of "00/00/2000",
+            // matching the egg-date row and how PKHeX blanks an unset date.
+            if (p->metMonth() == 0 || p->metDay() == 0) snprintf(buf, sizeof(buf), "（无）");
+            else snprintf(buf, sizeof(buf), "%02u/%02u/%04u", p->metDay(), p->metMonth(), 2000 + p->metYear());
             editRow("相遇日期", buf, 28);
         }
         // Egg-met conditions -- the breeding formats only.
@@ -212,7 +219,7 @@ namespace Modals {
             // where 0 is a real place), not 0 -- treat it as no-egg too, so the display matches the game.
             const bool fromEgg = p->eggLocation() != 0
                               && !(p->getGameGroup() == Enums::GameVersion::BDSP && p->eggLocation() == 0xFFFF);
-            { const char* el = Names::getMetLocationName(p->originGame(), p->eggLocation());
+            { const char* el = Names::getMetLocationName(Enums::locationTableVersion(p->originGame(), fmtVer, true), p->eggLocation());
               editRow("蛋获得地点", (fromEgg && el[0] != '\0') ? std::string(el) : std::string("（无）"), 29); }
             if (fromEgg)
                  snprintf(buf, sizeof(buf), "%02u/%02u/%04u", p->eggDay(), p->eggMonth(), 2000 + p->eggYear());
@@ -221,7 +228,7 @@ namespace Modals {
         }
         editRow("精灵球", Enums::getBallName(p->ball()), 19);
         editRow("语言", Enums::getLanguageName(p->language()), 20);
-        { std::string og = Enums::getGameVersionName(static_cast<Enums::GameVersion>(p->originGame()));
+        { std::string og = Enums::getOriginGameName(p->originGame());
           editRow("初训家游戏", og, 21); }
         if (notGen3) editRow("命运的相遇", p->isFatefulEncounter() ? "是" : "否", 31);
         {
@@ -489,7 +496,7 @@ namespace Modals {
                 }
             }
             // id 96: tap anywhere closes -- but NOT over the nav bar, whose badges are themselves
-            // tappable (#22). Overlapping them would fire both the badge's button and this close.
+            // tappable. Overlapping them would fire both the badge's button and this close.
             screen.touchButtons.push_back({ 96, 0, 0, W, H - kNavBarH });
         }
 
@@ -519,7 +526,7 @@ namespace Modals {
                 fb.drawText(tx, ty, rb[i], Colors::Text, TextStyle::Caption);
             }
             // id 96: tap anywhere closes -- but NOT over the nav bar, whose badges are themselves
-            // tappable (#22). Overlapping them would fire both the badge's button and this close.
+            // tappable. Overlapping them would fire both the badge's button and this close.
             screen.touchButtons.push_back({ 96, 0, 0, W, H - kNavBarH });
         }
     }

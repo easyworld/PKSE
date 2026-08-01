@@ -7,7 +7,7 @@
  * The save layer (Trainer / Pokemon / Encryption / Names) is pure byte manipulation and has no
  * business needing a Switch SDK — but a handful of its headers pulled in <switch.h> purely for
  * `u8`..`s64`, which was enough to make the whole layer un-compilable anywhere else. That blocked
- * the read -> write -> re-read validation harness (#50), which is the only automated check this
+ * the read -> write -> re-read validation harness, which is the only automated check this
  * project has against save corruption.
  *
  * On the Switch this is still <switch.h> verbatim, so nothing about the real build changes. Off it,

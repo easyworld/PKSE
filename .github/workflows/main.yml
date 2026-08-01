@@ -20,11 +20,14 @@ jobs:
       with:
         submodules: recursive
     
-    - name: Build sprites and type images
-      run: make sprites types MAX_JOBS=8
-    
     - name: Install Python dependencies
       run: pip install Pillow requests --break-system-packages
+
+    - name: Build Pokemon sprites
+      run: SPRITE_MAX_WORKERS=8 python tools/gen_hdsprites.py
+
+    - name: Build type images
+      run: make types MAX_JOBS=8
     
     - name: Process Pokemon type images
       run: python pokemon_type_image_processor.py

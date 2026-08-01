@@ -61,9 +61,9 @@ namespace UI {
         bool storageSlotLocked(int pane, int box, int slot);   // LGPE party members (save pane) are locked
         bool prepareHeldForPane(int pane);  // convert the carried mon into the save's format if needed (Phase B)
         bool convertForPane(std::unique_ptr<Pokemon::Pokemon>& pk, int destPane);  // convert a mon in place for a dest pane (Phase B)
-        void buildAbilityPickerOrder(uint16_t species, uint8_t form, uint16_t current);  // #15: legal abilities first (green + top)
+        void buildAbilityPickerOrder(uint16_t species, uint8_t form, uint16_t current);  // legal abilities first (green + top)
         void buildCreatorSpeciesOrder();  // creator: filter the species picker to the open game's dex
-        void buildMovePickerOrder(uint16_t species, uint8_t form, Enums::GameVersion group, uint16_t current);  // #15: learnable moves first
+        void buildMovePickerOrder(uint16_t species, uint8_t form, Enums::GameVersion group, uint16_t current);  // learnable moves first
         void openStorageEditor(int pane, int box, int slot);   // open the details modal on a storage slot
         void transferSelectionToOtherPane();                   // green group menu: bulk move the selection to the other pane
         void moveSelectionTo(int destPane, int destBox, int destSlot);  // green: drop the selection starting at a slot
@@ -137,7 +137,7 @@ namespace UI {
         int storageStatusFrames = 0;                // frames left to show storageStatus (counts down)
         // Post a message to that line. This is PKSE's only way to tell the user anything: there is no
         // console on the Switch, and logErrorToFile writes somewhere they cannot read while the app is
-        // running. Anything a user needs to know about MUST come through here, not just the log (#48).
+        // running. Anything a user needs to know about MUST come through here, not just the log.
         void postStatus(const std::string& msg, int frames = 240) {
             storageStatus = msg;
             storageStatusFrames = frames;
@@ -168,20 +168,20 @@ namespace UI {
         struct TouchButton { int id, x, y, w, h; };
         std::vector<TouchButton> touchButtons;
         int touchedButtonId(const TouchInput& touch) const;  // id of a tapped button, or -1
-        void renameBox(int boxIndex);       // swkbd rename of a SAVE box (#44); no-op where unsupported
+        void renameBox(int boxIndex);       // swkbd rename of a SAVE box; no-op where unsupported
         void renameBankBox(int box);        // swkbd rename of a BANK box (default label is "银行箱 N")
 
         // Item editing state
         bool itemEditDialogActive = false;  // True when editing an item's amount
         int itemEditDialogValue = 0;    // Current value being edited
         int itemEditDialogOriginalValue = 0;  // Original value before editing
-        // Items list: Y asks before removing the selected item (#E6). A in this dialog does the delete,
+        // Items list: Y asks before removing the selected item. A in this dialog does the delete,
         // B cancels. Only reachable from the Items view, so it never lets X-to-save fire (home-menu only).
         bool itemRemoveConfirmActive = false;
 
         // Save confirmation state
         bool saveConfirmActive = false;
-        // Save destination picker (#47), on PKSM's model.
+        // Save destination picker, on PKSM's model.
         //   0 = this backup   1 = new named backup   2 = game save
         //
         // Whether "游戏存档" is offered depends on WHERE THIS SESSION CAME FROM, not on a blanket
@@ -277,7 +277,7 @@ namespace UI {
         // A pouch-item picker opened to CHANGE an existing item's type (Potion -> Super Potion),
         // not to add a new one. Changes the confirm behavior + the picker title; reuses PouchItem.
         bool itemPickerReplace = false;
-        // Ability picker (#15): reordered option list so the species' legal abilities sort to the top
+        // Ability picker: reordered option list so the species' legal abilities sort to the top
         // and render green. pickerOrder[row] = ability id at that row; rows 0..pickerLegalCount-1 are
         // the legal abilities. Empty for every other picker kind (which stay identity-indexed: row == value).
         std::vector<int> pickerOrder;

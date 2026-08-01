@@ -39,7 +39,7 @@ namespace UI {
         // loadedFromCart: true when this session was read from the LIVE game save (the "load from
         // title" path), false when an older backup was opened. Writing back to the game is the
         // normal, expected thing to do in the first case and a rollback in the second, so the two
-        // are gated very differently at save time (#47).
+        // are gated very differently at save time.
         void handleTrainerView(AccountUid userUid, u64 titleId, const std::string& titleName,
                                const std::string& backupDir, bool loadedFromCart);
     };

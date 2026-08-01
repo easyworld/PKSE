@@ -141,7 +141,7 @@ namespace UI {
     }
 
     void SaveSelectScreen::update(const PadState& pad, const TouchInput& touch) {
-        // A tap on a nav-bar badge becomes that button's press (#22), so every handler below is
+        // A tap on a nav-bar badge becomes that button's press, so every handler below is
         // reached identically whether the user pressed the button or tapped its on-screen badge.
         u64 kDown = padGetButtonsDown(&pad) | navTouchButton(touch);
 

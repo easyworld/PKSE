@@ -347,7 +347,7 @@ namespace Utils {
     }
 
     // True only for an auto-history folder shaped exactly like getTimestamp(): YYYYMMDD_HHMMSS.
-    // User-named backups (#47) and the reusable "Working" copy are, by definition, everything else.
+    // User-named backups and the reusable "Working" copy are, by definition, everything else.
     static bool isTimestampName(const std::string& name) {
         if (name.length() != 15 || name[8] != '_') return false;
         for (size_t i = 0; i < name.length(); ++i) {
@@ -382,7 +382,7 @@ namespace Utils {
             // Every other subdirectory of the game folder IS a user-facing backup: an auto-history
             // timestamp or a user-named backup. (ModifiedSave lives one level deeper, inside each
             // backup, so it never shows up here.) The old code kept only the timestamp shape, which
-            // hid every custom-named backup the destination picker can create (#47).
+            // hid every custom-named backup the destination picker can create.
             if (entry->d_type == DT_DIR) {
                 backupDirs.push_back(entry->d_name);
             }

@@ -48,7 +48,7 @@ APP_AUTHOR  :=  Kiasta
 # single source of truth -- the two can no longer drift.
 # NOTE: no trailing comment on the assignment line. Make keeps trailing whitespace in a value, so
 # "0.0.3 \t\t# ..." would have baked spaces into the .nacp version and the -D define.
-APP_VERSION :=	1.0
+APP_VERSION :=	1.0.2
 ROMFS		:=	romfs
 ICON		:=  icon.jpg
 
@@ -188,93 +188,21 @@ endif
 # Default target when you just run 'make'. Only builds.
 default: $(BUILD)
 
-# Target when you run 'make all'. Downloads sprites, types, forms, HD sprites, fonts then builds
-all: sprites types forms hdsprites hdforms fonts $(BUILD)
+# Target when you run 'make all'. Downloads type icons + fonts, THEN build (HD sprites: tools/gen_hdsprites.py)
+all: types fonts $(BUILD)
 
 #---------------------------------------------------------------------------------
 # Sprite and icon download integration
 #---------------------------------------------------------------------------------
-SPRITE_DIR   := romfs/sprites/pokemon
 TYPE_DIR     := romfs/sprites/types
 TYPE_BASE_URL ?= https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/types/generation-ix/scarlet-violet
-SPRITE_START := 0
-SPRITE_END   := 1025
 MAX_JOBS     := 20        # increase the value if you want it to run faster
-SPRITE_BASE_URL ?= https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon
 DOWNLOAD_RETRIES ?= 5
 DOWNLOAD_RETRY_DELAY ?= 2
 DOWNLOAD_CONNECT_TIMEOUT ?= 15
 DOWNLOAD_MAX_TIME ?= 60
 
 export DOWNLOAD_RETRIES DOWNLOAD_RETRY_DELAY DOWNLOAD_CONNECT_TIMEOUT DOWNLOAD_MAX_TIME
-
-# Pokemon form sprite IDs to download (static/permanent forms only)
-# Regional variants and special forms that have different appearances
-# Note: Some IDs don't have sprites on PokeAPI and are omitted
-FORM_SPRITE_IDS := \
-	10001 10002 10003 \
-	10004 10005 \
-	10006 10007 \
-	10008 10009 10010 10011 10012 \
-	10016 \
-	10019 10020 10021 \
-	10022 10023 \
-	10024 10025 \
-	10027 10028 10029 10030 10031 10032 10033 10034 10035 10036 10037 10038 10039 10040 10041 \
-	10086 10087 10088 10089 10090 \
-	10091 10092 10093 10094 10095 10096 10097 10098 10099 10100 10101 10102 10103 10104 10105 \
-	10106 10107 10108 10109 10110 10111 10112 10113 10114 10115 \
-	10116 10117 10118 10119 10120 \
-	10123 10124 10125 10126 \
-	10127 10130 10131 10132 10133 10134 \
-	10152 \
-	10155 10156 10157 \
-	10161 10162 10163 10164 10165 10166 10167 10168 10169 10170 \
-	10171 10172 10173 10174 10175 10176 10177 10178 10179 10180 \
-	10184 10185 10186 \
-	10188 10189 \
-	10191 10192 10193 10194 \
-	10229 10230 10231 10232 10233 10234 10235 10236 10237 10238 10239 \
-	10240 10241 10242 10243 10244 10245 10246 10247 10248 10249 \
-	10250 10251 10252 10253 10254 10255 10256 10257 10258 10259 \
-	10260 10261 10262 10263 \
-	10272 10273 10274 10275 10276 10277
-
-sprites:
-	@printf "Checking and downloading missing Pokemon sprites...\n"
-	@mkdir -p "$(SPRITE_DIR)"
-	@missing_list=""; \
-	for i in $$(seq $(SPRITE_START) $(SPRITE_END)); do \
-		[ -s "$(SPRITE_DIR)/$$i.png" ] && [ -s "$(SPRITE_DIR)/$${i}s.png" ] || missing_list="$$missing_list $$i"; \
-	done; \
-	if [ -z "$$missing_list" ]; then \
-		printf "All sprites already present — nothing to download.\n"; \
-		exit 0; \
-	fi; \
-	count=0; \
-	for i in $$missing_list; do count=$$((count + 1)); done; \
-	printf "Downloading %d missing sprite(s) in parallel...\n" $$count; \
-	\
-	printf "$$missing_list" | tr ' ' '\n' | \
-	xargs -P $(MAX_JOBS) -I{} sh -c '\
-		id="{}"; \
-		dir="$(SPRITE_DIR)"; \
-		normal="$$dir/$$id.png"; \
-		shiny="$$dir/$${id}s.png"; \
-		if [ ! -s "$$normal" ]; then \
-			printf "Downloading normal sprite #%d...\n" "$$id"; \
-			sh tools/download_with_retry.sh "$(SPRITE_BASE_URL)/$$id.png" "$$normal" \
-				|| { printf "Failed normal #%s after retries\n" "$$id"; exit 1; }; \
-		fi; \
-		if [ ! -s "$$shiny" ]; then \
-			printf "Downloading shiny sprite #%d...\n" "$$id"; \
-			sh tools/download_with_retry.sh "$(SPRITE_BASE_URL)/shiny/$$id.png" "$$shiny" \
-				|| { printf "Failed shiny #%s after retries\n" "$$id"; exit 1; }; \
-		fi'; \
-	ret=$$?; \
-	if [ $$ret -ne 0 ]; then exit $$ret; fi
-
-.PHONY: sprites
 
 #---------------------------------------------------------------------------------
 # Type sprite download (generation-ix scarlet-violet style)
@@ -310,56 +238,6 @@ types:
 	if [ $$ret -ne 0 ]; then exit $$ret; fi
 
 .PHONY: types
-
-#---------------------------------------------------------------------------------
-# Form sprite download (regional variants, special forms)
-# Downloads sprites for Pokemon with alternate permanent forms
-#---------------------------------------------------------------------------------
-forms:
-	@printf "Checking and downloading missing form sprites...\n"
-	@mkdir -p "$(SPRITE_DIR)"
-	@missing_list=""; \
-	for id in $(FORM_SPRITE_IDS); do \
-		[ -f "$(SPRITE_DIR)/$$id.png" ] || missing_list="$$missing_list $$id"; \
-	done; \
-	if [ -z "$$missing_list" ]; then \
-		printf "All form sprites already present — nothing to download.\n"; \
-		exit 0; \
-	fi; \
-	count=0; \
-	for i in $$missing_list; do count=$$((count + 1)); done; \
-	printf "Downloading %d missing form sprite(s) in parallel...\n" $$count; \
-	\
-	printf "$$missing_list" | tr ' ' '\n' | \
-	xargs -n 1 -P $(MAX_JOBS) -I{} sh -c '\
-		id="{}"; \
-		dir="$(SPRITE_DIR)"; \
-		normal="$$dir/$$id.png"; \
-		shiny="$$dir/$${id}s.png"; \
-		if [ ! -f "$$normal" ]; then \
-			printf "Downloading form sprite #%d...\n" "$$id"; \
-			if command -v curl >/dev/null 2>&1; then \
-				curl -fsSL "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/$$id.png" -o "$$normal" 2>/dev/null; \
-			else \
-				wget -q "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/$$id.png" -O "$$normal" 2>/dev/null; \
-			fi; \
-			if [ ! -f "$$normal" ] || [ ! -s "$$normal" ]; then \
-				printf "Form sprite #%d not available, skipping...\n" "$$id"; \
-				rm -f "$$normal" 2>/dev/null; \
-			fi \
-		fi; \
-		if [ ! -f "$$shiny" ]; then \
-			if command -v curl >/dev/null 2>&1; then \
-				curl -fsSL "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/shiny/$$id.png" -o "$$shiny" 2>/dev/null; \
-			else \
-				wget -q "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/shiny/$$id.png" -O "$$shiny" 2>/dev/null; \
-			fi; \
-			if [ ! -f "$$shiny" ] || [ ! -s "$$shiny" ]; then \
-				rm -f "$$shiny" 2>/dev/null; \
-			fi \
-		fi'
-
-.PHONY: forms
 
 #---------------------------------------------------------------------------------
 # UI font download (Nunito, SIL Open Font License — free to bundle/redistribute)
@@ -400,80 +278,10 @@ fonts:
 
 .PHONY: fonts
 
-#---------------------------------------------------------------------------------
-# HD sprite download — Pokemon HOME renders (transparent 256px PNGs) from pokemondb.
-# Fetched BY DEX NUMBER using the name map in tools/hd_sprite_names.txt (line N = dex N),
-# saved as <id>.png / <id>s.png. 256px so the big editor/summary renders stay crisp (drawn up to
-# ~196px). Preferred over the 96px PokeAPI sprites at runtime; any that 404 fall back to the 96px.
-#---------------------------------------------------------------------------------
-HD_SPRITE_DIR := romfs/sprites/pokemon_hd
-HD_NAMES      := tools/hd_sprite_names.txt
-HD_BASE       := https://img.pokemondb.net/sprites/home
-
-hdsprites:
-	@printf "Checking and downloading missing HD Pokemon sprites...\n"
-	@mkdir -p "$(HD_SPRITE_DIR)"
-	@if [ ! -f "$(HD_NAMES)" ]; then printf "Missing $(HD_NAMES) -- cannot fetch HD sprites\n"; exit 1; fi
-	@awk '{ print NR "|" $$0 }' "$(HD_NAMES)" | \
-	xargs -P $(MAX_JOBS) -I{} sh -c '\
-		pair="{}"; id="$${pair%%|*}"; name="$${pair#*|}"; \
-		dir="$(HD_SPRITE_DIR)"; base="$(HD_BASE)"; \
-		normal="$$dir/$$id.png"; shiny="$$dir/$${id}s.png"; \
-		if [ ! -f "$$normal" ]; then \
-			curl -fsSL "$$base/normal/$$name.png" -o "$$normal" 2>/dev/null; \
-			[ -s "$$normal" ] || rm -f "$$normal" 2>/dev/null; \
-		fi; \
-		if [ ! -f "$$shiny" ]; then \
-			curl -fsSL "$$base/shiny/$$name.png" -o "$$shiny" 2>/dev/null; \
-			[ -s "$$shiny" ] || rm -f "$$shiny" 2>/dev/null; \
-		fi'
-	@printf "HD sprites present: %s files.\n" "$$(ls -1 $(HD_SPRITE_DIR) 2>/dev/null | wc -l)"
-
-.PHONY: hdsprites
-
-#---------------------------------------------------------------------------------
-# HD form sprites -- regional variants and alternate forms (task #13).
-#
-# Same source and size as the base-species set above: pokemondb HOME renders at 256px.
-# PokeAPI would have been simpler (it keys by the same numeric ids as FORM_SPRITE_IDS,
-# so no name map at all) but only serves 512px -- 4x the bytes and 4x the DECODED memory
-# for no visible gain, since the UI draws at most ~196px and the sprite cache does not
-# evict. So forms use pokemondb too, via a generated id -> name map.
-#
-# tools/gen_hdform_names.py builds that map from PokeAPI's own form names and FETCHES
-# every candidate URL before accepting it -- a trimmed name very often exists but is a
-# different Pokemon ('tauros-paldea-combat-breed' -> 'tauros' is a valid URL and the
-# wrong sprite), so it refuses to emit a partial or region-dropping map.
-#
-# Presence is judged on the NORMAL sprite alone: a few forms (the Pikachu cap forms)
-# have no shiny render, so requiring both would re-attempt permanent 404s every run.
-#
-# SpriteManager already prefers sprites/pokemon_hd/<id>.png and falls back to the 96px
-# copy, so these need no code change: dropping the files in IS the feature.
-#---------------------------------------------------------------------------------
-HD_FORM_NAMES := tools/hd_form_names.txt
-HD_FORM_BASE  := https://img.pokemondb.net/sprites/home
-
-hdforms:
-	@printf "Checking and downloading missing HD form sprites...\n"
-	@mkdir -p "$(HD_SPRITE_DIR)"
-	@if [ ! -f "$(HD_FORM_NAMES)" ]; then printf "Missing $(HD_FORM_NAMES) - run: python tools/gen_hdform_names.py\n"; exit 1; fi
-	@grep -v '^#' "$(HD_FORM_NAMES)" | \
-	xargs -P $(MAX_JOBS) -I{} sh -c '\
-		pair="{}"; id="$${pair%%|*}"; name="$${pair#*|}"; \
-		dir="$(HD_SPRITE_DIR)"; base="$(HD_FORM_BASE)"; \
-		normal="$$dir/$$id.png"; shiny="$$dir/$${id}s.png"; \
-		if [ ! -f "$$normal" ]; then \
-			curl -fsSL "$$base/normal/$$name.png" -o "$$normal" 2>/dev/null; \
-			[ -s "$$normal" ] || rm -f "$$normal" 2>/dev/null; \
-		fi; \
-		if [ ! -f "$$shiny" ]; then \
-			curl -fsSL "$$base/shiny/$$name.png" -o "$$shiny" 2>/dev/null; \
-			[ -s "$$shiny" ] || rm -f "$$shiny" 2>/dev/null; \
-		fi'
-	@printf "HD sprite dir now holds %s files.\n" "$$(ls -1 $(HD_SPRITE_DIR) 2>/dev/null | wc -l)"
-
-.PHONY: hdforms
+# HD Pokemon sprites are NOT downloaded here -- fetch + downscale them from PokeAPI HOME
+# renders with 'python tools/gen_hdsprites.py' (needs Pillow) into romfs/sprites/pokemon_hd/.
+# Run it once, and after bumping its pinned PokeAPI ref; make / make all assume the sprites
+# are already present (like the font).
 
 #---------------------------------------------------------------------------------
 .PHONY: $(BUILD) clean all

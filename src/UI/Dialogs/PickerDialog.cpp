@@ -133,7 +133,7 @@ namespace Dialogs {
         if (first < 0) first = 0;
 
         screen.touchButtons.clear();
-        // #15: the Ability picker reorders its options (legal abilities first) via screen.pickerOrder,
+        // the Ability picker reorders its options (legal abilities first) via screen.pickerOrder,
         // and the legal prefix renders green. Every other kind stays identity-indexed (row == value).
         const bool reorder = (kind == PickerKind::Ability || kind == PickerKind::Species
                            || kind == PickerKind::Move    || kind == PickerKind::PouchItem

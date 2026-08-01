@@ -294,7 +294,7 @@ namespace Save {
         trainer.updatePartyBlock();
 
         trainer.updateBoxBlock();
-        trainer.updateBoxNameBlock();   // must precede this game's checksum/hash pass (#44)
+        trainer.updateBoxNameBlock();   // must precede this game's checksum/hash pass
         trainer.updateCurrentBoxBlock();
 
         // Encrypt the modified blocks (hash is calculated automatically)
@@ -321,7 +321,7 @@ namespace Save {
         std::string successMsg = std::string("Successfully saved modified save to: ") + savePath;
         logInfoToFile(successMsg.c_str());
 
-        // Only write into the real game save when THIS save was told to inject (#47)
+        // Only write into the real game save when THIS save was told to inject
         if (injectToTitle) {
             logInfoToFile("Restoring modified save to game save device...");
             std::vector<std::string> saveFiles = {"main", "backup", "poke_trade"};
@@ -427,7 +427,7 @@ namespace Save {
         trainer.updateItemBlock();
         trainer.updatePartyBlock();
         trainer.updateBoxBlock();
-        trainer.updateBoxNameBlock();   // must precede this game's checksum/hash pass (#44)
+        trainer.updateBoxNameBlock();   // must precede this game's checksum/hash pass
         trainer.updateCurrentBoxBlock();
         trainer.recomputeHash();
         const std::vector<uint8_t>& saveData = trainer.getSaveData();
@@ -478,7 +478,7 @@ namespace Save {
         trainer.updateItemBlock();
         trainer.updatePartyBlock();
         trainer.updateBoxBlock();
-        trainer.updateBoxNameBlock();   // must precede this game's checksum/hash pass (#44)
+        trainer.updateBoxNameBlock();   // must precede this game's checksum/hash pass
         trainer.updateCurrentBoxBlock();
         std::vector<uint8_t> encryptedData = encrypt(trainer.getBlocks());
 
@@ -531,7 +531,7 @@ namespace Save {
         trainer.updatePartyBlock();
 
         trainer.updateBoxBlock();
-        trainer.updateBoxNameBlock();   // must precede this game's checksum/hash pass (#44)
+        trainer.updateBoxNameBlock();   // must precede this game's checksum/hash pass
         trainer.updateCurrentBoxBlock();
 
         // Encrypt the modified blocks (hash is calculated automatically)
@@ -558,7 +558,7 @@ namespace Save {
         std::string successMsg = std::string("Successfully saved modified save to: ") + savePath;
         logInfoToFile(successMsg.c_str());
 
-        // Only write into the real game save when THIS save was told to inject (#47)
+        // Only write into the real game save when THIS save was told to inject
         if (injectToTitle) {
             logInfoToFile("Restoring modified save to game save device...");
             std::vector<std::string> saveFiles = {"main"};
@@ -587,7 +587,7 @@ namespace Save {
         trainer.updateItemBlock();
         trainer.updatePartyBlock();
         trainer.updateBoxBlock();
-        trainer.updateBoxNameBlock();   // must precede this game's checksum/hash pass (#44)
+        trainer.updateBoxNameBlock();   // must precede this game's checksum/hash pass
         trainer.updateCurrentBoxBlock();
         std::vector<uint8_t> encryptedData = encrypt(trainer.getBlocks());
 
@@ -688,7 +688,7 @@ namespace Save {
         // Apply edits into the raw save, then recompute every sector checksum.
         trainer.updateItemBlock();
         trainer.updateBoxBlock();
-        trainer.updateBoxNameBlock();   // must precede this game's checksum/hash pass (#44)
+        trainer.updateBoxNameBlock();   // must precede this game's checksum/hash pass
         trainer.updateCurrentBoxBlock();
         trainer.updatePartyBlock();
         trainer.finalizeChecksums();

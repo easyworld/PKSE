@@ -6,7 +6,7 @@
 #include <string>
 #include <vector>
 
-#include "Utils/NXTypes.h"   // AccountUid/u64; <switch.h> on console (#50). The IMPLEMENTATIONS
+#include "Utils/NXTypes.h"   // AccountUid/u64; <switch.h> on console. The IMPLEMENTATIONS
                              // here are Switch-only -- this just lets the header parse off-console
                              // so the save layer, which includes it transitively, can be compiled.
 

@@ -132,7 +132,7 @@ namespace UI {
         fb.drawText(gx + gw + 10, by + (bh - lh) / 2, label, textColor);
     }
 
-    // --- Tappable badges (#22) --------------------------------------------------------------------
+    // --- Tappable badges --------------------------------------------------------------------
     //
     // Every screen already publishes a contextual hint string, so making the badges tappable gives
     // PKSM-style on-screen action buttons everywhere at once. A tap resolves to that button's press

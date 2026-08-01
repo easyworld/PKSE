@@ -1,7 +1,7 @@
 #include <string>
 
 #ifdef __SWITCH__
-#include <switch.h>   // not actually used below; kept for console builds (#50)
+#include <switch.h>   // not actually used below; kept for console builds
 #endif
 #include <time.h>
 #include <stdio.h>

@@ -75,6 +75,15 @@ namespace Trainer {
         this->SID16 = readUInt16LittleEndian(&block.data[0xA2]);
         this->TID = this->ID32 % 1000000;
         this->SID = this->ID32 / 1000000;
+
+        // OT name (0xB0, 26 bytes) and gender (0xA5) come from MyStatus8 -- the authoritative source
+        // PKHeX uses (SAV8SWSH.OT/Gender => MyStatus, alongside ID32 at 0xA0). They were previously read
+        // from the Trainer Card block (a display copy), whose byte at 0xA5 is NOT the gender field, so the
+        // trainer gender shown could be a wrong/garbage value.
+        if (block.data.size() >= 0xB0 + 0x1A)
+            this->trainerName = utf16ToUtf8(getString(&block.data[0xB0], 0x1A));
+        if (block.data.size() > 0xA5)
+            this->trainerGender = block.data[0xA5] & 1;   // 0xA5: gender (0=M, 1=F)
     }
 
     void Trainer8SWSH::parsePartyBlock(const Block& block)
@@ -142,10 +151,9 @@ namespace Trainer {
          * 0x00: Trainer Name (26 bytes, UTF-16LE)
          * 0x1C: Trainer ID (4 bytes) - Legacy trainer ID format
          */
-        // Parse trainer name (UTF-16LE string)
-        size_t nameLength = std::min(static_cast<size_t>(0x1A), block.data.size());
-        this->trainerName = utf16ToUtf8(getString(block.data.data(), nameLength));
-        if (block.data.size() > 0xA5) this->trainerGender = block.data[0xA5] & 1;   // 0xA5: gender
+        // OT name and gender are read from MyStatus8 (the authoritative block), not from this display
+        // copy -- see parseMyStatusBlock. Nothing else in the Trainer Card is consumed yet.
+        (void)block;
     }
 
     void Trainer8SWSH::parseItemBlock(const Block& block)
@@ -402,7 +410,7 @@ namespace Trainer {
         for (auto& block : blocks) {
             if (block.key != BOX_LAYOUT8_SWSH) continue;
             for (size_t boxIndex = 0; boxIndex < BOX_COUNT8_SWSH && boxIndex < boxNames.size(); ++boxIndex) {
-                if (!isBoxNameDirty(boxIndex)) continue;   // never persist a display default (#50)
+                if (!isBoxNameDirty(boxIndex)) continue;   // never persist a display default
                 const size_t offset = boxIndex * BOX_NAME_LENGTH8_SWSH;
                 if (offset + BOX_NAME_LENGTH8_SWSH > block.data.size()) break;
                 setString(block.data.data() + offset, BOX_NAME_LENGTH8_SWSH,

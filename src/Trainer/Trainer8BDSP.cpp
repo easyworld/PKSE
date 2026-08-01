@@ -92,7 +92,7 @@ namespace Trainer {
         // writes straight into saveData -- and must run BEFORE recomputeHash(), since the whole-file
         // MD5 covers this region.
         for (size_t b = 0; b < BDSP_BOX_COUNT && b < boxNames.size(); ++b) {
-            if (!isBoxNameDirty(b)) continue;   // never persist a display default (#50)
+            if (!isBoxNameDirty(b)) continue;   // never persist a display default
             const size_t off = BDSP_BOXNAME_OFFSET + b * BDSP_BOXNAME_LENGTH;
             if (off + BDSP_BOXNAME_LENGTH > saveData.size()) break;
             setString(&saveData[off], BDSP_BOXNAME_LENGTH, utf8ToUtf16(boxNames[b]),
@@ -232,7 +232,7 @@ namespace Trainer {
                 saveData[off + 1] = static_cast<uint8_t>((item.count >> 8) & 0xFF);
                 saveData[off + 2] = 0;
                 saveData[off + 3] = 0;
-                // IsNew is an int32 at record 0x4. Only SET it for freshly-added items (#E6) so the bag
+                // IsNew is an int32 at record 0x4. Only SET it for freshly-added items so the bag
                 // shows the "new" marker; existing new/favorite/sort fields stay intact. (BDSP derives
                 // the pouch from the item id, so unlike S/V-Z/A it needs no pouchId stamp.)
                 if (item.isNew && item.count > 0 && off + 8 <= saveData.size()) {

@@ -61,7 +61,7 @@ namespace Trainer {
      * Legends: Z-A's bag pockets, per PKHeX ItemStorage9ZA.GetLegal.
      *
      * Z-A has no Battle Items pocket -- PKHeX's GetLegal has no BattleItems case for it --
-     * so index 2 is the "Other Items" pocket instead (task #41). Composition is display-only:
+     * so index 2 is the "Other Items" pocket instead. Composition is display-only:
      * the item write is keyed on item id, not on pouch, so this cannot affect a save.
      *
      * The legal id list per pouch is generated: Names::getPouchItems(GameVersion::ZA, idx).

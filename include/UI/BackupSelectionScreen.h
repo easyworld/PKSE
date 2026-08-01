@@ -23,7 +23,7 @@ namespace UI {
 
         /**
          * Report that acting on the selection failed, so the screen can say so and take the choice
-         * back (#48). Without this the caller's only option is to bail out of the whole flow, which
+         * back. Without this the caller's only option is to bail out of the whole flow, which
          * drops the user back at the save picker with no indication that anything went wrong — the
          * failure is indistinguishable from having pressed B.
          */

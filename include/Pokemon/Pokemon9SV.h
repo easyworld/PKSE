@@ -28,6 +28,7 @@
 #include <string>
 
 #include "Pokemon/Pokemon.h"
+#include "Pokemon/SpeciesConverter9.h"
 #include "Encryption/Encryption9SV.h"
 #include "Utils/HelperUtilities.h"
 #include "Utils/StringHelpers.h"
@@ -96,7 +97,12 @@ namespace Pokemon {
          */
         uint16_t speciesID() const noexcept override
         {
-            return readUInt16LittleEndian(reinterpret_cast<const uint8_t*>(data.data() + 0x08));
+            // The raw u16 is the game's INTERNAL species index, which diverges from the National Dex
+            // from #917 on -- convert like PKHeX PK9 (SpeciesConverter.GetNational9), the same way FRLG
+            // already converts Gen 3's internal order (g3ToNational). Reading it raw showed the wrong
+            // species (name/sprite/type/legality) for every newer Paldea Pokemon.
+            return gen9InternalToNational(
+                readUInt16LittleEndian(reinterpret_cast<const uint8_t*>(data.data() + 0x08)));
         }
 
         /**
@@ -495,7 +501,10 @@ namespace Pokemon {
         /** Sets species (0x08) and recalculates stats (base stats change). */
         void setSpecies(uint16_t species) noexcept override
         {
-            writeUInt16LittleEndian(reinterpret_cast<uint8_t*>(data.data() + 0x08), species);
+            // Store the INTERNAL index (inverse of speciesID's read conversion) -- the game reads this
+            // field, so writing the National Dex number raw makes it show a different species.
+            writeUInt16LittleEndian(reinterpret_cast<uint8_t*>(data.data() + 0x08),
+                                    gen9NationalToInternal(species));
             recalculateStats();
             refreshChecksum();
         }

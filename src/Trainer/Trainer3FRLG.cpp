@@ -52,7 +52,7 @@ namespace Trainer {
          * Writes the text plus a single 0xFF terminator and **touches nothing after it**, so `out`
          * must arrive holding the bytes currently in the save.
          *
-         * That tail matters more than it looks. The round-trip harness (#50) showed a real FireRed
+         * That tail matters more than it looks. The round-trip harness showed a real FireRed
          * save carries a MIX of 0x00 and 0xFF after the terminator -- the game writes a name and
          * leaves whatever was already there. Clearing to 0xFF drifted 33 bytes; clearing to 0x00
          * drifted 19. Only preserving the tail reproduces the file, and it is the safer rule anyway:
@@ -257,7 +257,7 @@ namespace Trainer {
         // sector data, so writing them afterwards would leave every storage sector's checksum stale
         // and the game would reject the save.
         for (size_t b = 0; b < FRLG_BOX_COUNT && b < boxNames.size(); ++b) {
-            if (!isBoxNameDirty(b)) continue;   // never persist a display default (#50)
+            if (!isBoxNameDirty(b)) continue;   // never persist a display default
             uint8_t nameBuf[FRLG_BOX_NAME_BYTES];
             // Seed with what's already in the save: g3Encode only writes the text and terminator,
             // deliberately leaving the bytes past it untouched (see g3Encode).

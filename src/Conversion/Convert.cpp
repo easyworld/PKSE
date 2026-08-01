@@ -13,6 +13,7 @@
 #include "Pokemon/Pokemon9SV.h"
 #include "Pokemon/Pokemon9LZA.h"
 #include "Pokemon/Pokemon3FRLG.h"        // PK3 entity + g3ToNational / nationalToG3
+#include "Pokemon/SpeciesConverter9.h"   // gen9InternalToNational / gen9NationalToInternal (PK9/PA9 species field)
 #include "Pokemon/BaseStatsGen89.h"      // getSpeciesNameGen89 (Gen 3 nickname = uppercase species name)
 #include "Pokemon/PersonalInfoTable.h"
 #include "Pokemon/PokemonTypes.h"       // getPokemonTypes -> Tera type for cross-gen PK8->PK9
@@ -228,6 +229,9 @@ namespace Conversion {
         // PK8 -> PK9, in place. `species`/`form` are the source's (for the imported Tera type).
         void transformG8toG9(std::vector<std::byte>& b, uint16_t species, uint8_t form) {
             if (b.size() < 0x148) return;
+            // 0x08 species: the PK8 hub stores the NATIONAL dex number, but PK9/PA9 store the Gen 9
+            // INTERNAL index (diverges from #917 on) -- convert, or the game shows a shifted species.
+            wr16(b, 0x08, Pokemon::gen9NationalToInternal(rd16(b, 0x08)));
             // 0x16 bit4 CanGigantamax -> PK9 has no G-Max: clear it.
             wr8(b, 0x16, rd8(b, 0x16) & ~0x10);
             // 0x22 gender: PK8 (byte>>2)&3 -> PK9 (byte>>1)&3. Keep Fateful(bit0); drop PK8 Flag2(bit1).
@@ -264,6 +268,9 @@ namespace Conversion {
         // PK9 -> PK8, in place (the mirror of transformG8toG9). Tera / ObedienceLevel / records are dropped.
         void transformG9toG8(std::vector<std::byte>& b) {
             if (b.size() < 0x148) return;
+            // 0x08 species: PK9/PA9 store the Gen 9 INTERNAL index; the PK8 hub (and every format fed
+            // from it) uses the NATIONAL dex number -- convert (mirror of transformG8toG9).
+            wr16(b, 0x08, Pokemon::gen9InternalToNational(rd16(b, 0x08)));
             // 0x22 gender: PK9 (byte>>1)&3 -> PK8 (byte>>2)&3. Keep Fateful(bit0); PK8 Flag2(bit1) stays 0.
             { uint8_t v = rd8(b, 0x22); uint8_t fateful = v & 0x01; uint8_t gender = (v >> 1) & 0x03;
               wr8(b, 0x22, fateful | (gender << 2)); }
@@ -709,7 +716,7 @@ namespace Conversion {
                     out->setRelearnMove(i, 0);   // Gen 3 has no relearn moves (remap leaves them 0)
             }
 
-            // Compact the surviving moves upward (#27). Clearing slot 2 of 4 otherwise leaves a HOLE,
+            // Compact the surviving moves upward. Clearing slot 2 of 4 otherwise leaves a HOLE,
             // and a gap mid-moveset is not a state the games produce: they pack moves from slot 1 and
             // treat the first empty slot as the end of the list. A mon that arrived as
             // [Tackle, --, Ember, --] could therefore read as knowing only Tackle. Each move carries its

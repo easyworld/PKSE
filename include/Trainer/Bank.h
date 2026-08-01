@@ -67,7 +67,7 @@ namespace Trainer {
         /// last save(). The bank's contract is byte-in == byte-out, so non-zero means a PKSE bug.
         ///
         /// Reported rather than enforced ON PURPOSE. A failed bank save blocks leaving the storage
-        /// view (#48), so treating a verification miss as a save failure would trap the user in the
+        /// view, so treating a verification miss as a save failure would trap the user in the
         /// UI over what may be a false positive. Writing proceeds; the anomaly is surfaced instead.
         size_t lastVerifyFailures() const noexcept { return verifyFailures; }
 

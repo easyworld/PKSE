@@ -200,7 +200,7 @@ namespace Trainer {
         virtual void updateItemBlock() = 0;
 
         /**
-         * Max number of item slots pouch `pouch` can hold, for the add-item flow (#39). Default 0
+         * Max number of item slots pouch `pouch` can hold, for the add-item flow. Default 0
          * means "appending unsupported" (the UI uses a large sentinel for the id-indexed games, which
          * never append). Legends: Arceus overrides this: its pouches are fixed-capacity packed lists,
          * and the general-items bag grows with the player's Satchel Upgrades (as in PKHeX PlayerBag8a).
@@ -398,7 +398,7 @@ namespace Trainer {
          * game's box-name parser substitutes a display default ("Box 3") when the save holds an
          * empty name, so `boxNames` is a mix of real names and placeholders. Writing the whole
          * array back persists placeholders the player never typed — the round-trip harness caught
-         * exactly that, 215 bytes of invented names on an untouched Z-A save (#50).
+         * exactly that, 215 bytes of invented names on an untouched Z-A save.
          */
         std::vector<bool> boxNameDirty;
         void markBoxNameDirty(size_t box) {

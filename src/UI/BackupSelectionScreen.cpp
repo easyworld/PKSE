@@ -84,7 +84,7 @@ namespace UI {
     }
 
     void BackupSelectionScreen::update(const PadState& pad, const TouchInput& touch) {
-        u64 kDown = padGetButtonsDown(&pad) | navTouchButton(touch);   // nav-bar badges are tappable (#22)
+        u64 kDown = padGetButtonsDown(&pad) | navTouchButton(touch);   // nav-bar badges are tappable
         if (statusFrames > 0) --statusFrames;                          // expire the failure notice
 
         // Handle delete confirmation dialog

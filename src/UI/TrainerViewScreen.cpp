@@ -5,7 +5,7 @@
 #include <cerrno>
 #include <sys/stat.h>
 
-#include "Names/ItemPouches.h"   // getPouchItems -> the add-item picker's per-pouch list (#39)
+#include "Names/ItemPouches.h"   // getPouchItems -> the add-item picker's per-pouch list
 #include "Names/MoveInfo.h"      // getMoveBasePP -> a created/picked move gets real PP, not 0 (#F1F2)
 #include "Names/MoveNames.h"     // getMoveCount -> scan for a created mon's first legal move
 #include "Names/MovePresence.h"  // isMovePresent -> hide moves a game doesn't have (PKHeX-style filter)
@@ -67,7 +67,7 @@ namespace UI {
     // Creator: build a valid, game-accepted default Pokemon in the current save's format. Species-
     // correct ability / gender / friendship come from the personal table; the user refines the rest
     // in the details editor. See scratchpad/creator_plan.md.
-    // Randomize IVs (#38): roll the six IVs to fresh 0-31 values and NOTHING else. Deliberately IVs
+    // Randomize IVs: roll the six IVs to fresh 0-31 values and NOTHING else. Deliberately IVs
     // only -- nature, ability, and everything else are kept, so it can never silently change the
     // mon's identity. (A broader encounter-consistent randomizer -- PID/nature/ability from a real
     // encounter -- is a future version; see docs/FUTURE_VERSIONS.md.)
@@ -313,7 +313,7 @@ namespace UI {
         // Persistent cross-game bank for the Storage view (unified; loads any existing on-SD contents).
         bank = std::make_unique<Trainer::Bank>();
         // A damaged bank file drops slots silently otherwise -- the user would just find Pokemon
-        // missing with no explanation (#46).
+        // missing with no explanation.
         if (bank && bank->lastLoadRejects() > 0) {
             postStatus(std::to_string(bank->lastLoadRejects()) +
                        " 个损坏的银行槽位无法读取，已跳过。", 480);
@@ -381,7 +381,7 @@ namespace UI {
     bool TrainerViewScreen::convertForPane(std::unique_ptr<Pokemon::Pokemon>& pk, int destPane) {
         if (destPane != 0 || !pk) return true;                          // bank: store as-is
         if (pk->getGameGroup() == trainer.getGameGroup()) {
-            // Same game, so no conversion -- but re-checksum before it enters the save (#46). The
+            // Same game, so no conversion -- but re-checksum before it enters the save. The
             // bank stores native bytes untouched by design, so this SHOULD be a no-op writing back
             // the identical value; that is exactly why it is cheap insurance. A stale or damaged
             // checksum reaching the game's box writer surfaces in-game as a Bad Egg.
@@ -454,7 +454,7 @@ namespace UI {
         return false;
     }
 
-    // #15: build the Ability picker's reordered option list -- the species/form's legal abilities
+    // build the Ability picker's reordered option list -- the species/form's legal abilities
     // first (deduped; these render green + sit at the top), then every remaining ability id. Sets
     // pickerOrder + pickerLegalCount, and pickerSel to the row that shows `current`.
     void TrainerViewScreen::buildAbilityPickerOrder(uint16_t species, uint8_t form, uint16_t current) {
@@ -508,7 +508,7 @@ namespace UI {
         pickerSel = 0;
     }
 
-    // #15 (move half): fill the move picker with the mon's LEARNABLE moves first (green + top), then
+    // (move half): fill the move picker with the mon's LEARNABLE moves first (green + top), then
     // every other move. Learnability is the per-game single-stage pool from the learnset table.
     void TrainerViewScreen::buildMovePickerOrder(uint16_t species, uint8_t form, Enums::GameVersion group, uint16_t current) {
         pickerOrder.clear();
@@ -628,7 +628,7 @@ namespace UI {
         return -1;
     }
 
-    // Rename the focused box via the Switch keyboard (#44).
+    // Rename the focused box via the Switch keyboard.
     //
     // Safe to call from update(): the UI loop is update() -> draw() -> flush(), so no NanoVG frame
     // is open when swkbd suspends the app. Calling this from draw() would strand a half-built frame.
@@ -725,13 +725,13 @@ namespace UI {
             // place instead of silently forking another folder off the original.
             backupDir = destDir;
         } else {
-            // A failed save used to be INDISTINGUISHABLE from a successful one (#48).
+            // A failed save used to be INDISTINGUISHABLE from a successful one.
             postStatus("保存失败：更改仍未保存，未写入任何内容。", 480);
             hasUnsavedChanges = true;
         }
     }
 
-    // Create a new named backup folder, seeded with a copy of the one currently open (#47).
+    // Create a new named backup folder, seeded with a copy of the one currently open.
     //
     // The copy matters: several games' save paths RE-READ the destination's existing save file to
     // recover the blocks they don't touch (Let's Go most obviously), so writing into an empty
@@ -782,7 +782,7 @@ namespace UI {
         return vis;
     }
 
-    // How many item slots the current pouch can hold, for the add-item flow (#39).
+    // How many item slots the current pouch can hold, for the add-item flow.
     //
     // Two storage models. The id-indexed games (BDSP / S-V / Z-A) build their pouch vector by
     // walking every legal id, so an entry already exists for anything addable and nothing is ever
@@ -805,14 +805,14 @@ namespace UI {
                 return (c < static_cast<int>(PouchType8SWSH::Count))
                      ? getPouchInfo8SWSH(static_cast<PouchType8SWSH>(c)).maxCount : 0;
             case Enums::GameVersion::PLA:
-                // Fixed-capacity packed pouches; the general bag grows with Satchel Upgrades (#39).
+                // Fixed-capacity packed pouches; the general bag grows with Satchel Upgrades.
                 return static_cast<int>(trainer.getItemPouchCapacity(c));
             default:
                 return 1 << 20;   // id-indexed: the entry is already there, so this never binds
         }
     }
 
-    // Largest stack the current pouch allows for one item (task #43).
+    // Largest stack the current pouch allows for one item.
     //
     // This is a SAVE-SAFETY limit, not cosmetics. Writing a count the game never produces can
     // overflow the pouch and corrupt whatever follows it -- in Gen 3 that means spilling into the
@@ -1184,7 +1184,7 @@ namespace UI {
             return;
         }
 
-        // X: sort the focused box (#34). Free here -- the global X-to-save handler deliberately skips
+        // X: sort the focused box. Free here -- the global X-to-save handler deliberately skips
         // the storage view, since the bank saves via its own B -> Save/Discard prompt. Suppressed while
         // carrying a Pokemon, so a sort can never run with one held out of the grid and lose it.
         if ((kDown & HidNpadButton_X) && !holding) {
@@ -1276,10 +1276,10 @@ namespace UI {
     }
 
     void TrainerViewScreen::update(const PadState& pad, const TouchInput& touch) {
-        u64 kDown = padGetButtonsDown(&pad) | navTouchButton(touch);   // nav-bar badges are tappable (#22)
+        u64 kDown = padGetButtonsDown(&pad) | navTouchButton(touch);   // nav-bar badges are tappable
 
         // Let's Go stores its boxes as a GAPLESS list, so anything that vacated a slot last frame
-        // left a hole the game can't represent (#45). Re-pack it here rather than at each of the
+        // left a hole the game can't represent. Re-pack it here rather than at each of the
         // several sites that can vacate a slot: this function has many early returns -- the release
         // path returns before ever reaching the bottom -- so an end-of-update hook would silently
         // skip them, and per-site hooks are exactly the coverage gap this codebase keeps hitting.
@@ -1330,7 +1330,7 @@ namespace UI {
             returnHeldToOrigin();
             // If the bank can't be written, do NOT leave. Exiting anyway would silently discard every
             // deposit made this session, and the user would only find out next launch. Staying costs
-            // one button press; leaving costs the data (#48).
+            // one button press; leaving costs the data.
             if (bank && !bank->save()) {
                 postStatus("无法保存银行。为防止数据丢失，暂不退出。请检查 SD 卡空间。", 480);
                 return;
@@ -1420,7 +1420,7 @@ namespace UI {
                             else pouch.push_back(Trainer::InventoryItem{ newId, keepCount, true, false });
                         } else {
                             pouch[rawIdx].itemId = newId;   // slot-based: reassign in place, region rewritten
-                            pouch[rawIdx].isNew = true;     // the swapped-in item shows as new (#E6)
+                            pouch[rawIdx].isNew = true;     // the swapped-in item shows as new
                         }
                         hasUnsavedChanges = true;
                         // Land the cursor on the changed item (it may have re-sorted onto another page).
@@ -1437,7 +1437,7 @@ namespace UI {
                 return;
             }
 
-            // Item creation (#39): a pouch pick edits the trainer's BAG, not a Pokemon, so it has to
+            // Item creation: a pouch pick edits the trainer's BAG, not a Pokemon, so it has to
             // intercept before the apply-switch below -- pkPick is null in the items view.
             if ((kDown & HidNpadButton_A)
              && (pickerKind == Dialogs::PickerKind::PouchItem
@@ -1449,7 +1449,7 @@ namespace UI {
                     const auto e = std::find_if(pouch.begin(), pouch.end(),
                         [id](const Trainer::InventoryItem& x) { return x.itemId == id; });
                     if (e != pouch.end()) {
-                        // Present but empty -> re-activate it AND flag it new (#E6: a freshly-added
+                        // Present but empty -> re-activate it AND flag it new (a freshly-added
                         // item always shows the bag's "新建" marker in the games that have one).
                         if (e->count == 0) { e->count = 1; e->isNew = true; hasUnsavedChanges = true; }
                     } else if (static_cast<int>(pouch.size()) < currentPouchCapacity()) {
@@ -1558,7 +1558,7 @@ namespace UI {
         // X saves the game -- but ONLY from the HOME main menu (where you pick Pokemon / Party /
         // Storage / Items / ...). detailViewActive means "entered a view", and inside any entered view
         // X is a view-local action (Items: remove an item; Storage: sort box; the details page: save the
-        // mon), so the global game-save must never fire there (#E6). Back out to the menu, then press X.
+        // mon), so the global game-save must never fire there. Back out to the menu, then press X.
         if (kDown & HidNpadButton_X) {
             const bool onHomeMenu = !detailViewActive;
             if (onHomeMenu && !saveConfirmActive && !itemEditDialogActive && !statEdit.dialogActive &&
@@ -1622,7 +1622,7 @@ namespace UI {
                 // Regular save dialog (triggered by X button)
                 // A: Save changes
                 // B: Cancel
-                // Destination picker (#47): Up/Down choose, A writes there.
+                // Destination picker: Up/Down choose, A writes there.
                 const int nDest = saveDestCount();
                 if (saveDestIndex >= nDest) saveDestIndex = DestThisBackup;   // lock may have gone off
                 if (kDown & HidNpadButton_Up)   saveDestIndex = (saveDestIndex - 1 + nDest) % nDest;
@@ -1873,7 +1873,7 @@ namespace UI {
                 snapshotEditTarget();   // baseline := current -> pokemonEditDirty() now false
                 return;
             }
-            // Randomize IVs (#38): L only. (The on-panel Randomize row was removed; L is the trigger,
+            // Randomize IVs: L only. (The on-panel Randomize row was removed; L is the trigger,
             // and the bottom nav bar advertises it.)
             if (kDown & HidNpadButton_L) {
                 if (Pokemon::Pokemon* target = detailsTargetPokemon()) {
@@ -1969,7 +1969,7 @@ namespace UI {
                 } else if (f >= 10 && f <= 13) {  // Move slots 0-3
                     pickerKind = Dialogs::PickerKind::Move;
                     pickerSlot = f - 10;
-                    // #15: learnable moves first (green + top), for the mon's own game. Illegal moves are
+                    // learnable moves first (green + top), for the mon's own game. Illegal moves are
                     // still offered (after the legal ones) and flagged by the legality check, PKHeX-style.
                     buildMovePickerOrder(pokemon->speciesID(), pokemon->form(), pokemon->getGameGroup(), pokemon->move(pickerSlot));
                     pickerCount = static_cast<int>(pickerOrder.size());
@@ -1985,7 +1985,7 @@ namespace UI {
                     pickerActive = true;
                 } else if (f == 15) {            // Ability
                     pickerKind = Dialogs::PickerKind::Ability;
-                    // #15: legal abilities first (green + top); sets pickerOrder, pickerLegalCount, pickerSel.
+                    // legal abilities first (green + top); sets pickerOrder, pickerLegalCount, pickerSel.
                     buildAbilityPickerOrder(pokemon->speciesID(), pokemon->form(), pokemon->ability());
                     pickerCount = static_cast<int>(pickerOrder.size());
                     pickerActive = true;
@@ -2187,7 +2187,7 @@ namespace UI {
                 case 2:  kDown |= HidNpadButton_Y;     break;  // Remove
                 default: break;
             }
-            // Adjust value, bounded by what the GAME accepts for this pouch (#43). Over-cap counts are
+            // Adjust value, bounded by what the GAME accepts for this pouch. Over-cap counts are
             // a save-corruption vector, not cosmetic: an oversized Gen 3 stack overflows the bag into
             // the key-items pocket. Left/Right = -/+1, L/R = -/+10, ZL/ZR = -/+100 -- matching the stat
             // editor (these used to be Up/Down, inconsistent between the two dialogs).
@@ -2303,7 +2303,7 @@ namespace UI {
             return;
         }
 
-        // Item removal confirm (#E6): X in the Items list asks before deleting. A = Remove, B = Cancel.
+        // Item removal confirm: X in the Items list asks before deleting. A = Remove, B = Cancel.
         // Mirrors the storage release confirm; the delete matches the Edit Item dialog's Y-remove.
         if (itemRemoveConfirmActive) {
             int tb = touchedButtonId(touch);
@@ -2468,7 +2468,7 @@ namespace UI {
                 switch (storageExitConfirmIndex) {
                     case 0:  // Save & Exit
                         // Same rule as the app-exit path: a failed bank write must not be followed by
-                        // leaving the view, or the deposits vanish with no indication (#48).
+                        // leaving the view, or the deposits vanish with no indication.
                         if (bank && !bank->save()) {
                             postStatus("无法保存银行。为防止数据丢失，将停留在存储界面。", 480);
                             return;
@@ -2622,7 +2622,7 @@ namespace UI {
                         }
                     }
 
-                    // Y opens the add-item picker (#39, #E6): the ids that legally belong in THIS pouch,
+                    // Y opens the add-item picker: the ids that legally belong in THIS pouch,
                     // minus what the bag already holds. Nothing is offered for a pouch the game
                     // doesn't have, or when appending isn't supported and every legal id is present.
                     if (kDown & HidNpadButton_Y) {
@@ -2658,7 +2658,7 @@ namespace UI {
                         return;
                     }
 
-                    // X asks to remove the selected item, behind a confirm dialog (#E6). The delete
+                    // X asks to remove the selected item, behind a confirm dialog. The delete
                     // runs in the itemRemoveConfirmActive handler on A; here we just open the prompt.
                     if ((kDown & HidNpadButton_X) && totalItems > 0
                         && selectedItemIndex >= 0 && selectedItemIndex < totalItems) {
@@ -3003,7 +3003,7 @@ namespace UI {
                     else if (settingsSelectedRow == 2) g_allowIllegalEdits = !g_allowIllegalEdits;
                     else if (settingsSelectedRow == 3) g_lgpeMoveWarn = !g_lgpeMoveWarn;
                     else {
-                        // The master lock for writing into the real game save (#47). Turning it ON only
+                        // The master lock for writing into the real game save. Turning it ON only
                         // makes the "游戏存档" destination available in the save dialog -- it never
                         // makes a save destructive on its own, so no confirmation is needed here.
                         g_injectToGameSave = !g_injectToGameSave;

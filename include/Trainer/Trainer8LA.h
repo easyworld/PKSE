@@ -152,7 +152,7 @@ namespace Trainer {
         void updateItemBlock() override;
 
         // Fixed-capacity packed pouches (KeyItems 100 / Stored 180 / Recipes 70), and the general
-        // Items bag = min(675, SatchelUpgrades + 20). Enables in-pouch item creation for PLA (#39).
+        // Items bag = min(675, SatchelUpgrades + 20). Enables in-pouch item creation for PLA.
         size_t getItemPouchCapacity(int pouch) const override;
 
         /**

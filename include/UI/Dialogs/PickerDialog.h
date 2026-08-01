@@ -29,7 +29,7 @@ namespace Dialogs {
         Form,       // alternate-form index -- count via pickerCount, labelled by screen.pickerFormSpecies
         StatNature, // 25 natures, applied to the STAT (mint) nature rather than the real one
         Species,    // 0-1025 (creator: choose the species for a new mon)
-        // Item creation (#39): the ids that legally belong in the pouch being viewed, supplied
+        // Item creation: the ids that legally belong in the pouch being viewed, supplied
         // through pickerOrder. Two kinds because Gen 3 has its own item id space and name table.
         PouchItem,  // add-to-pouch list, modern item ids
         PouchItemG3 // add-to-pouch list, Gen 3 item ids (FireRed/LeafGreen)

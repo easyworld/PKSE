@@ -417,7 +417,7 @@ namespace Trainer {
         // image reproduces every live Pokemon before it goes to disk.
         //
         // Deliberately does NOT abort the save. A failed bank save blocks leaving the storage view
-        // (#48), so a false positive here would trap the user in the UI; and if the mismatch is
+        // so a false positive here would trap the user in the UI; and if the mismatch is
         // real, refusing to write leaves them with a stale file rather than a fresh one. Record it,
         // log which slot, and let the caller surface it.
         verifyFailures = verifyImage(buf);

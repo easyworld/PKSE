@@ -43,7 +43,7 @@ namespace Dialogs {
         screen.touchButtons.clear();
 
         // ITEM label + the pouch's max stack (so the cap is visible instead of the value just refusing
-        // to rise, #43 -- e.g. a key item stuck at "1 / max 1").
+        // to rise -- e.g. a key item stuck at "1 / max 1").
         fb.drawText(x + 24, cy, "道具", Colors::TextDim, TextStyle::Caption);
         {
             const std::string cap = "上限 " + std::to_string(screen.currentItemMaxCount());
@@ -78,7 +78,7 @@ namespace Dialogs {
         drawEditChoiceButton(screen, fb, x + w - 24 - cbw,   cby, cbw, cbh, "A", "确认", 1);
     }
 
-    // Confirm before deleting the selected item from the Items list (#E6). Mirrors the storage
+    // Confirm before deleting the selected item from the Items list. Mirrors the storage
     // release confirm: red frame, B = Cancel (id 0), A = Remove (id 1). The delete itself runs in
     // TrainerViewScreen's itemRemoveConfirmActive handler.
     void drawItemRemoveConfirm(TrainerViewScreen& screen, PKSEFramebuffer& fb) {

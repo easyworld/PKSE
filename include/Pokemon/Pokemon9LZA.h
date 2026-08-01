@@ -28,6 +28,7 @@
 #include <string>
 
 #include "Pokemon/Pokemon.h"
+#include "Pokemon/SpeciesConverter9.h"
 #include "Encryption/Encryption9LZA.h"
 #include "Utils/HelperUtilities.h"
 #include "Utils/StringHelpers.h"
@@ -96,7 +97,10 @@ namespace Pokemon {
          */
         uint16_t speciesID() const noexcept override
         {
-            return readUInt16LittleEndian(reinterpret_cast<const uint8_t*>(data.data() + 0x08));
+            // Z-A stores the same Gen 9 INTERNAL species index as S/V (PKHeX PA9 uses the identical
+            // SpeciesConverter.GetNational9) -- convert on read; see Pokemon9SV.h / SpeciesConverter9.h.
+            return gen9InternalToNational(
+                readUInt16LittleEndian(reinterpret_cast<const uint8_t*>(data.data() + 0x08)));
         }
 
         /**
@@ -499,7 +503,9 @@ namespace Pokemon {
         /** Sets species (0x08) and recalculates stats (base stats change). */
         void setSpecies(uint16_t species) noexcept override
         {
-            writeUInt16LittleEndian(reinterpret_cast<uint8_t*>(data.data() + 0x08), species);
+            // Store the INTERNAL index (inverse of speciesID's read conversion; PKHeX PA9.GetInternal9).
+            writeUInt16LittleEndian(reinterpret_cast<uint8_t*>(data.data() + 0x08),
+                                    gen9NationalToInternal(species));
             recalculateStats();
             refreshChecksum();
         }

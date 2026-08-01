@@ -62,7 +62,7 @@ namespace Trainer {
      *
      * This was previously a verbatim copy of Legends: Z-A's pouch model, which gave S/V a
      * Mega Stones pocket it does not have while omitting the "Other Items" and picnic
-     * Ingredients pockets it does (task #41). Composition is display-only -- the item write
+     * Ingredients pockets it does. Composition is display-only -- the item write
      * is keyed on item id, not on pouch -- so correcting it cannot affect a save.
      *
      * The legal id list per pouch is generated: Names::getPouchItems(GameVersion::SV, idx).

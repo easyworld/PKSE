@@ -19,7 +19,7 @@ Notes on the awkward corners, all verified against the PKHeX sources:
     both InventoryType.Items and InventoryType.PCItems to General).
   * PLA's Stored pouch is the overflow box for the satchel, so same set as Regular.
   * S/V has no MegaStones pouch and Z-A has no BattleItems pouch. PKSE's 9SV/9LZA enums
-    used to claim both (they were copies of each other) -- corrected in task #41, so each
+    used to claim both (they were copies of each other) -- now corrected, so each
     game now carries its real pockets and every entry below maps to a real PKHeX span.
   * S/V's key items live in PKHeX's `Event` span, not a `Key` one.
 

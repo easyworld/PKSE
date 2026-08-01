@@ -12,7 +12,7 @@ namespace Enums {
      * the writer echoed the same wrong width the damage stayed invisible until the stream hit
      * something that couldn't parse, hundreds of KB later.
      *
-     * Found by the round-trip harness (#50), which is exactly the class of bug it exists to catch.
+     * Found by the round-trip harness, which is exactly the class of bug it exists to catch.
      */
     size_t getTypeSize(SCTypeCode type)
     {

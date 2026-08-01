@@ -38,7 +38,7 @@ namespace Dialogs {
             return;
         }
 
-        // --- Destination picker (#47) ---------------------------------------------------------
+        // --- Destination picker ---------------------------------------------------------
         const int rows = screen.saveDestCount();
         constexpr int rowH = 58, rowGap = 8;
         // The illegal-values notice is a LINE here, not another dialog. This dialog is already a
