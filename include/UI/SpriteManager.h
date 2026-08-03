@@ -1,7 +1,9 @@
 #ifndef UI_SPRITE_MANAGER_H
 #define UI_SPRITE_MANAGER_H
 
+#include <cstddef>
 #include <cstdint>
+#include <list>
 #include <map>
 #include <string>
 
@@ -47,12 +49,37 @@ namespace UI {
 
         static bool typeSpriteExists(uint8_t typeId);
 
+        // Called just before a sprite's pixel buffer is freed. The renderer caches the texture it
+        // built from that buffer under the buffer's ADDRESS, so it has to drop it in step: a later
+        // sprite allocated at the same address would otherwise be drawn with the evicted one's
+        // image. Registered by the renderer; cleared when the renderer goes away.
+        using EvictFn = void (*)(const unsigned char* data);
+        static void setEvictCallback(EvictFn fn);
+
+        // Bytes of decoded pixel data currently held. Exposed for diagnostics/logging.
+        static size_t cachedBytes();
+
     private:
         // Load a sprite from ROMFS
         static Sprite* loadSprite(const std::string& path);
 
+        // Pokemon sprites are the only cache that grows with use -- one 256px HD sprite decodes to
+        // 256 KB, and a full save has hundreds -- so it is capped and evicts least-recently-used.
+        // The 18 type icons are naturally bounded and stay a simple map.
+        struct SpriteEntry {
+            Sprite* sprite;                      // may be null: a failed load is cached too
+            std::list<uint32_t>::iterator lru;   // position in spriteLru
+        };
+
         // Sprite cache: key = species ID | (isShiny << 16) | (isIcon << 17) | (form << 18)
-        static std::map<uint32_t, Sprite*> spriteCache;
+        static std::map<uint32_t, SpriteEntry> spriteCache;
+        static std::list<uint32_t> spriteLru;    // front = most recently used
+        static size_t spriteBytes;
+        static EvictFn evictCallback;
+
+        // Drop least-recently-used sprites until the cache is back inside its budget.
+        static void trimToBudget();
+        static void releaseSprite(Sprite* sprite);
 
         // Type sprite cache: key = type ID
         static std::map<uint8_t, Sprite*> typeSpriteCache;

@@ -11,10 +11,58 @@
 using namespace Utils;
 
 namespace UI {
+    namespace {
+        // Decoded pixel data the Pokemon sprite cache may hold. One 256px HD sprite is 256 KB, so
+        // this is roughly 190 of them -- several times the most that can be on screen at once (two
+        // 30-slot boxes, the party and a held mon), which is what matters: a budget under the
+        // working set would reload from ROMFS every frame instead of caching anything.
+        constexpr size_t SPRITE_CACHE_BUDGET = 48u * 1024u * 1024u;
+
+        size_t bytesOf(const Sprite* s) {
+            if (!s || !s->data) return 0;
+            return static_cast<size_t>(s->width) * static_cast<size_t>(s->height) *
+                   static_cast<size_t>(s->channels);
+        }
+    }
+
     // Static member initialization
-    std::map<uint32_t, Sprite*> SpriteManager::spriteCache;
+    std::map<uint32_t, SpriteManager::SpriteEntry> SpriteManager::spriteCache;
+    std::list<uint32_t> SpriteManager::spriteLru;
+    size_t SpriteManager::spriteBytes = 0;
+    SpriteManager::EvictFn SpriteManager::evictCallback = nullptr;
     std::map<uint8_t, Sprite*> SpriteManager::typeSpriteCache;
     bool SpriteManager::initialized = false;
+
+    void SpriteManager::setEvictCallback(EvictFn fn) { evictCallback = fn; }
+
+    size_t SpriteManager::cachedBytes() { return spriteBytes; }
+
+    // Frees a sprite's pixel buffer, telling the renderer first so the texture keyed on that
+    // buffer's address goes with it. Skipping that would leave a stale texture behind that a
+    // later sprite landing on the same address would silently be drawn with.
+    void SpriteManager::releaseSprite(Sprite* sprite) {
+        if (!sprite) return;
+        const size_t bytes = bytesOf(sprite);
+        if (bytes) {
+            spriteBytes = (spriteBytes >= bytes) ? spriteBytes - bytes : 0;
+            if (evictCallback) evictCallback(sprite->data);
+        }
+        delete sprite;
+    }
+
+    void SpriteManager::trimToBudget() {
+        // Never evict down to nothing: the entry just inserted is at the front, and the caller is
+        // about to return a pointer to it.
+        while (spriteBytes > SPRITE_CACHE_BUDGET && spriteLru.size() > 1) {
+            const uint32_t key = spriteLru.back();
+            spriteLru.pop_back();
+            auto it = spriteCache.find(key);
+            if (it != spriteCache.end()) {
+                releaseSprite(it->second.sprite);
+                spriteCache.erase(it);
+            }
+        }
+    }
 
     Sprite::~Sprite() {
         if (data) {
@@ -31,16 +79,16 @@ namespace UI {
     }
 
     void SpriteManager::cleanup() {
-        // Free all cached Pokemon sprites
-        for (auto& pair : spriteCache) {
-            delete pair.second;
-        }
-        spriteCache.clear();
+        // The renderer is torn down before this runs and takes every texture with it, so drop the
+        // callback rather than call into an object that is already gone.
+        evictCallback = nullptr;
 
-        // Free all cached type sprites
-        for (auto& pair : typeSpriteCache) {
-            delete pair.second;
-        }
+        for (auto& pair : spriteCache) delete pair.second.sprite;
+        spriteCache.clear();
+        spriteLru.clear();
+        spriteBytes = 0;
+
+        for (auto& pair : typeSpriteCache) delete pair.second;
         typeSpriteCache.clear();
 
         initialized = false;
@@ -78,10 +126,11 @@ namespace UI {
 
         uint32_t cacheKey = makeCacheKey(speciesId, formId, isShiny, false);
 
-        // Check cache first
+        // Check cache first; a hit is also the "recently used" signal that keeps it from being evicted.
         auto it = spriteCache.find(cacheKey);
         if (it != spriteCache.end()) {
-            return it->second;
+            spriteLru.splice(spriteLru.begin(), spriteLru, it->second.lru);
+            return it->second.sprite;
         }
 
         // Get the sprite ID for this form
@@ -106,7 +155,10 @@ namespace UI {
         }
 
         // Cache it (even if nullptr, so we don't keep trying to load missing sprites)
-        spriteCache[cacheKey] = sprite;
+        spriteLru.push_front(cacheKey);
+        spriteCache[cacheKey] = SpriteEntry{ sprite, spriteLru.begin() };
+        spriteBytes += bytesOf(sprite);
+        trimToBudget();   // stops at one entry, so the sprite being returned is never the one freed
 
         return sprite;
     }

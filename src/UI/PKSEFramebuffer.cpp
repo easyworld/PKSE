@@ -12,6 +12,7 @@
 #define NANOVG_GL3
 #include "nanovg_gl.h"
 
+#include "UI/SpriteManager.h"   // eviction hook: textures are keyed on sprite buffer addresses
 #include "Utils/Logger.h"
 
 using namespace Utils;
@@ -32,6 +33,10 @@ namespace UI {
     };
 
     static inline NVGcolor toNVG(Color c) { return nvgRGBA(c.r, c.g, c.b, c.a); }
+
+    // The framebuffer SpriteManager's eviction callback should reach. Only one exists at a time
+    // (UIManager owns it), and it is cleared on destruction so a late eviction is a no-op.
+    static PKSEFramebuffer* s_activeFramebuffer = nullptr;
 
     // ---------------------------------------------------------------------------------------------
 
@@ -80,9 +85,27 @@ namespace UI {
         if (fontSans >= 0 && fontCJK  >= 0) nvgAddFallbackFontId(vg, fontSans, fontCJK);
         if (fontSans >= 0 && fontSym  >= 0) nvgAddFallbackFontId(vg, fontSans, fontSym);
         if (fontSans >= 0 && fontSym2 >= 0) nvgAddFallbackFontId(vg, fontSans, fontSym2);
+
+        s_activeFramebuffer = this;
+        SpriteManager::setEvictCallback(&PKSEFramebuffer::onSpriteEvicted);
+    }
+
+    void PKSEFramebuffer::onSpriteEvicted(const unsigned char* data) {
+        if (s_activeFramebuffer) s_activeFramebuffer->invalidateImage(data);
+    }
+
+    void PKSEFramebuffer::invalidateImage(const unsigned char* data) {
+        if (!vg || !data) return;
+        auto it = imageCache.find(data);
+        if (it == imageCache.end()) return;
+        if (it->second >= 0) nvgDeleteImage(vg, it->second);
+        imageCache.erase(it);
     }
 
     PKSEFramebuffer::~PKSEFramebuffer() {
+        // Stop eviction reaching a half-destroyed object; the loop below frees every texture anyway.
+        SpriteManager::setEvictCallback(nullptr);
+        if (s_activeFramebuffer == this) s_activeFramebuffer = nullptr;
         if (vg) {
             for (auto& kv : imageCache) if (kv.second >= 0) nvgDeleteImage(vg, kv.second);
             imageCache.clear();

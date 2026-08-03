@@ -48,7 +48,7 @@ APP_AUTHOR  :=  Kiasta
 # single source of truth -- the two can no longer drift.
 # NOTE: no trailing comment on the assignment line. Make keeps trailing whitespace in a value, so
 # "0.0.3 \t\t# ..." would have baked spaces into the .nacp version and the -D define.
-APP_VERSION :=	1.0.2
+APP_VERSION :=	1.0.3
 ROMFS		:=	romfs
 ICON		:=  icon.jpg
 

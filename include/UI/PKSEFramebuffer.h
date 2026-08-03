@@ -41,6 +41,13 @@ namespace UI {
         void drawImageScaled(int x, int y, int imgWidth, int imgHeight, int destWidth, int destHeight, const unsigned char* imageData, int channels);
         void flush();
 
+        // Textures are cached under the ADDRESS of the pixel buffer they were built from, so when
+        // the sprite cache frees a buffer its texture has to go too -- otherwise a later sprite
+        // allocated at that same address would be drawn with the freed one's image. Hooked up to
+        // SpriteManager's eviction callback; onSpriteEvicted forwards to the live framebuffer.
+        void invalidateImage(const unsigned char* data);
+        static void onSpriteEvicted(const unsigned char* data);
+
         // Clip subsequent drawing to a rectangle (for a scrollable region); clearClip() removes it.
         // Both need an active frame; primitives outside the clip rect are not rendered.
         void setClipRect(int x, int y, int w, int h);

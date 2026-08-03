@@ -160,6 +160,10 @@ namespace UI {
         // Leaving the storage view with unsaved bank changes: prompt Save / Discard / Cancel (PKSM-style).
         bool storageExitConfirmActive = false;
         int storageExitConfirmIndex = 0;   // 0=Save & Exit, 1=Discard & Exit, 2=Cancel
+        // Set when + (exit app) raised that prompt instead of B. Closing the app is not an answer to
+        // "save the bank?", so + asks first and the exit resumes once Save or Discard has been picked.
+        bool exitAfterBankChoice = false;
+        void beginAppExit();   // the + handler's tail: prompt about the game save, else leave
         // Touchable storage slot rects, captured during draw for tap hit-testing next frame.
         struct TouchTarget { int pane, box, slot, x, y, w, h; };
         std::vector<TouchTarget> storageTouchTargets;

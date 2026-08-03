@@ -79,20 +79,25 @@ namespace UI {
         p->refreshChecksum();
     }
 
-    static std::unique_ptr<Pokemon::Pokemon> buildDefaultMon(Trainer::Trainer& tr, uint16_t species) {
+    // Origin version byte to stamp on a Pokemon created in this save. A game GROUP deliberately
+    // collapses a version pair into one value -- it exists to say "these games share a save format" --
+    // so picking the origin from it cannot tell Violet from Scarlet, and a created mon claimed the
+    // FIRST game of the pair (Violet -> Scarlet, Shield -> Sword, Shining Pearl -> Brilliant Diamond,
+    // Let's Go Eevee -> Let's Go Pikachu, LeafGreen -> FireRed). The title id knows exactly which game
+    // is open, and the enum's per-game values ARE the stored origin bytes, so it is used directly; the
+    // group only supplies a fallback for an id we don't recognise. Gen 3 stores origin in a 4-bit
+    // field, and both its values (FR = 4, LG = 5) fit, so distinguishing them is safe.
+    static uint8_t creatorOriginVersion(Trainer::Trainer& tr, u64 titleId) {
+        const Enums::GameVersion v = Enums::getGameVersion(titleId);
+        if (v != Enums::GameVersion::Invalid && Enums::getGameGroup(v) == tr.getGameGroup())
+            return static_cast<uint8_t>(v);
+        return Enums::getGroupRepVersion(tr.getGameGroup());
+    }
+
+    static std::unique_ptr<Pokemon::Pokemon> buildDefaultMon(Trainer::Trainer& tr, uint16_t species,
+                                                            uint8_t version) {
         auto p = tr.createBlankPokemon();
         if (!p) return p;
-        uint8_t version;  // origin = a representative version byte of the save's game group
-        switch (tr.getGameGroup()) {
-            case Enums::GameVersion::GG:   version = 42; break;  // Let's Go Pikachu
-            case Enums::GameVersion::BDSP: version = 48; break;  // Brilliant Diamond
-            case Enums::GameVersion::PLA:  version = 47; break;  // Legends: Arceus
-            case Enums::GameVersion::SV:   version = 50; break;  // Scarlet
-            case Enums::GameVersion::ZA:   version = 52; break;  // Legends: Z-A
-            case Enums::GameVersion::FRLG: version = 4;  break;  // FireRed -- Gen 3 origin is a 4-bit field,
-                                                                 // so 44 (Sword) would mangle to 12 (invalid)
-            default:                       version = 44; break;  // Sword (SWSH)
-        }
         const Pokemon::PersonalInfo& pi = Pokemon::getPersonalInfo(species, 0);
         p->setSpecies(species);          // first: drives the EXP growth rate + base-stat lookup
         p->setForm(0);
@@ -372,6 +377,18 @@ namespace UI {
     // SWSH/LZA (party is a separate structure -> getPartyPosition returns 0).
     bool TrainerViewScreen::storageSlotLocked(int pane, int box, int slot) {
         return pane == 0 && trainer.getPartyPosition(box, slot) > 0;
+    }
+
+    // The tail of the + handler: prompt about unsaved GAME-save changes, else leave. Split out so the
+    // bank's Save/Discard prompt can resume the exit once the user has answered it.
+    void TrainerViewScreen::beginAppExit() {
+        if (hasUnsavedChanges && !saveConfirmActive) {
+            exitingWithUnsavedChanges = true;
+            exitingViaPlus = true;   // remember we're exiting via the + button
+            saveConfirmActive = true;
+            return;
+        }
+        exitRequested = true;
     }
 
     // Convert `pk` in place into the format needed to live in `destPane`. The bank (pane 1) accepts
@@ -1326,25 +1343,24 @@ namespace UI {
 
         // Handle + button (exits application)
         if (kDown & HidNpadButton_Plus) {
-            // A carried Pokemon goes home, and the bank persists on its own before we leave.
+            // The bank question is already on screen -- answer that first rather than stacking a
+            // second exit on top of it.
+            if (storageExitConfirmActive) return;
+            // A carried Pokemon goes home before anything is weighed up.
             returnHeldToOrigin();
-            // If the bank can't be written, do NOT leave. Exiting anyway would silently discard every
-            // deposit made this session, and the user would only find out next launch. Staying costs
-            // one button press; leaving costs the data.
-            if (bank && !bank->save()) {
-                postStatus("无法保存银行。为防止数据丢失，暂不退出。请检查 SD 卡空间。", 480);
+            // The bank is its own save file and gets its own decision. Closing the app is NOT that
+            // decision, so it must not write the bank on the way out: doing that committed every
+            // transfer even when the user went on to DECLINE the game save, and the two files then
+            // disagreed. A deposit became a permanent CLONE (the bank has it, the game save still
+            // has it), a withdrawal a permanent LOSS (the bank no longer has it, the game save was
+            // never written). Ask instead, and let Discard rewind both sides and write nothing.
+            if (bank && bank->hasChanged()) {
+                storageExitConfirmActive = true;
+                storageExitConfirmIndex = 0;
+                exitAfterBankChoice = true;   // resume this exit once they've answered
                 return;
             }
-            // Check for unsaved changes
-            if (hasUnsavedChanges && !saveConfirmActive) {
-                // Prompt to save changes before exiting
-                exitingWithUnsavedChanges = true;
-                exitingViaPlus = true;  // Remember we're exiting via + button
-                saveConfirmActive = true;
-                return;
-            }
-            // No unsaved changes or already handled, exit immediately
-            exitRequested = true;
+            beginAppExit();
             return;
         }
 
@@ -1381,7 +1397,8 @@ namespace UI {
                                    ? pickerOrder[pickerSel] : pickerSel;
                 if (sp > 0) {
                     storageSlot(creator.pane, creator.box, creator.slot) =
-                        buildDefaultMon(trainer, static_cast<uint16_t>(sp));
+                        buildDefaultMon(trainer, static_cast<uint16_t>(sp),
+                                        creatorOriginVersion(trainer, titleId));
                     hasUnsavedChanges = true;
                     pickerActive = false; creator.active = false;
                     openStorageEditor(creator.pane, creator.box, creator.slot);
@@ -2462,9 +2479,19 @@ namespace UI {
             if (tb >= 0) { storageExitConfirmIndex = tb; kDown |= HidNpadButton_A; }  // tap a row = select + confirm
             if (kDown & HidNpadButton_Up)   storageExitConfirmIndex = (storageExitConfirmIndex - 1 + N) % N;
             if (kDown & HidNpadButton_Down) storageExitConfirmIndex = (storageExitConfirmIndex + 1) % N;
-            if (kDown & HidNpadButton_B) { storageExitConfirmActive = false; return; }  // Cancel: stay
+            // Cancel: stay, and call off any app exit that raised this (they backed out of leaving too).
+            if (kDown & HidNpadButton_B) {
+                storageExitConfirmActive = false;
+                exitAfterBankChoice = false;
+                return;
+            }
             if (kDown & HidNpadButton_A) {
                 storageExitConfirmActive = false;
+                // Claimed up front, so a branch that bails out (a failed bank write) can't leave a
+                // stale "and then exit" hanging over the next visit to this prompt.
+                const bool resumeExit = exitAfterBankChoice;
+                exitAfterBankChoice = false;
+                bool answered = false;   // Save or Discard actually went through (Cancel did not)
                 switch (storageExitConfirmIndex) {
                     case 0:  // Save & Exit
                         // Same rule as the app-exit path: a failed bank write must not be followed by
@@ -2482,13 +2509,22 @@ namespace UI {
                                        " 个银行槽位未通过完整性检查，请查看 PKSE 日志。", 480);
                         }
                         detailViewActive = false;
+                        answered = true;
                         break;
-                    case 1:  // Discard & Exit -> revert the in-memory bank to its on-disk state
+                    case 1:  // Discard & Exit -> revert the in-memory bank to its on-disk state.
+                             // ONLY the bank: it owns what lives in the bank, not what lives in the
+                             // save. Pulling a Pokemon out and then discarding therefore leaves the
+                             // copy in the save box -- intended, and what PKSM does. Undoing that half
+                             // is the GAME save's own discard, which is a separate decision.
                         if (bank) bank->load();
                         detailViewActive = false;
+                        answered = true;
                         break;
                     default: break;  // Cancel: stay in the storage view
                 }
+                // Raised by + rather than by B: the bank has had its answer, so carry on out of the
+                // app. Cancel leaves `answered` false and simply stays.
+                if (resumeExit && answered) beginAppExit();
                 return;
             }
             return;
