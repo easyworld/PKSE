@@ -345,11 +345,11 @@ namespace Trainer {
 
         if (hasR2) {
             this->saveRevision = 2;
-            this->saveRevisionString = "Crown Tundra";
+            this->saveRevisionString = "冠之雪原";
             this->gameVersionString = "v1.3";  // Crown Tundra requires v1.3.0+
         } else if (hasR1) {
             this->saveRevision = 1;
-            this->saveRevisionString = "Isle of Armor";
+            this->saveRevisionString = "铠之孤岛";
             this->gameVersionString = "v1.2";  // Isle of Armor requires v1.2.0+
         } else {
             this->saveRevision = 0;

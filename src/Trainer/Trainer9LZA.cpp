@@ -336,12 +336,12 @@ namespace Trainer {
                 this->gameVersionString = "v1.0";  // Base game v1.0.x
                 break;
             case 1:
-                this->saveRevisionString = "Mega Dimension";
+                this->saveRevisionString = "超次元爆涌";
                 this->gameVersionString = "v2.0";  // Mega Dimension DLC requires v2.0.0+
                 break;
             default:
                 // Future DLC/updates
-                this->saveRevisionString = "Rev " + std::to_string(this->saveRevision);
+                this->saveRevisionString = "修订版 " + std::to_string(this->saveRevision);
                 this->gameVersionString = "v" + std::to_string(this->saveRevision + 1) + ".0";
                 break;
         }

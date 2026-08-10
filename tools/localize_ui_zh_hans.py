@@ -385,6 +385,24 @@ NAV_TRANSLATIONS = {
     "Up/Down: Select  |  A: Edit  |  B: Back  |  +: Exit App": "上/下：选择  |  A：编辑  |  B：返回  |  +：退出应用",
 }
 
+# Save revision labels are rendered in the title bar but originate in the
+# trainer parsers, outside src/UI. Keep them here so re-running this script
+# after an upstream merge cannot restore the English DLC names.
+REVISION_TRANSLATIONS = {
+    "Crown Tundra": "冠之雪原",
+    "Isle of Armor": "铠之孤岛",
+    "Mega Dimension": "超次元爆涌",
+    "Rev ": "修订版 ",
+    "The Indigo Disk": "蓝之圆盘",
+    "The Teal Mask": "碧之假面",
+}
+
+REVISION_PATHS = (
+    ROOT / "src" / "Trainer" / "Trainer8SWSH.cpp",
+    ROOT / "src" / "Trainer" / "Trainer9LZA.cpp",
+    ROOT / "src" / "Trainer" / "Trainer9SV.cpp",
+)
+
 # These values are part of the machine-readable test trace, not UI copy. Some of
 # their tokens also appear as visible labels, so restore the complete expressions
 # after applying the literal table above.
@@ -429,6 +447,16 @@ def main():
         if path.name == "TrainerViewScreen.cpp":
             for localized, protocol in TRACE_RESTORATIONS.items():
                 text = text.replace(localized, protocol)
+        if text != original:
+            with path.open("w", encoding="utf-8", newline="\n") as fh:
+                fh.write(text)
+            changed += 1
+
+    for path in REVISION_PATHS:
+        text = path.read_text(encoding="utf-8")
+        original = text
+        for english, chinese in REVISION_TRANSLATIONS.items():
+            text = text.replace(cpp_literal(english), cpp_literal(chinese))
         if text != original:
             with path.open("w", encoding="utf-8", newline="\n") as fh:
                 fh.write(text)

@@ -323,11 +323,11 @@ namespace Trainer {
 
         if (hasBlueberry) {
             this->saveRevision = 2;
-            this->saveRevisionString = "The Indigo Disk";
+            this->saveRevisionString = "蓝之圆盘";
             this->gameVersionString = "v3.0";   // The Indigo Disk requires v3.0.0+
         } else if (hasRaidDLC) {
             this->saveRevision = 1;
-            this->saveRevisionString = "The Teal Mask";
+            this->saveRevisionString = "碧之假面";
             this->gameVersionString = "v2.0";   // The Teal Mask requires v2.0.1+
         } else {
             this->saveRevision = 0;
