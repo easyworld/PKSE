@@ -348,6 +348,8 @@ TRANSLATIONS = {
     "Left: Details  |  Right: Moves  |  ": "左：详情  |  右：招式  |  ",
     "[illegal]  ": "[非法]  ",
     "[warning]  ": "[警告]  ",
+    "This Pokémon has unsaved changes.": "这只宝可梦有尚未保存的更改。",
+    "Discard loses them; Back keeps editing.": "放弃将丢失这些更改；返回可继续编辑。",
 }
 
 NAV_TRANSLATIONS = {

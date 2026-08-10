@@ -239,18 +239,35 @@ namespace UI {
         //     for no safety gain, because the data you'd overwrite is the data you just read.
         //   - Loaded from an older backup -> offered only when the Settings lock is on, and it
         //     raises an extra confirmation, because THIS is the case that rolls a game backwards.
+        //
+        // A TITLE session is also not offered "this backup". That backup is the snapshot taken
+        // automatically when the save was loaded, not a file the user chose, so presenting it
+        // beside two deliberate destinations just poses a question with no obvious answer -- and
+        // picking it silently sends the edits somewhere the game will never read. A title session
+        // gets the two answers that mean something: write it back, or file it under a new name.
         enum SaveDest { DestThisBackup = 0, DestNewBackup = 1, DestGameSave = 2 };
         bool loadedFromCart = false;
-        int saveDestIndex = DestThisBackup;
-        int saveDestCount() const { return (loadedFromCart || g_injectToGameSave) ? 3 : 2; }
-        /// The default destination when the save dialog opens.
-        int defaultSaveDest() const { return loadedFromCart ? DestGameSave : DestThisBackup; }
+
+        /// Cursor into the VISIBLE rows, not a SaveDest -- the two stopped being interchangeable
+        /// once a title session dropped a row from the middle of the enum. Map with saveDestAt().
+        int saveDestIndex = 0;
+        int saveDestCount() const { return loadedFromCart ? 2 : (g_injectToGameSave ? 3 : 2); }
+        /// Which destination a visible row means. Title sessions lead with the game save because
+        /// it is both the default and the point of the session; backup sessions keep the original
+        /// order, where row 0 is the backup already open.
+        SaveDest saveDestAt(int row) const {
+            if (loadedFromCart) return row == 0 ? DestGameSave : DestNewBackup;
+            return static_cast<SaveDest>(row);
+        }
+        /// The row the save dialog opens on -- the first one, in both modes.
+        int defaultSaveDestRow() const { return 0; }
 
         /// Set once a value outside the games' own limits has actually been committed this session
         /// (EV > 252, AV > 200, or an EV total over 510 — only reachable with "允许非法数值"
         /// on). The save dialog then carries a warning line. Entirely separate from the destination
         /// logic: it is about what is being written, not where.
         bool illegalDataWritten = false;
+
         // Create sdmc:/PKSE/{title}/{name}/ seeded with a copy of the current backup, suffixing
         // -2, -3... if the name is taken. Returns the new path, or "" on failure.
         std::string createNamedBackupDir(const std::string& name);
@@ -291,6 +308,12 @@ namespace UI {
             int  hexMode = 0;                            // hexagon (Y-cycled): 0 Summary, 1 Base Points (EV/AV), 2 Judge (IVs)
             bool legalityOverlay = false;                // full legality issue list (Y / tap)
             bool ribbonOverlay = false;                  // full ribbon/mark list (X / tap)
+            /// "You have unsaved changes" prompt, raised when the page is closed while
+            /// pokemonEditDirty(). Closing used to roll the mon straight back to its snapshot and
+            /// leave, so edits vanished with nothing said -- the top-bar marker was the only clue,
+            /// and it disappears along with the page. The creator's brand-new mon already asked
+            /// Keep/Discard on the way out; an EXISTING mon being edited did not.
+            bool discardConfirmActive = false;
             int  lastCenterField = 0;                    // remembered center-column row when hopping to/from moves
             int  leftScroll = 0;                         // left-pane vertical scroll (px); auto-follows selection, reset on (re)open
             std::vector<int> leftOrder;                  // left-pane editable field ids in DRAW order (rebuilt each draw)

@@ -150,8 +150,22 @@ namespace Trainer {
     // ------------------------------------------------------------------
     void Trainer8BDSP::updatePartyBlock()
     {
-        // Write each party slot in place (encrypted PB8), then set the party count byte. Empty slots
-        // are zeroed — the count gates how many the game reads.
+        // Write each party slot in place (encrypted PB8), then set the party count byte.
+        //
+        // Empty slots get the game's own encrypted blank, NOT zeros — the same rule updateBoxBlock
+        // follows, and for the same reason: the game decrypts a slot before it looks at it, so
+        // zeros decrypt to garbage and render a Bad Egg. The count is *supposed* to gate how many
+        // slots are read, but leaning on that is how the SwishCrypto games ended up writing Bad
+        // Eggs into every empty party slot. A blank is correct whether or not the count is.
+        std::vector<uint8_t> blank = m_boxBlank;
+        if (blank.empty()) {
+            std::vector<std::byte> zero(SIZE_PARTY8_BDSP, std::byte{0});
+            std::byte* enc = encryptArray8BDSP(
+                std::span<const std::byte>(zero.data(), SIZE_PARTY8_BDSP), 0);
+            blank.assign(reinterpret_cast<const uint8_t*>(enc),
+                         reinterpret_cast<const uint8_t*>(enc) + SIZE_PARTY8_BDSP);
+            delete[] enc;
+        }
         for (size_t i = 0; i < MAX_PARTY_SLOTS; ++i) {
             const size_t off = BDSP_PARTY_OFFSET + i * SIZE_PARTY8_BDSP;
             if (off + SIZE_PARTY8_BDSP > saveData.size()) break;
@@ -164,7 +178,25 @@ namespace Trainer {
                 std::memcpy(&saveData[off], enc, SIZE_PARTY8_BDSP);
                 delete[] enc;
             } else {
-                std::memset(&saveData[off], 0, SIZE_PARTY8_BDSP);
+                // Already reads as empty? Leave the game's own bytes exactly as they are. Empty
+                // slots carry stale per-slot bytes the game never cleared, so stamping one
+                // canonical blank over them would rewrite a party nobody edited.
+                //
+                // The all-zero test is not redundant with the species test: the cipher seeds its
+                // PRNG with the encryption constant, so a zeroed slot (EC 0, first PRNG word
+                // 0x0000) ALSO decrypts to species 0 while the rest is checksum-rejected garbage.
+                // Without this, a slot an older build zeroed would be mistaken for a valid blank
+                // and never repaired.
+                bool anyNonZero = false;
+                for (size_t k = 0; k < SIZE_PARTY8_BDSP && !anyNonZero; ++k)
+                    anyNonZero = (saveData[off + k] != 0);
+                if (anyNonZero) {
+                    std::span<const std::byte> slot(
+                        reinterpret_cast<const std::byte*>(&saveData[off]), SIZE_PARTY8_BDSP);
+                    Pokemon8BDSP existing(slot);
+                    if (existing.speciesID() == 0) continue;
+                }
+                std::memcpy(&saveData[off], blank.data(), SIZE_PARTY8_BDSP);
             }
         }
         if (BDSP_PARTY_COUNT < saveData.size())

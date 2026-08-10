@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="assets/screenshots/banner.png" alt="PKSE - Pokemon Save Editor" width="640">
+  <img src="assets/banner.png" alt="PKSE - Pokemon Save Editor" width="640">
 </p>
 
 <p align="center">
@@ -154,6 +154,13 @@ make clean && make all
 ```bash
 make clean && make
 ```
+or
+
+```bash
+make clean && make all prod
+```
+
+`prod` argument ensures no debug or trace logs are being written clogging up space on the sdcard.
 
 ---
 

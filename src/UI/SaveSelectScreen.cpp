@@ -25,6 +25,10 @@ namespace UI {
     constexpr int GAP        = 24;
     constexpr int MAX_COLS   = 5;
     constexpr int GRID_Y     = 208;
+    // Rows of tiles that fit between the grid's top and the nav bar: (720 - 56 - 208) = 456px of
+    // band against a 224px row pitch. Anything past this scrolls rather than being drawn off the
+    // bottom edge, which is how titles eleven and twelve used to vanish.
+    constexpr int VISIBLE_ROWS = 2;
 
     SaveSelectScreen::SaveSelectScreen() {
         loadUsers();
@@ -70,47 +74,92 @@ namespace UI {
         }
     }
 
-    void SaveSelectScreen::loadTitlesForUser(UserEntry& user) {
-        NsApplicationRecord records[100];
-        s32 recordCount = 0;
-        Result rc = nsListApplicationRecord(records, 100, 0, &recordCount);
+    /**
+     * List the Pokemon saves this user has, by enumerating SAVE DATA -- not installed titles.
+     *
+     * The distinction is the whole point. This used to walk `nsListApplicationRecord` and, for each
+     * Pokemon title found, probe whether a save could be mounted. That asks "which games are
+     * installed, and do they have saves?" when the only question a save editor cares about is
+     * "which saves exist?" -- and the two differ in a case that is not rare at all:
+     *
+     *   A game played from a CARTRIDGE has no application record when the cart is out. Its save
+     *   lives on internal storage and is perfectly editable, but the title vanishes from the picker
+     *   the moment the cart is swapped for another game. An archived or partly-uninstalled title
+     *   does the same.
+     *
+     * Enumerating save data finds those, because the OS lists the save whether or not anything is
+     * currently installed to play it. It is also cheaper: no mount/unmount probe per title, which
+     * was both slow and a devoptab slot churn.
+     */
+    // Scan one save-data space and append this user's Pokemon saves. Returns false only if the
+    // space could not be opened at all; an empty space is a perfectly normal success.
+    bool SaveSelectScreen::scanSaveSpace(UserEntry& user, int spaceId, int& scanned, int& forUser) {
+        FsSaveDataInfoReader reader;
+        Result rc = fsOpenSaveDataInfoReader(&reader, static_cast<FsSaveDataSpaceId>(spaceId));
         if (R_FAILED(rc)) {
-            logErrorToFile("SaveSelect: failed to list application records");
-            return;
+            char m[112];
+            snprintf(m, sizeof(m), "SaveSelect: cannot read save space %d (rc=0x%08X)", spaceId, (unsigned)rc);
+            logInfoToFile(m);
+            return false;
         }
 
-        for (s32 i = 0; i < recordCount; i++) {
-            u64 titleId = records[i].application_id;
-            GameVersion gv = getGameVersion(titleId);
-            if (gv == GameVersion::Invalid) continue;   // not a PKSE-supported title
+        FsSaveDataInfo info[24];
+        s64 readCount = 0;
+        while (R_SUCCEEDED(fsSaveDataInfoReaderRead(&reader, info, 24, &readCount)) && readCount > 0) {
+            for (s64 i = 0; i < readCount; i++) {
+                scanned++;
+                // Account saves only -- system/temporary/cache entries are not a player's save file.
+                if (info[i].save_data_type != FsSaveDataType_Account) continue;
+                if (memcmp(&info[i].uid, &user.uid, sizeof(AccountUid)) != 0) continue;
+                forUser++;
 
-            // Only include titles the selected user actually has a save for. Use a UNIQUE mount name
-            // per title: re-mounting one shared name in a tight loop can fail if the previous unmount
-            // hasn't fully released the devoptab slot, which silently drops every other title (and would
-            // consistently hide one of each Sword/Shield, LGP/LGE pair depending on enumeration order).
-            char dev[16];
-            snprintf(dev, sizeof(dev), "svchk%d", (int)i);
-            Result mountResult = fsdevMountSaveData(dev, titleId, user.uid);
-            if (R_FAILED(mountResult)) {
-                char m[176];
-                snprintf(m, sizeof(m), "SaveSelect: %s (%016llX) recognized but has no mountable save for this user (rc=0x%08X)",
-                         getGameVersionName(gv).c_str(), (unsigned long long)titleId, (unsigned)mountResult);
-                logInfoToFile(m);
-                continue;
-            }
-            fsdevUnmountDevice(dev);
-            {
+                const u64 titleId = info[i].application_id;
+                GameVersion gv = getGameVersion(titleId);
+                if (gv == GameVersion::Invalid) continue;   // not a Pokemon title PKSE knows
+
+                // One tile per game. A title can report more than one save entry (save_data_index),
+                // and scanning two spaces can see the same save twice -- listing a game twice would
+                // be worse than useless.
+                bool dup = false;
+                for (const auto& t : user.titles) {
+                    if (t.titleId == titleId) { dup = true; break; }
+                }
+                if (dup) continue;
+
                 char m[128];
-                snprintf(m, sizeof(m), "SaveSelect: %s (%016llX) -> listed", getGameVersionName(gv).c_str(), (unsigned long long)titleId);
+                snprintf(m, sizeof(m), "SaveSelect: %s (%016llX) -> listed",
+                         getGameVersionName(gv).c_str(), (unsigned long long)titleId);
                 logInfoToFile(m);
-            }
 
-            TitleEntry t;
-            t.titleId = titleId;
-            t.label = getGameVersionName(gv);       // short: "盾", "Legends: Z-A", ...
-            t.name  = "宝可梦 " + t.label;         // full name (backup dir + downstream compat)
-            user.titles.push_back(std::move(t));
+                TitleEntry t;
+                t.titleId = titleId;
+                t.label = getGameVersionName(gv);       // short: "盾", "Legends: Z-A", ...
+                t.name  = "宝可梦 " + t.label;         // full name (backup dir + downstream compat)
+                user.titles.push_back(std::move(t));
+            }
         }
+        fsSaveDataInfoReaderClose(&reader);
+        return true;
+    }
+
+    void SaveSelectScreen::loadTitlesForUser(UserEntry& user) {
+        int scanned = 0, forUser = 0;
+
+        // `All` is the pseudo-space the header blesses for this reader, and it is what should
+        // normally answer. Fall back to the concrete spaces if it is refused, because "found
+        // nothing" is precisely the failure this function exists to stop producing.
+        if (!scanSaveSpace(user, FsSaveDataSpaceId_All, scanned, forUser)) {
+            scanSaveSpace(user, FsSaveDataSpaceId_User,   scanned, forUser);
+            scanSaveSpace(user, FsSaveDataSpaceId_SdUser, scanned, forUser);
+        }
+
+        // Counts make a missing title diagnosable from the log alone: how many saves the console
+        // reported in total, how many belong to this user, and how many were Pokemon titles.
+        char summary[192];
+        snprintf(summary, sizeof(summary),
+                 "SaveSelect: %d save entries on console, %d for %s, %d Pokemon titles listed",
+                 scanned, forUser, user.name.c_str(), (int)user.titles.size());
+        logInfoToFile(summary);
     }
 
     const SaveSelectScreen::UserEntry* SaveSelectScreen::currentUser() const {
@@ -125,10 +174,47 @@ namespace UI {
         return count < MAX_COLS ? count : MAX_COLS;
     }
 
+    // Rows of tiles, at MAX_COLS per row.
+    int SaveSelectScreen::titleRows() const {
+        const UserEntry* u = currentUser();
+        const int count = u ? (int)u->titles.size() : 0;
+        if (count <= 0) return 0;
+        const int cols = titleColumns();
+        return (count + cols - 1) / cols;
+    }
+
+    /**
+     * Move the scroll window as LITTLE as possible to keep the selected tile on screen.
+     *
+     * `scrollRow` is deliberately STATE, not something recomputed from `titleIndex` each frame. The
+     * derived version centred the selection -- `first = selRow - VISIBLE_ROWS/2` -- which reads as
+     * paging: with three rows, selecting the bottom row shows rows 1-2, and moving back up to the
+     * middle row snapped the view to rows 0-1 even though the middle row was *already visible*.
+     * Every vertical move repainted the whole grid.
+     *
+     * Scrolling only when the selection would otherwise fall outside the window means the view
+     * holds still while the cursor moves inside it, and shifts by exactly one row at the edges.
+     * With three rows that is: nothing at all between the top two rows, one row down when you enter
+     * the bottom row, and one row back up only when you leave the top row.
+     */
+    void SaveSelectScreen::scrollSelectionIntoView() {
+        const int rows = titleRows();
+        if (rows <= VISIBLE_ROWS) { scrollRow = 0; return; }   // everything fits; never offset
+
+        const int selRow = titleIndex / titleColumns();
+        if (selRow < scrollRow)                            scrollRow = selRow;
+        else if (selRow >= scrollRow + VISIBLE_ROWS)       scrollRow = selRow - VISIBLE_ROWS + 1;
+
+        // Clamp for the case the row count shrank under us (switching to a user with fewer saves).
+        if (scrollRow > rows - VISIBLE_ROWS) scrollRow = rows - VISIBLE_ROWS;
+        if (scrollRow < 0)                   scrollRow = 0;
+    }
+
     void SaveSelectScreen::setUser(int idx) {
         if (users.empty()) return;
         userIndex = (idx % (int)users.size() + (int)users.size()) % (int)users.size();
         titleIndex = 0;
+        scrollRow  = 0;   // a different user has a different title count; start at the top
     }
 
     void SaveSelectScreen::selectCurrentTitle() {
@@ -176,9 +262,18 @@ namespace UI {
             int cols = titleColumns();
             if (kDown & HidNpadButton_Left)  titleIndex = (titleIndex - 1 + count) % count;
             if (kDown & HidNpadButton_Right) titleIndex = (titleIndex + 1) % count;
-            if ((kDown & HidNpadButton_Down) && titleIndex + cols < count) titleIndex += cols;
+            if (kDown & HidNpadButton_Down) {
+                // A partial last row still has to be reachable. Straight down when that column
+                // exists below; otherwise fall to the final tile rather than refusing to move --
+                // with twelve titles the bottom row is just two wide, and Down from the right-hand
+                // columns would otherwise do nothing at all.
+                if (titleIndex + cols < count)                        titleIndex += cols;
+                else if (titleIndex / cols < (count - 1) / cols)      titleIndex = count - 1;
+            }
             if ((kDown & HidNpadButton_Up)   && titleIndex - cols >= 0)    titleIndex -= cols;
             if (kDown & HidNpadButton_A) selectCurrentTitle();
+            // One place, after every way the selection can move -- stick, D-pad or a tap.
+            scrollSelectionIntoView();
         }
 
         if (kDown & HidNpadButton_Plus) exitRequested = true;
@@ -241,13 +336,20 @@ namespace UI {
             int mw, mh; fb.measureText(msg, mw, mh, TextStyle::Body);
             fb.drawText((fb.getWidth() - mw) / 2, GRID_Y + 120, msg, Colors::TextDim, TextStyle::Body);
         } else {
-            int cols = titleColumns();
-            int gridW = cols * TILE_W + (cols - 1) * GAP;
+            const int cols  = titleColumns();
+            const int rows  = titleRows();
+            const int first = scrollRow;
+            const int gridW = cols * TILE_W + (cols - 1) * GAP;
             int startX = (fb.getWidth() - gridW) / 2;
             if (startX < 40) startX = 40;
 
-            for (int i = 0; i < count; i++) {
-                int col = i % cols, row = i / cols;
+            // Only the rows inside the window are drawn, and only those get tap targets -- an
+            // off-screen tile must not be tappable through whatever is covering it.
+            const int firstIdx = first * cols;
+            const int lastIdx  = (first + VISIBLE_ROWS) * cols;   // exclusive
+
+            for (int i = firstIdx; i < count && i < lastIdx; i++) {
+                int col = i % cols, row = (i / cols) - first;
                 int tileX = startX + col * (TILE_W + GAP);
                 int tileY = GRID_Y + row * (TILE_H + GAP);
                 bool sel = (i == titleIndex);
@@ -273,6 +375,12 @@ namespace UI {
 
                 titleRects.push_back({tileX, tileY, TILE_W, TILE_H, i});
             }
+
+            // Scrollbar to the right of the grid, drawn only when the rows overflow -- same thumb
+            // the backup list and the details editor use.
+            constexpr int ROW_PITCH = TILE_H + GAP;
+            drawScrollbar(fb, startX + gridW + 12, GRID_Y, VISIBLE_ROWS * ROW_PITCH,
+                          rows * ROW_PITCH, first * ROW_PITCH);
         }
 
         // ---- Footer ----

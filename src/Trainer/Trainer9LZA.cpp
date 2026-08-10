@@ -368,15 +368,83 @@ namespace Trainer {
          *    a. Get encryption constant from Pokemon data
          *    b. Encrypt Pokemon data using encryptArray9
          *    c. Write encrypted data to block at correct offset (with gaps)
-         * 4. Zero out empty slots
+         * 4. Write the game's encrypted blank into empty slots
+         *
+         * Empty party slots must be the game's encrypted "blank" (which DECRYPTS to species 0),
+         * NOT literal zeros -- exactly like updateBoxBlock(). The game decrypts every slot and
+         * validates it, so a zeroed slot decrypts to garbage and renders a BAD EGG on every empty
+         * slot. Confirmed on a real Sword/Shield save, whose empty party slots hold 331 non-zero
+         * bytes of 344 and decrypt to species 0; Z-A shares the entity format and the crypto, and
+         * this game's own updateBoxBlock already carries the same fix.
+         *
+         * The party is re-serialized on EVERY save, so the old memset(0) here corrupted the party
+         * even when the edit only touched a box.
+         *
+         * Z-A GAPS its party slots (stride PARTY_SLOT_SIZE9_LZA > SIZE_PARTY9_LZA), so the blank is
+         * the entity followed by a zeroed gap -- the same shape the occupied branch writes.
          */
         for (auto& block : blocks) {
             if (block.key == PARTY9_LZA) {
-                // Ensure the block data is large enough (including gaps)
+                // Ensure the block data is large enough (including gaps). Only ever grows, so a
+                // real save's trailing party-count bytes survive.
                 size_t requiredSize = MAX_PARTY_SLOTS * m_partySlotStride;
                 if (block.data.size() < requiredSize) {
                     block.data.resize(requiredSize, 0);
                 }
+
+                // Which slots ALREADY read as empty, decided on the bytes in the file rather than
+                // on party.size()? Those are left byte-for-byte alone below -- gap included. There
+                // is no single canonical blank to stamp: measured on a real save, the game's empty
+                // slot is not a zeroed entity and empty slots differ from each other (stale bytes
+                // the game never cleared), so the only way to leave an untouched party untouched
+                // is to not write to it.
+                //
+                // "Decrypts to species 0" is NOT sufficient on its own, and the reason is a trap:
+                // the cipher seeds its PRNG with the encryption constant, a zeroed slot has EC 0,
+                // and the first PRNG word from seed 0 is 0x0000 -- so an all-zero slot decrypts to
+                // species 0 as well, while its remaining bytes are garbage the checksum rejects.
+                // A slot wrecked by the old memset(0) would therefore look "already empty" and be
+                // skipped, which is precisely the slot that needs repairing. A real blank always
+                // carries non-zero bytes, so require that too.
+                bool alreadyEmpty[MAX_PARTY_SLOTS] = {};
+                for (size_t i = 0; i < MAX_PARTY_SLOTS; ++i) {
+                    const size_t off = i * m_partySlotStride;
+                    if (off + SIZE_PARTY9_LZA > block.data.size()) break;
+
+                    bool anyNonZero = false;
+                    for (size_t k = 0; k < SIZE_PARTY9_LZA && !anyNonZero; ++k)
+                        anyNonZero = (block.data[off + k] != 0);
+                    if (!anyNonZero) continue;   // zeroed by an older build -> repair it below
+
+                    std::vector<std::byte> enc(SIZE_PARTY9_LZA);
+                    std::memcpy(enc.data(), &block.data[off], SIZE_PARTY9_LZA);
+                    std::byte* dec = decryptArray9LZA(
+                        std::span<const std::byte>(enc.data(), SIZE_PARTY9_LZA));
+                    alreadyEmpty[i] = (readUInt16LittleEndian(
+                        reinterpret_cast<const uint8_t*>(dec) + 0x08) == 0);
+                    delete[] dec;
+                }
+
+                // For a slot that must BECOME empty (a Pokemon was removed), and for repairing a
+                // slot an older build zeroed into a Bad Egg: an all-zero PK9 encrypted with EC 0,
+                // padded out to the gapped stride with zeros.
+                std::vector<uint8_t> blankSlot;
+                {
+                    std::vector<std::byte> zero(SIZE_PARTY9_LZA, std::byte{0});
+                    std::byte* enc = encryptArray9LZA(
+                        std::span<const std::byte>(zero.data(), SIZE_PARTY9_LZA), 0);
+                    blankSlot.assign(reinterpret_cast<const uint8_t*>(enc),
+                                     reinterpret_cast<const uint8_t*>(enc) + SIZE_PARTY9_LZA);
+                    blankSlot.resize(m_partySlotStride, 0);
+                    delete[] enc;
+                }
+
+                // Keep the game's own bytes when the slot already reads as empty, otherwise lay
+                // down the blank. Never zeros -- that is the Bad Egg.
+                const auto clearSlot = [&](size_t i, size_t offset) {
+                    if (i < MAX_PARTY_SLOTS && alreadyEmpty[i]) return;
+                    std::memcpy(&block.data[offset], blankSlot.data(), m_partySlotStride);
+                };
 
                 // Write each party Pokemon
                 for (size_t i = 0; i < party.size() && i < MAX_PARTY_SLOTS; ++i) {
@@ -408,15 +476,13 @@ namespace Trainer {
                         // Clean up encrypted buffer
                         delete[] encryptedData;
                     } else {
-                        // Empty slot - write zeros for entire slot (data + gap)
-                        std::memset(&block.data[offset], 0, m_partySlotStride);
+                        clearSlot(i, offset);   // never zeros -- see the header note
                     }
                 }
 
-                // Zero out any remaining slots
+                // Remaining trailing slots are empty too.
                 for (size_t i = party.size(); i < MAX_PARTY_SLOTS; ++i) {
-                    const size_t offset = i * m_partySlotStride;
-                    std::memset(&block.data[offset], 0, m_partySlotStride);
+                    clearSlot(i, i * m_partySlotStride);
                 }
 
                 break;

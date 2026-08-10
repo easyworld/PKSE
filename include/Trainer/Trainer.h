@@ -128,6 +128,16 @@ namespace Trainer {
         /// 0 = Base game, higher values indicate DLC/updates
         int saveRevision = 0;
 
+        /// NOTE: owning a DLC is NOT a precondition for holding its content. The games gate the
+        /// DLC *areas*, not the Pokemon -- a player without the Expansion Pass can be traded an
+        /// Isle of Armor or Crown Tundra species (or one sent from HOME) and use it normally,
+        /// because the patch ships the data to everyone. PKHeX agrees: nothing under
+        /// PKHeX.Core/Legality references SaveRevision, and its legality caps are the
+        /// full-DLC ones unconditionally. So revision must never be used to decide what a save
+        /// may CONTAIN. Its one real constraint is the Pokedex -- PKHeX declines to *register* a
+        /// DLC-group species in a DLC-less save -- which is about the dex structure, not the
+        /// Pokemon's validity.
+
         /// Human-readable save revision string (e.g., "Base", "IoA", "CT", "MD")
         std::string saveRevisionString = "Base";
 

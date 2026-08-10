@@ -1,0 +1,40 @@
+# Line endings: LF in the repository AND in the working tree.
+#
+# Both repos have ALWAYS stored LF -- `git ls-files --eol` reports i/lf for every tracked text
+# file, with no exceptions. What differed was the CHECKOUT. Git for Windows ships
+# core.autocrlf=true in its *system* config, which neither repo sets and so inherits silently:
+# the index stays LF while the files on disk are materialised as CRLF. Anything that then writes
+# plain LF -- an editor, a generator, a script doing a string replacement -- leaves one file
+# disagreeing with its neighbours. That mixed on-disk state is what kept surfacing as whole-file
+# diffs when moving code between the two repositories; the repository itself was never wrong.
+#
+# `eol=lf` is the fix, because it OVERRIDES core.autocrlf: the working tree is written as LF too,
+# so what is on disk matches what is committed, on every machine and for anyone who clones. It
+# lives in the repo, so there is no per-machine git config for anyone to remember to set.
+#
+# LF is not a style preference here. The Makefile's recipes are executed by MSys2 sh, and a stray
+# CR at the end of a recipe line is handed to the shell as part of the command.
+* text=auto eol=lf
+
+# Build-critical, spelled out so that a future broad exception cannot quietly sweep them up.
+Makefile        text eol=lf
+*.sh            text eol=lf
+*.py            text eol=lf
+
+# Visual Studio rewrites its own project files with CRLF whenever it saves them. These are
+# vestigial here -- IntelliSense only, since MSVC cannot parse devkitA64's libstdc++ -- but
+# pinning them stops that rewrite showing up as a diff every time the solution is opened.
+*.sln           text eol=crlf
+*.vcxproj       text eol=crlf
+*.filters       text eol=crlf
+*.user          text eol=crlf
+
+# Binaries: never inspected, never converted. Declared explicitly rather than left to Git's
+# content heuristic, because a single false positive corrupts the file. The build outputs are
+# listed as a guard in case one is ever committed by accident.
+*.jpg           binary
+*.png           binary
+*.ttf           binary
+*.nro           binary
+*.elf           binary
+*.nacp          binary

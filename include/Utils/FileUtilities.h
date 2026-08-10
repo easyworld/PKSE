@@ -19,7 +19,9 @@ namespace Utils {
     // timestamped history folder is created; when false a single reusable "Working" folder is
     // overwritten (auto-backup disabled — no pile-up). Returns the created folder path, or "" on failure.
     std::string backupSaveData(AccountUid userUid, u64 titleId, std::string titleName, bool timestamped = true);
-    bool restoreModifiedSave(AccountUid userUid, u64 titleId, const char* modifiedSavePath, const char* backupDir, std::vector<std::string> saveFiles);
+    // Copy a backup's save files onto the real game save. The backup directory IS the edited
+    // save -- PKSE writes edits straight into it -- so there is no separate "modified" copy.
+    bool restoreBackupToTitle(AccountUid userUid, u64 titleId, const char* backupDir, std::vector<std::string> saveFiles);
     std::string getTimestamp();
     std::vector<std::string> listBackupDirectories(const char* gameDirectory);
 }

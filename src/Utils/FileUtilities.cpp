@@ -262,10 +262,19 @@ namespace Utils {
         return "";
     }
 
-    bool restoreModifiedSave(AccountUid userUid, u64 titleId, const char* modifiedSavePath, const char* backupDir, std::vector<std::string> saveFiles) {
+    /**
+     * Copy a backup's save files onto the real game save.
+     *
+     * The backup directory IS the edited save: PKSE writes edits straight into it. This used to
+     * take a second "modified save" path as well, because edits went to a `ModifiedSave`
+     * subdirectory and only the inject path ever read them back out -- which meant saving to a
+     * backup silently changed nothing the loader would ever see. That directory is gone, so the
+     * two paths collapsed into one and the second copy pass with them.
+     */
+    bool restoreBackupToTitle(AccountUid userUid, u64 titleId, const char* backupDir, std::vector<std::string> saveFiles) {
         char buffer[LOG_BUFFER_SIZE];
-        logInfoToFile("Restoring modified save to game", modifiedSavePath);
-        
+        logInfoToFile("Restoring backup to game save", backupDir);
+
         Result result = fsdevMountSaveData("save", titleId, userUid);
 
         if (R_FAILED(result)) {
@@ -276,9 +285,9 @@ namespace Utils {
 
         logInfoToFile("Successfully mounted save:/ for restore");
 
-        // Copy only the save files (not subdirectories like ModifiedSave)
-        // Pokemon Sword/Shield has: main, backup, poke_trade
-        logInfoToFile("Copying original save files to save:/", backupDir);
+        // Copy the named save files only, never subdirectories. The list is per-game:
+        // Sword/Shield has main, backup and poke_trade; most others are a single file.
+        logInfoToFile("Copying backup save files to save:/", backupDir);
 
         bool copyAllSuccess = true;
 
@@ -297,31 +306,15 @@ namespace Utils {
         }
 
         if (!copyAllSuccess) {
-            logErrorToFile("Failed to copy original backup files");
+            logErrorToFile("Failed to copy backup files to the game save");
             fsdevUnmountDevice("save");
             return false;
         }
 
-        // Then, overwrite the primary save file with the modified version. The primary
-        // filename differs by generation (SWSH/LZA: "main"; LGPE: "savedata.bin") and is
-        // always saveFiles[0] — the file that the ModifiedSave directory actually contains.
+        // No second pass. The loop above already copied the edited primary file, because the
+        // backup directory holds the edits -- there is no separate "modified" copy to overlay.
         if (saveFiles.empty()) {
             logErrorToFile("No save files specified for restore");
-            fsdevUnmountDevice("save");
-            return false;
-        }
-
-        logInfoToFile("Overwriting primary save file with modified version", saveFiles[0].c_str());
-
-        char modifiedMainPath[512];
-        char destMainPath[512];
-        snprintf(modifiedMainPath, sizeof(modifiedMainPath), "%s/%s", modifiedSavePath, saveFiles[0].c_str());
-        snprintf(destMainPath, sizeof(destMainPath), "save:/%s", saveFiles[0].c_str());
-
-        bool copyModifiedSuccess = copyFile(modifiedMainPath, destMainPath);
-
-        if (!copyModifiedSuccess) {
-            logErrorToFile("Failed to restore modified primary save file.", saveFiles[0].c_str());
             fsdevUnmountDevice("save");
             return false;
         }
@@ -342,7 +335,7 @@ namespace Utils {
 
         fsdevUnmountDevice("save");
 
-        logInfoToFile("Modified save restored successfully!");
+        logInfoToFile("Backup restored to the game save successfully!");
         return true;
     }
 
@@ -380,8 +373,7 @@ namespace Utils {
             }
 
             // Every other subdirectory of the game folder IS a user-facing backup: an auto-history
-            // timestamp or a user-named backup. (ModifiedSave lives one level deeper, inside each
-            // backup, so it never shows up here.) The old code kept only the timestamp shape, which
+            // timestamp or a user-named backup. The old code kept only the timestamp shape, which
             // hid every custom-named backup the destination picker can create.
             if (entry->d_type == DT_DIR) {
                 backupDirs.push_back(entry->d_name);

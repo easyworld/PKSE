@@ -80,6 +80,33 @@ namespace Save {
         }
     }
 
+    /**
+     * Delete a `ModifiedSave` folder left inside a backup by an older build.
+     *
+     * Edits used to be written to `<backup>/ModifiedSave/` and only ever read back out again on the
+     * inject path -- so saving to a backup wrote a file the loader never looked at, and the edits
+     * appeared to vanish. Edits now go straight into the backup, which makes any surviving
+     * ModifiedSave both stale and misleading: it holds an older copy of the same save, sitting next
+     * to the real one.
+     *
+     * Called only after a save has SUCCEEDED, so the data being removed has just been superseded by
+     * something newer in the directory above it. Best-effort -- a backup that keeps its old folder
+     * is untidy, not broken, and must never fail the save.
+     */
+    static void purgeLegacyModifiedSave(const char* backupDir) {
+        char legacyDir[1024];
+        snprintf(legacyDir, sizeof(legacyDir), "%s/ModifiedSave", backupDir);
+
+        struct stat st;
+        if (stat(legacyDir, &st) != 0 || !S_ISDIR(st.st_mode)) return;   // nothing there, normal case
+
+        if (deleteDirectoryRecursive(legacyDir)) {
+            logInfoToFile("Removed legacy ModifiedSave folder from backup", legacyDir);
+        } else {
+            logErrorToFile("Could not remove legacy ModifiedSave folder (harmless)", legacyDir);
+        }
+    }
+
     bool saveTrainerInfo(Trainer::Trainer& trainer, const char* backupDir, u64 titleId, AccountUid userUid, bool injectToTitle) {
         /**
          * Auto-detects the game version and calls the appropriate saving function.
@@ -96,26 +123,30 @@ namespace Save {
 
         GameVersion trainerGroup = trainer.getGameGroup();
 
+        bool ok;
         if (trainerGroup == GameVersion::GG) {
             // Let's Go - cast is safe because we checked the type via virtual method
-            return saveTrainerInfoLetsGo(static_cast<Trainer::Trainer7LGPE&>(trainer), backupDir, titleId, userUid, injectToTitle);
+            ok = saveTrainerInfoLetsGo(static_cast<Trainer::Trainer7LGPE&>(trainer), backupDir, titleId, userUid, injectToTitle);
         } else if (trainerGroup == GameVersion::SWSH) {
             // Sword/Shield - cast is safe because we checked the type via virtual method
-            return saveTrainerInfoSwSh(static_cast<Trainer::Trainer8SWSH&>(trainer), backupDir, titleId, userUid, injectToTitle);
+            ok = saveTrainerInfoSwSh(static_cast<Trainer::Trainer8SWSH&>(trainer), backupDir, titleId, userUid, injectToTitle);
         } else if (trainerGroup == GameVersion::ZA) {
-            return saveTrainerInfoLZA(static_cast<Trainer9LZA&>(trainer), backupDir, titleId, userUid, injectToTitle);
+            ok = saveTrainerInfoLZA(static_cast<Trainer9LZA&>(trainer), backupDir, titleId, userUid, injectToTitle);
         } else if (trainerGroup == GameVersion::SV) {
-            return saveTrainerInfoSV(static_cast<Trainer9SV&>(trainer), backupDir, titleId, userUid, injectToTitle);
+            ok = saveTrainerInfoSV(static_cast<Trainer9SV&>(trainer), backupDir, titleId, userUid, injectToTitle);
         } else if (trainerGroup == GameVersion::PLA) {
-            return saveTrainerInfoLA(static_cast<Trainer8LA&>(trainer), backupDir, titleId, userUid, injectToTitle);
+            ok = saveTrainerInfoLA(static_cast<Trainer8LA&>(trainer), backupDir, titleId, userUid, injectToTitle);
         } else if (trainerGroup == GameVersion::BDSP) {
-            return saveTrainerInfoBDSP(static_cast<Trainer8BDSP&>(trainer), backupDir, titleId, userUid, injectToTitle);
+            ok = saveTrainerInfoBDSP(static_cast<Trainer8BDSP&>(trainer), backupDir, titleId, userUid, injectToTitle);
         } else if (trainerGroup == GameVersion::FRLG) {
-            return saveTrainerInfoFRLG(static_cast<Trainer3FRLG&>(trainer), backupDir, titleId, userUid, injectToTitle);
+            ok = saveTrainerInfoFRLG(static_cast<Trainer3FRLG&>(trainer), backupDir, titleId, userUid, injectToTitle);
         } else {
             logErrorToFile("Unsupported trainer type");
             return false;
         }
+
+        if (ok) purgeLegacyModifiedSave(backupDir);
+        return ok;
     }
 
     // ========================================
@@ -187,14 +218,6 @@ namespace Save {
          * checksums into the footer, and write the whole file back.
          */
 
-        // Create ModifiedSave directory
-        char modifiedSaveDir[512];
-        snprintf(modifiedSaveDir, sizeof(modifiedSaveDir), "%s/ModifiedSave", backupDir);
-        if (mkdir(modifiedSaveDir, 0777) != 0 && errno != EEXIST) {
-            logErrorToFile("Failed to create ModifiedSave directory", modifiedSaveDir);
-            return false;
-        }
-
         // Apply edits into the trainer's blocks: lay down all storage, then overlay party.
         trainer.updateItemBlock();   // serialize inventory back into the MY_ITEM block
         trainer.updateBoxBlock();    // full unified 1000-slot storage
@@ -223,9 +246,9 @@ namespace Save {
         trainer.updatePokedexBlock();       // Zukan flags for everything in storage; also before the copy
         writeBlocksToSaveData7LGPE(raw, trainer.getBlocks());
 
-        // Write the full file to ModifiedSave/savedata.bin.
+        // Write the full file back over the backup's savedata.bin.
         char savePath[1024];
-        snprintf(savePath, sizeof(savePath), "%s/savedata.bin", modifiedSaveDir);
+        snprintf(savePath, sizeof(savePath), "%s/savedata.bin", backupDir);
         FILE* outFile = fopen(savePath, "wb");
         if (!outFile) {
             logErrorToFile("Failed to open file for writing", savePath);
@@ -243,7 +266,7 @@ namespace Save {
         if (injectToTitle) {
             logInfoToFile("Restoring modified Let's Go save to game save device...");
             std::vector<std::string> saveFiles = {"savedata.bin"};
-            if (!restoreModifiedSave(userUid, titleId, modifiedSaveDir, backupDir, saveFiles)) {
+            if (!restoreBackupToTitle(userUid, titleId, backupDir, saveFiles)) {
                 logErrorToFile("Failed to restore modified Let's Go save to game");
                 return false;
             }
@@ -282,15 +305,6 @@ namespace Save {
     }
 
     bool saveTrainerInfoSwSh(Trainer8SWSH& trainer, const char* backupDir, u64 titleId, AccountUid userUid, bool injectToTitle) {
-        // Create ModifiedSave directory
-        char modifiedSaveDir[512];
-        snprintf(modifiedSaveDir, sizeof(modifiedSaveDir), "%s/ModifiedSave", backupDir);
-
-        if (mkdir(modifiedSaveDir, 0777) != 0 && errno != EEXIST) {
-            logErrorToFile("Failed to create ModifiedSave directory", modifiedSaveDir);
-            return false;
-        }
-
         trainer.updateItemBlock();
 
         trainer.updatePartyBlock();
@@ -306,7 +320,7 @@ namespace Save {
 
         // Write to file
         char savePath[1024];
-        snprintf(savePath, sizeof(savePath), "%s/main", modifiedSaveDir);
+        snprintf(savePath, sizeof(savePath), "%s/main", backupDir);
 
         FILE* outFile = fopen(savePath, "wb");
         if (!outFile) {
@@ -329,12 +343,12 @@ namespace Save {
         if (injectToTitle) {
             logInfoToFile("Restoring modified save to game save device...");
             std::vector<std::string> saveFiles = {"main", "backup", "poke_trade"};
-            if (!restoreModifiedSave(userUid, titleId, modifiedSaveDir, backupDir, saveFiles)) {
+            if (!restoreBackupToTitle(userUid, titleId, backupDir, saveFiles)) {
                 logErrorToFile("Failed to restore modified save to game");
                 return false;
             }
         } else {
-            logInfoToFile("Not injecting to the game save - written to the backup/ModifiedSave only");
+            logInfoToFile("Not injecting to the game save - written to the backup only");
         }
 
         return true;
@@ -418,13 +432,6 @@ namespace Save {
     }
 
     bool saveTrainerInfoBDSP(Trainer8BDSP& trainer, const char* backupDir, u64 titleId, AccountUid userUid, bool injectToTitle) {
-        char modifiedSaveDir[512];
-        snprintf(modifiedSaveDir, sizeof(modifiedSaveDir), "%s/ModifiedSave", backupDir);
-        if (mkdir(modifiedSaveDir, 0777) != 0 && errno != EEXIST) {
-            logErrorToFile("Failed to create ModifiedSave directory", modifiedSaveDir);
-            return false;
-        }
-
         // BDSP is a FLAT blob (no SwishCrypto). Re-serialize party + box into the buffer, then
         // recompute the whole-file MD5 — after which getSaveData() IS the final on-disk save. Write
         // both SaveData.bin and its Backup.bin mirror so the game loads the edits either way.
@@ -441,7 +448,7 @@ namespace Save {
         const char* fileNames[] = { "SaveData.bin", "Backup.bin" };
         for (const char* fname : fileNames) {
             char savePath[1024];
-            snprintf(savePath, sizeof(savePath), "%s/%s", modifiedSaveDir, fname);
+            snprintf(savePath, sizeof(savePath), "%s/%s", backupDir, fname);
             FILE* outFile = fopen(savePath, "wb");
             if (!outFile) {
                 logErrorToFile("Failed to open file for writing", savePath);
@@ -454,31 +461,22 @@ namespace Save {
                 return false;
             }
         }
-        logInfoToFile("Successfully wrote BDSP ModifiedSave (SaveData.bin + Backup.bin)");
+        logInfoToFile("Successfully wrote BDSP backup (SaveData.bin + Backup.bin)");
 
         if (injectToTitle) {
             logInfoToFile("Restoring modified BDSP save to game save device...");
             std::vector<std::string> saveFiles = { "SaveData.bin", "Backup.bin" };
-            if (!restoreModifiedSave(userUid, titleId, modifiedSaveDir, backupDir, saveFiles)) {
+            if (!restoreBackupToTitle(userUid, titleId, backupDir, saveFiles)) {
                 logErrorToFile("Failed to restore modified save to game");
                 return false;
             }
         } else {
-            logInfoToFile("Not injecting to the game save - written to the backup/ModifiedSave only");
+            logInfoToFile("Not injecting to the game save - written to the backup only");
         }
         return true;
     }
 
     bool saveTrainerInfoLA(Trainer8LA& trainer, const char* backupDir, u64 titleId, AccountUid userUid, bool injectToTitle) {
-        // Create ModifiedSave directory
-        char modifiedSaveDir[512];
-        snprintf(modifiedSaveDir, sizeof(modifiedSaveDir), "%s/ModifiedSave", backupDir);
-
-        if (mkdir(modifiedSaveDir, 0777) != 0 && errno != EEXIST) {
-            logErrorToFile("Failed to create ModifiedSave directory", modifiedSaveDir);
-            return false;
-        }
-
         // Re-serialize the edited party + box blocks, then encrypt (hash is computed inside).
         // updateItemBlock is a no-op stub for LA (item write deferred).
         trainer.updateItemBlock();
@@ -491,7 +489,7 @@ namespace Save {
         std::vector<uint8_t> encryptedData = encrypt(trainer.getBlocks());
 
         char savePath[1024];
-        snprintf(savePath, sizeof(savePath), "%s/main", modifiedSaveDir);
+        snprintf(savePath, sizeof(savePath), "%s/main", backupDir);
 
         FILE* outFile = fopen(savePath, "wb");
         if (!outFile) {
@@ -513,27 +511,18 @@ namespace Save {
         if (injectToTitle) {
             logInfoToFile("Restoring modified save to game save device...");
             std::vector<std::string> saveFiles = {"main"};
-            if (!restoreModifiedSave(userUid, titleId, modifiedSaveDir, backupDir, saveFiles)) {
+            if (!restoreBackupToTitle(userUid, titleId, backupDir, saveFiles)) {
                 logErrorToFile("Failed to restore modified save to game");
                 return false;
             }
         } else {
-            logInfoToFile("Not injecting to the game save - written to the backup/ModifiedSave only");
+            logInfoToFile("Not injecting to the game save - written to the backup only");
         }
 
         return true;
     }
 
     bool saveTrainerInfoLZA(Trainer9LZA& trainer, const char* backupDir, u64 titleId, AccountUid userUid, bool injectToTitle) {
-        // Create ModifiedSave directory
-        char modifiedSaveDir[512];
-        snprintf(modifiedSaveDir, sizeof(modifiedSaveDir), "%s/ModifiedSave", backupDir);
-
-        if (mkdir(modifiedSaveDir, 0777) != 0 && errno != EEXIST) {
-            logErrorToFile("Failed to create ModifiedSave directory", modifiedSaveDir);
-            return false;
-        }
-
         trainer.updateItemBlock();
 
         trainer.updatePartyBlock();
@@ -549,7 +538,7 @@ namespace Save {
 
         // Write to file
         char savePath[1024];
-        snprintf(savePath, sizeof(savePath), "%s/main", modifiedSaveDir);
+        snprintf(savePath, sizeof(savePath), "%s/main", backupDir);
 
         FILE* outFile = fopen(savePath, "wb");
         if (!outFile) {
@@ -572,27 +561,18 @@ namespace Save {
         if (injectToTitle) {
             logInfoToFile("Restoring modified save to game save device...");
             std::vector<std::string> saveFiles = {"main"};
-            if (!restoreModifiedSave(userUid, titleId, modifiedSaveDir, backupDir, saveFiles)) {
+            if (!restoreBackupToTitle(userUid, titleId, backupDir, saveFiles)) {
                 logErrorToFile("Failed to restore modified save to game");
                 return false;
             }
         } else {
-            logInfoToFile("Not injecting to the game save - written to the backup/ModifiedSave only");
+            logInfoToFile("Not injecting to the game save - written to the backup only");
         }
 
         return true;
     }
 
     bool saveTrainerInfoSV(Trainer9SV& trainer, const char* backupDir, u64 titleId, AccountUid userUid, bool injectToTitle) {
-        // Create ModifiedSave directory
-        char modifiedSaveDir[512];
-        snprintf(modifiedSaveDir, sizeof(modifiedSaveDir), "%s/ModifiedSave", backupDir);
-
-        if (mkdir(modifiedSaveDir, 0777) != 0 && errno != EEXIST) {
-            logErrorToFile("Failed to create ModifiedSave directory", modifiedSaveDir);
-            return false;
-        }
-
         // Re-serialize the edited blocks (item, party, box), then encrypt (hash is computed inside).
         trainer.updateItemBlock();
         trainer.updatePartyBlock();
@@ -604,7 +584,7 @@ namespace Save {
         std::vector<uint8_t> encryptedData = encrypt(trainer.getBlocks());
 
         char savePath[1024];
-        snprintf(savePath, sizeof(savePath), "%s/main", modifiedSaveDir);
+        snprintf(savePath, sizeof(savePath), "%s/main", backupDir);
 
         FILE* outFile = fopen(savePath, "wb");
         if (!outFile) {
@@ -626,12 +606,12 @@ namespace Save {
         if (injectToTitle) {
             logInfoToFile("Restoring modified save to game save device...");
             std::vector<std::string> saveFiles = {"main"};
-            if (!restoreModifiedSave(userUid, titleId, modifiedSaveDir, backupDir, saveFiles)) {
+            if (!restoreBackupToTitle(userUid, titleId, backupDir, saveFiles)) {
                 logErrorToFile("Failed to restore modified save to game");
                 return false;
             }
         } else {
-            logInfoToFile("Not injecting to the game save - written to the backup/ModifiedSave only");
+            logInfoToFile("Not injecting to the game save - written to the backup only");
         }
 
         return true;
@@ -650,6 +630,8 @@ namespace Save {
         struct dirent* ent;
         while ((ent = readdir(d)) != nullptr) {
             std::string name = ent->d_name;
+            // "ModifiedSave" is a leftover directory from builds before saves went straight
+            // into the backup; skip it so an old copy is never picked as the save to edit.
             if (name == "." || name == ".." || name == "ModifiedSave") continue;
             char full[1024];
             snprintf(full, sizeof(full), "%s/%s", dir, name.c_str());
@@ -690,13 +672,6 @@ namespace Save {
     }
 
     bool saveTrainerInfoFRLG(Trainer3FRLG& trainer, const char* backupDir, u64 titleId, AccountUid userUid, bool injectToTitle) {
-        char modifiedSaveDir[512];
-        snprintf(modifiedSaveDir, sizeof(modifiedSaveDir), "%s/ModifiedSave", backupDir);
-        if (mkdir(modifiedSaveDir, 0777) != 0 && errno != EEXIST) {
-            logErrorToFile("Failed to create ModifiedSave directory", modifiedSaveDir);
-            return false;
-        }
-
         // Apply edits into the raw save, then recompute every sector checksum.
         trainer.updateItemBlock();
         trainer.updateBoxBlock();
@@ -709,7 +684,7 @@ namespace Save {
 
         const std::string name = trainer.fileName().empty() ? std::string("save.sav") : trainer.fileName();
         char savePath[1024];
-        snprintf(savePath, sizeof(savePath), "%s/%s", modifiedSaveDir, name.c_str());
+        snprintf(savePath, sizeof(savePath), "%s/%s", backupDir, name.c_str());
 
         const std::vector<uint8_t>& raw = trainer.getSaveData();
         FILE* outFile = fopen(savePath, "wb");
@@ -728,7 +703,7 @@ namespace Save {
         if (injectToTitle) {
             logInfoToFile("Restoring modified FRLG save to game save device...");
             std::vector<std::string> saveFiles = { name };
-            if (!restoreModifiedSave(userUid, titleId, modifiedSaveDir, backupDir, saveFiles)) {
+            if (!restoreBackupToTitle(userUid, titleId, backupDir, saveFiles)) {
                 logErrorToFile("Failed to restore modified FRLG save to game");
                 return false;
             }

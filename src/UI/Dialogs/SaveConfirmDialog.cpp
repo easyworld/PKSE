@@ -41,9 +41,9 @@ namespace Dialogs {
         // --- Destination picker ---------------------------------------------------------
         const int rows = screen.saveDestCount();
         constexpr int rowH = 58, rowGap = 8;
-        // The illegal-values notice is a LINE here, not another dialog. This dialog is already a
-        // confirm/cancel, so folding the warning in tells the user without adding a step.
-        const int warnH = screen.illegalDataWritten ? 26 : 0;
+        // The notice is a LINE here, not an extra dialog. This dialog is already a confirm/cancel,
+        // so folding a warning in tells the user without adding a step.
+        const int warnH = (screen.illegalDataWritten ? 26 : 0);
         const int h = 168 + warnH + rows * (rowH + rowGap);
         const int x = (fb.getWidth() - w) / 2, y = (fb.getHeight() - h) / 2;
 
@@ -56,8 +56,11 @@ namespace Dialogs {
             fb.drawText(x + 24, cy + 24,
                         "包含游戏判定为非法的数值。",
                         Color(235, 120, 120), TextStyle::Caption);
-            cy += warnH;
+            cy += 26;
         }
+        // There is deliberately no "this save contains DLC content" warning. Owning a DLC gates the
+        // AREAS, not the Pokemon -- the patch ships the data to every copy, so a player without the
+        // Expansion Pass can hold a Crown Tundra species traded to them and it works normally.
 
         const std::string backupName = leafOf(screen.backupDir);
         const char* titles[3] = { "当前备份", "新备份……", "游戏存档" };
@@ -73,6 +76,9 @@ namespace Dialogs {
         const int rx = x + 20, rw = w - 40;
         int ry = cy + 34;
         for (int i = 0; i < rows; ++i) {
+            // A row is not its destination: a title session shows Game save / New backup, so the
+            // row index has to be mapped rather than used to index the arrays directly.
+            const int d = static_cast<int>(screen.saveDestAt(i));
             const bool sel = (screen.saveDestIndex == i);
             if (sel) fb.drawSelectionHighlight(rx, ry, rw, rowH);
             else     fb.drawFilledRoundedRect(rx, ry, rw, rowH, 10, Colors::PanelAlt);
@@ -80,10 +86,10 @@ namespace Dialogs {
             // Red only when writing to the game would DESTROY something: a backup-sourced session
             // overwriting live progress. Saving a cart session back to its own cart is routine and
             // shouldn't be dressed up as a hazard.
-            const bool danger = (i == TrainerViewScreen::DestGameSave) && !screen.loadedFromCart;
-            fb.drawText(rx + 18, ry + 7, titles[i],
+            const bool danger = (d == TrainerViewScreen::DestGameSave) && !screen.loadedFromCart;
+            fb.drawText(rx + 18, ry + 7, titles[d],
                         danger ? Color(235, 120, 120) : Colors::Text, TextStyle::Body);
-            fb.drawText(rx + 18, ry + 32, subs[i], Colors::TextDim, TextStyle::Caption);
+            fb.drawText(rx + 18, ry + 32, subs[d], Colors::TextDim, TextStyle::Caption);
 
             screen.touchButtons.push_back({ i, rx, ry, rw, rowH });
             ry += rowH + rowGap;

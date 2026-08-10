@@ -388,9 +388,15 @@ namespace UI {
             g_moveWarn ? "开启" : "关闭",
             g_injectToGameSave ? "开启" : "关闭",
         };
-        const int rowW = 720, rowH = 64;
+        // The panel is a fixed height, so the rows have to fit inside it -- there is no scrolling
+        // here. The gap absorbed the sixth row; rowH stays at 64 because it is also the touch
+        // target. The assert is the point: add a seventh row and the build stops rather than
+        // quietly drawing it past the panel edge.
+        constexpr int rowW = 720, rowH = 64, rowGap = 12, rowsTop = 22, footerH = 26;
+        static_assert(hH + rowsTop + kRows * (rowH + rowGap) + footerH <= CONTENT_PANEL_HEIGHT,
+                      "Settings rows no longer fit the content panel -- shrink the rows or add scrolling");
         const int rx = x + (w - rowW) / 2;
-        int ry = y + hH + 34;
+        int ry = y + hH + rowsTop;
         for (int i = 0; i < kRows; ++i) {
             const bool sel = (screen.settingsSelectedRow == i);
             fb.drawSoftShadow(rx, ry, rowW, rowH, 14);
@@ -410,7 +416,7 @@ namespace UI {
             fb.drawPill(px, py, pillW, pillH, pillFill);
             fb.drawText(px + (pillW - vw) / 2, py + (pillH - vh) / 2, values[i], pillText, TextStyle::Body);
             screen.touchButtons.push_back({ i, rx, ry, rowW, rowH });
-            ry += rowH + 20;
+            ry += rowH + rowGap;
         }
         fb.drawText(rx, ry + 8, "A：切换     B：返回", Colors::TextDim, TextStyle::Caption);
     }
@@ -480,7 +486,7 @@ namespace UI {
         // Assigned in the body rather than the init list: it is declared far below these members, and
         // C++ initialises in DECLARATION order, so listing it here would only earn a -Wreorder.
         this->loadedFromCart = loadedFromCart;
-        saveDestIndex = defaultSaveDest();
+        saveDestIndex = defaultSaveDestRow();
 
         // Open on the box the game was last left on (persisted per-game as the "当前盒子"),
         // so the editor lands where the player was. Clamp in case a save holds a stale index.
@@ -724,6 +730,11 @@ namespace UI {
         // honest bound there. An unrecognised group (bit 0, not Gen 3) means "no data" for the same
         // reason and likewise must not filter down to nothing.
         const bool isFRLG = (trainer.getGameGroup() == Enums::GameVersion::FRLG);
+        // DLC species are deliberately NOT filtered out here, and there is no warning either.
+        // Owning a DLC gates the AREAS, not the Pokemon: the patch ships the data to every copy,
+        // so a player without the Expansion Pass can be traded a Crown Tundra species (or receive
+        // one from HOME) and use it normally. PKHeX agrees -- its legality caps are the full-DLC
+        // ones unconditionally. Filtering here would deny content that is perfectly valid.
         for (int s = 1; s < total; ++s) {  // skip 0 = None
             // ANY form present, not just form 0 -- see speciesPresentIn. Creating one of these picks
             // up the right form automatically: buildDefaultMon starts a mon on the first form the
@@ -741,10 +752,14 @@ namespace UI {
     void TrainerViewScreen::buildMovePickerOrder(uint16_t species, uint8_t form, Enums::GameVersion group, uint16_t current) {
         pickerOrder.clear();
         const int total = Dialogs::pickerOptionCount(Dialogs::PickerKind::Move);
+        // Per GAME only -- DLC moves stay on offer for the same reason DLC species do; the save
+        // dialog warns rather than the picker hiding them.
+        const auto present = [&](int m) {
+            return Names::isMovePresent(static_cast<uint16_t>(m), group);
+        };
         std::vector<bool> legal(total, false);
         for (int m = 1; m < total; ++m)
-            if (Pokemon::isLearnable(species, form, group, static_cast<uint16_t>(m))
-                && Names::isMovePresent(static_cast<uint16_t>(m), group)) {
+            if (Pokemon::isLearnable(species, form, group, static_cast<uint16_t>(m)) && present(m)) {
                 legal[m] = true; pickerOrder.push_back(m);
             }
         pickerLegalCount = static_cast<int>(pickerOrder.size());
@@ -753,7 +768,7 @@ namespace UI {
         // Legends: Arceus, which the game turns into a Bad Egg) are dropped, matching PKHeX's editor.
         pickerOrder.push_back(0);   // None first in the non-legal section, to clear a slot
         for (int m = 1; m < total; ++m)
-            if (!legal[m] && Names::isMovePresent(static_cast<uint16_t>(m), group)) pickerOrder.push_back(m);
+            if (!legal[m] && present(m)) pickerOrder.push_back(m);
         pickerSel = 0;
         for (int i = 0; i < static_cast<int>(pickerOrder.size()); ++i)
             if (pickerOrder[i] == static_cast<int>(current)) { pickerSel = i; break; }
@@ -902,6 +917,7 @@ namespace UI {
         details.selectedField = 0;
         details.legalityOverlay = false;
         details.ribbonOverlay = false;
+        details.discardConfirmActive = false;   // never let it survive to overlay the next page
         details.editSnapshot.clear();
     }
 
@@ -1087,6 +1103,13 @@ namespace UI {
         hasUnsavedChanges = true;
         postStatus("金钱已设为 $" + std::to_string(newMoney) + ".", 150);
     }
+
+    // NOTE: there was once a scanForDlcContent() here, warning at save time when a save held
+    // content above its base game's id ceiling. It was removed because its premise was wrong.
+    // Owning a DLC gates the AREAS, not the Pokemon: a player without the Expansion Pass can be
+    // traded a Crown Tundra species, or receive one from HOME, and use it normally -- the patch
+    // ships the data to every copy of the game. So there is nothing to warn about, and the warning
+    // said something false ("it will not appear in-game"). Do not reintroduce it.
 
     // A backup's leaf folder name IS its name everywhere in the UI, so this is
     // what the user recognises when we report where a save went.
@@ -2127,7 +2150,8 @@ namespace UI {
                 !storageExitConfirmActive && !details.active) {
                 exitingWithUnsavedChanges = false;  // Regular save, not exiting
                 exitingViaPlus = false;
-                saveDestIndex = defaultSaveDest();   // cart session -> game save; backup -> that backup
+                saveDestIndex = defaultSaveDestRow();   // first row: game save for a title session,
+                                                        // the open backup for a backup session
                 saveConfirmActive = true;
                 return;
             }
@@ -2185,11 +2209,13 @@ namespace UI {
                 // B: Cancel
                 // Destination picker: Up/Down choose, A writes there.
                 const int nDest = saveDestCount();
-                if (saveDestIndex >= nDest) saveDestIndex = DestThisBackup;   // lock may have gone off
+                if (saveDestIndex >= nDest) saveDestIndex = 0;   // lock may have gone off
                 if (kDown & HidNpadButton_Up)   saveDestIndex = (saveDestIndex - 1 + nDest) % nDest;
                 if (kDown & HidNpadButton_Down) saveDestIndex = (saveDestIndex + 1) % nDest;
                 const int td = touchedButtonId(touch);
                 if (td >= 0 && td < nDest) { saveDestIndex = td; kDown |= HidNpadButton_A; }
+                // The cursor is a ROW; which destination that row means depends on the session.
+                const SaveDest chosenDest = saveDestAt(saveDestIndex);
 
                 if (kDown & HidNpadButton_A) {
                     // A carried Pokemon lives outside both containers — return it before serializing
@@ -2198,7 +2224,7 @@ namespace UI {
 
                     // (The bank has its OWN persistence — it saves on storage-view exit / app exit,
                     // separate from this game-save, since it's a separate entity from the save file.)
-                    if (saveDestIndex == DestGameSave) {
+                    if (chosenDest == DestGameSave) {
                         // Writing your OWN save back is the ordinary thing a save editor does -- the
                         // data being overwritten is the data we just read -- so it goes straight
                         // through. Only a backup-sourced session needs the extra gate, because that
@@ -2209,7 +2235,7 @@ namespace UI {
                     }
 
                     std::string destDir = backupDir;
-                    if (saveDestIndex == DestNewBackup) {
+                    if (chosenDest == DestNewBackup) {
                         const Utils::KeyboardResult res =
                             Utils::promptText("新备份", "备份名称", titleName, 40);
                         if (!res.accepted) return;      // cancelled: leave the dialog up, nothing written
@@ -2400,6 +2426,30 @@ namespace UI {
                 return;
             }
 
+            // Unsaved edits on an EXISTING mon. Closing the page discards them, so say so first
+            // rather than silently rolling back -- Save commits (same as X), Discard throws the
+            // edits away, Back returns to the page. Mirrors the creator's Keep/Discard prompt,
+            // which already covered the not-yet-accepted case.
+            if (details.discardConfirmActive) {
+                if (tb == 0)      kDown |= HidNpadButton_B;
+                else if (tb == 1) kDown |= HidNpadButton_A;
+                else if (tb == 2) kDown |= HidNpadButton_Y;
+                if (kDown & HidNpadButton_B) { details.discardConfirmActive = false; return; }  // keep editing
+                if (kDown & HidNpadButton_A) {          // Save: exactly what X does, then leave
+                    details.discardConfirmActive = false;
+                    snapshotEditTarget();               // baseline := current, so nothing rolls back
+                    closeDetailsModal();                // hasUnsavedChanges + party mirror were
+                    return;                             // already handled as each field was edited
+                }
+                if (kDown & HidNpadButton_Y) {          // Discard: roll back and leave
+                    details.discardConfirmActive = false;
+                    restoreEditTarget();
+                    closeDetailsModal();
+                    return;
+                }
+                return;
+            }
+
             // Legality overlay (full issue list) intercepts input while open: B or any tap closes it.
             if (details.legalityOverlay) {
                 if ((kDown & HidNpadButton_B) || tb >= 0) details.legalityOverlay = false;
@@ -2451,15 +2501,18 @@ namespace UI {
             // exception: its not-yet-committed mon asks Keep/Discard instead.
             if (tb == 99) {
                 if (creator.editing) { creator.keepConfirmActive = true; creator.keepConfirmIndex = 1; return; }
+                if (pokemonEditDirty()) { details.discardConfirmActive = true; return; }
                 restoreEditTarget();
                 closeDetailsModal();
                 return;
             }
             if (tb >= 0 && tb <= 31) { details.selectedField = tb; kDown |= HidNpadButton_A; }
 
-            // B closes the page, DISCARDING any unsaved edits (rolled back to the last Save/open snapshot).
+            // B closes the page. Unsaved edits would be rolled back to the last Save/open snapshot,
+            // so ask before throwing them away.
             if (kDown & HidNpadButton_B) {
                 if (creator.editing) { creator.keepConfirmActive = true; creator.keepConfirmIndex = 1; return; }
+                if (pokemonEditDirty()) { details.discardConfirmActive = true; return; }
                 restoreEditTarget();
                 closeDetailsModal();
                 return;
@@ -4053,6 +4106,9 @@ namespace UI {
         }
         if (creator.keepConfirmActive) {   // "保留这只新宝可梦吗？" overlays the creator's editor
             Panels::drawCreatorKeepConfirm(*this, fb);
+        }
+        if (details.discardConfirmActive) {   // "未保存的更改" on closing an existing mon's editor
+            Panels::drawDetailsDiscardConfirm(*this, fb);
         }
         if (gen3ConvertConfirmActive) {    // "要转换为第三世代格式吗？" -- PID rebuild, never gated
             Panels::drawGen3ConvertConfirm(*this, fb);

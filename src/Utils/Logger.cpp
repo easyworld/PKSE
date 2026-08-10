@@ -13,6 +13,42 @@
 #include "Utils/Logger.h"
 #include "Globals.h"
 
+//---------------------------------------------------------------------------------------------
+// Production builds compile every SD-card log sink out.
+//
+// PKSE_PROD comes from `make ... prod` (see the Makefile). A release build must not leave a dated
+// debug log on the user's card every time they open the app, nor grow test-trace.log forever --
+// that is a diagnostic for development and hardware test passes, not something to ship.
+//
+// The whole implementation is replaced rather than each fopen being guarded, so there is exactly
+// one place to check and no way for a new sink to be added below and quietly survive into a
+// release. The DECLARATIONS in Logger.h are deliberately untouched: every call site still compiles
+// unchanged, the host harnesses keep their own stubs, and nothing needs to know which build it is.
+//
+// Call sites still build their argument strings in a prod build -- that work is not eliminated,
+// only the file I/O is. It costs strictly less than the logging build it replaces, so there is no
+// regression; if it ever matters, the no-ops can move into the header to let the optimiser drop
+// the arguments too.
+//---------------------------------------------------------------------------------------------
+#ifdef PKSE_PROD
+
+namespace Utils {
+    void logTest(const std::string&)              {}
+    void logTestSession(const std::string&)       {}
+    void logInfoToFile(const char*)               {}
+    void logInfoToFile(std::string)               {}
+    void logErrorToFile(const char*)              {}
+    void logErrorToFile(std::string)              {}
+    void logInfoToFile(const char*, const char*)  {}
+    void logErrorToFile(const char*, const char*) {}
+
+    // Also a no-op: a build that writes no logs has no business deleting files either. Logs left
+    // by an earlier development build stay where they are -- removing them is the user's call.
+    void cleanupOldLogs()                         {}
+}
+
+#else
+
 namespace Utils {
     #define LOG_DIRECTORY "sdmc:/PKSE/logs"
 
@@ -162,3 +198,5 @@ namespace Utils {
         closedir(dir);
     }
 }
+
+#endif  // PKSE_PROD

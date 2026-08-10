@@ -297,16 +297,48 @@ namespace Trainer {
          * - If SAVE_REVISION8_R1_SWSH block exists with data -> Isle of Armor (revision 1)
          * - Otherwise -> Base game (revision 0)
          *
-         * Note: These blocks contain Pokedex data for each region, and their presence indicates DLC access.
+         * These blocks hold the Isle of Armor / Crown Tundra Pokedex, and the DLC is detected from
+         * whether either has RECORDED ANYTHING -- not from whether the block exists.
+         *
+         * Presence is not the signal, however much it looks like one. A patched v1.3.2 game
+         * ALLOCATES both dex blocks in every save it creates, licence or no licence: a brand new
+         * save on a console with no Expansion Pass carries a 10128-byte Isle of Armor dex and a
+         * 10080-byte Crown Tundra dex, both entirely zero. Testing for presence therefore reports
+         * Crown Tundra for everyone, which is what let the pickers offer Calyrex and the Crown
+         * Tundra items to a base-game save.
+         *
+         * A dex only ever grows, so "contains a non-zero byte" is the honest question. Measured on
+         * real saves: a fresh no-DLC save is 0 / 0 / 0 across Galar, Armor and Crown; after an hour
+         * of base-game play Galar rises while both DLC dexes stay exactly 0; a played full-DLC save
+         * shows 671 / 42 / 5. The DLC side of a genuine save is only a handful of bytes, so the test
+         * has to be "any at all" rather than any kind of threshold.
+         *
+         * Known limit: a player who owns a DLC but has not yet seen a single Pokemon in it reads as
+         * a lower tier until they do. That is the safe direction to be wrong in only because it is
+         * self-correcting -- one DLC encounter fixes it -- whereas the presence test was wrong for
+         * every no-DLC save permanently. PKHeX has the same gap and resolves it the same way its
+         * own comment describes ("No DLC1 data allocated"), so there is no upstream answer to copy.
+         *
+         * Deliberately NOT applied to Scarlet/Violet or Z-A. Their triggers are a different shape --
+         * S/V keys partly off a Blueberry Points COUNTER, which is legitimately zero on a save that
+         * owns the Indigo Disk but has never earned any -- so the same rule there would invent a
+         * false negative. Those need their own base-game save to measure before anything changes.
          */
+        const auto hasRecordedData = [](const Save::Block& b) {
+            for (uint8_t v : b.data) {
+                if (v != 0) return true;
+            }
+            return false;
+        };
+
         bool hasR2 = false;
         bool hasR1 = false;
 
         for (const auto& block : this->blocks) {
-            if (block.key == SAVE_REVISION8_R2_SWSH && !block.data.empty()) {
+            if (block.key == SAVE_REVISION8_R2_SWSH && hasRecordedData(block)) {
                 hasR2 = true;
             }
-            if (block.key == SAVE_REVISION8_R1_SWSH && !block.data.empty()) {
+            if (block.key == SAVE_REVISION8_R1_SWSH && hasRecordedData(block)) {
                 hasR1 = true;
             }
         }
@@ -347,15 +379,87 @@ namespace Trainer {
          *    a. Get encryption constant from Pokemon data
          *    b. Encrypt Pokemon data using encryptArray8
          *    c. Write encrypted data to block
-         * 4. Zero out empty slots
+         * 4. Write the game's encrypted blank into empty slots
+         *
+         * Empty party slots must be the game's encrypted "blank" (which DECRYPTS to species 0),
+         * NOT literal zeros -- exactly like updateBoxBlock(). The game decrypts every slot and
+         * validates it, so a zeroed slot decrypts to garbage and renders a BAD EGG. Measured on a
+         * real Shield save: an empty party slot holds 331 non-zero bytes of 344 and decrypts to
+         * species 0. It is not, and never was, a run of zeros.
+         *
+         * This path used to memset(0) and corrupted the party into Bad Eggs on ANY save, including
+         * one that only touched a box -- the party is re-serialized unconditionally. updateBoxBlock
+         * was fixed for this; the party writer was missed, which is why the boxes were fine and the
+         * party was not.
+         *
+         * The party-count tail after the six slots (the block is 2068 bytes, not 6*344 = 2064) is
+         * deliberately left untouched: parsePartyBlock treats an encrypted blank as occupied, so
+         * empty slots load as species-0 "ghosts" that inflate party.size(). The save's own count is
+         * authoritative, not party.size(). Same reasoning as Trainer8LA.
          */
         for (auto& block : blocks) {
             if (block.key == PARTY8_SWSH) {
-                // Ensure the block data is large enough
+                // Ensure the block data is large enough. Note this only ever GROWS the block, so a
+                // real save's 4-byte count tail survives.
                 size_t requiredSize = MAX_PARTY_SLOTS * SIZE_PARTY8_SWSH;
                 if (block.data.size() < requiredSize) {
                     block.data.resize(requiredSize, 0);
                 }
+
+                // Which slots ALREADY read as empty, decided on the bytes in the file rather than
+                // on party.size()? Those are left byte-for-byte alone below. The game's blank is
+                // not a zeroed PK8 -- measured against a real save, a synthesized
+                // encrypt(zeros, EC 0) differs from it by ~17 bytes per slot, and empty slots
+                // differ from EACH OTHER too (stale bytes the game never cleared). So there is no
+                // one canonical blank to stamp: the only way to leave an untouched party untouched
+                // is to not write to it.
+                //
+                // "Decrypts to species 0" is NOT sufficient on its own, and the reason is a trap:
+                // the cipher seeds its PRNG with the encryption constant, a zeroed slot has EC 0,
+                // and the first PRNG word from seed 0 is 0x0000 -- so an all-zero slot decrypts to
+                // species 0 as well, while its other 329 bytes are garbage the checksum rejects.
+                // A slot wrecked by the old memset(0) would therefore look "already empty" and be
+                // skipped, which is precisely the slot that needs repairing. A real blank always
+                // carries non-zero bytes, so require that too.
+                bool alreadyEmpty[MAX_PARTY_SLOTS] = {};
+                for (size_t i = 0; i < MAX_PARTY_SLOTS; ++i) {
+                    const size_t off = i * SIZE_PARTY8_SWSH;
+                    if (off + SIZE_PARTY8_SWSH > block.data.size()) break;
+
+                    bool anyNonZero = false;
+                    for (size_t k = 0; k < SIZE_PARTY8_SWSH && !anyNonZero; ++k)
+                        anyNonZero = (block.data[off + k] != 0);
+                    if (!anyNonZero) continue;   // zeroed by an older build -> repair it below
+
+                    std::vector<std::byte> enc(SIZE_PARTY8_SWSH);
+                    std::memcpy(enc.data(), &block.data[off], SIZE_PARTY8_SWSH);
+                    std::byte* dec = decryptArray8SWSH(
+                        std::span<const std::byte>(enc.data(), SIZE_PARTY8_SWSH));
+                    alreadyEmpty[i] = (readUInt16LittleEndian(
+                        reinterpret_cast<const uint8_t*>(dec) + 0x08) == 0);
+                    delete[] dec;
+                }
+
+                // For a slot that must BECOME empty (a Pokemon was removed), and for repairing a
+                // slot an older build zeroed into a Bad Egg, synthesize a blank that decrypts to
+                // species 0: an all-zero PK8 encrypted with EC 0 (== PKHeX's new PK8() BlankPKM).
+                // Same construction as createBlankPokemon() and updateBoxBlock()'s fallback.
+                std::vector<uint8_t> blankSlot;
+                {
+                    std::vector<std::byte> zero(SIZE_PARTY8_SWSH, std::byte{0});
+                    std::byte* enc = encryptArray8SWSH(
+                        std::span<const std::byte>(zero.data(), SIZE_PARTY8_SWSH), 0);
+                    blankSlot.assign(reinterpret_cast<const uint8_t*>(enc),
+                                     reinterpret_cast<const uint8_t*>(enc) + SIZE_PARTY8_SWSH);
+                    delete[] enc;
+                }
+
+                // Writes an empty slot: keep the game's own bytes when they already read as empty,
+                // otherwise lay down the blank. Never zeros -- that is the Bad Egg.
+                const auto clearSlot = [&](size_t i, size_t offset) {
+                    if (i < MAX_PARTY_SLOTS && alreadyEmpty[i]) return;
+                    std::memcpy(&block.data[offset], blankSlot.data(), SIZE_PARTY8_SWSH);
+                };
 
                 // Write each party Pokemon
                 for (size_t i = 0; i < party.size() && i < MAX_PARTY_SLOTS; ++i) {
@@ -383,15 +487,13 @@ namespace Trainer {
                         // Clean up encrypted buffer
                         delete[] encryptedData;
                     } else {
-                        // Empty slot - write zeros
-                        std::memset(&block.data[offset], 0, SIZE_PARTY8_SWSH);
+                        clearSlot(i, offset);   // never zeros -- see the header note
                     }
                 }
 
-                // Zero out any remaining slots
+                // Remaining trailing slots are empty too.
                 for (size_t i = party.size(); i < MAX_PARTY_SLOTS; ++i) {
-                    const size_t offset = i * SIZE_PARTY8_SWSH;
-                    std::memset(&block.data[offset], 0, SIZE_PARTY8_SWSH);
+                    clearSlot(i, i * SIZE_PARTY8_SWSH);
                 }
 
                 break;
@@ -482,9 +584,13 @@ namespace Trainer {
                     std::vector<std::byte> zero(SIZE_PARTY8_SWSH, std::byte{0});
                     std::byte* enc = encryptArray8SWSH(
                         std::span<const std::byte>(zero.data(), SIZE_PARTY8_SWSH), 0);
-                    blankSlot.resize(SIZE_PARTY8_SWSH);
-                    for (size_t k = 0; k < SIZE_PARTY8_SWSH; ++k)
-                        blankSlot[k] = static_cast<uint8_t>(enc[k]);
+                    // assign() from the pointer range, not resize()-then-fill. Both branches above
+                    // are inlined into one body, and GCC cannot prove blankSlot is still empty
+                    // here -- so it reads the resize as APPENDING 344 bytes onto the 344 the
+                    // harvest branch allocated and reports a -Wstringop-overflow. Building the
+                    // buffer in one step removes the pattern, and matches updatePartyBlock().
+                    const uint8_t* encBytes = reinterpret_cast<const uint8_t*>(enc);
+                    blankSlot.assign(encBytes, encBytes + SIZE_PARTY8_SWSH);
                     delete[] enc;
                 }
 

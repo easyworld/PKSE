@@ -525,6 +525,30 @@ namespace UI
             screen.touchButtons.push_back({1, x + w - 24 - cbw, cby, cbw, cbh});
         }
 
+        void drawDetailsDiscardConfirm(TrainerViewScreen &screen, PKSEFramebuffer &fb)
+        {
+            // Deliberately the same shape as the creator's Keep/Discard above: same three glyph
+            // buttons in the same places, so leaving an edit page always looks and answers alike.
+            // What differs is the stakes -- here the mon already exists and only the EDITS are at
+            // risk, so the safe action (Save) sits on A where Keep sits for a new mon.
+            constexpr int w = 560, h = 226;
+            const int x = (fb.getWidth() - w) / 2;
+            const int y = (fb.getHeight() - h) / 2;
+            int cy = Dialogs::drawDialogFrame(fb, x, y, w, h, "未保存的更改", Colors::Orange);
+            fb.drawText(x + 28, cy, "这只宝可梦有尚未保存的更改。", Colors::Text);
+            fb.drawText(x + 28, cy + 34, "放弃将丢失这些更改；返回可继续编辑。",
+                        Colors::TextDim, TextStyle::Caption);
+
+            screen.touchButtons.clear();
+            const int cbw = 160, cbh = TouchTargetMin, cby = y + h - cbh - 18;
+            drawGlyphButton(fb, x + 24, cby, cbw, cbh, "B", "返回", Colors::PanelAlt);
+            screen.touchButtons.push_back({0, x + 24, cby, cbw, cbh});
+            drawGlyphButton(fb, x + (w - cbw) / 2, cby, cbw, cbh, "Y", "放弃", Colors::PanelAlt);
+            screen.touchButtons.push_back({2, x + (w - cbw) / 2, cby, cbw, cbh});
+            drawGlyphButton(fb, x + w - 24 - cbw, cby, cbw, cbh, "A", "保存", Colors::PanelAlt);
+            screen.touchButtons.push_back({1, x + w - 24 - cbw, cby, cbw, cbh});
+        }
+
         namespace
         {
             // Frame + Cancel/Continue buttons shared by the two lossy-move notices. Only the chrome is

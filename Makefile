@@ -48,9 +48,9 @@ APP_AUTHOR  :=  Kiasta
 # single source of truth -- the two can no longer drift.
 # NOTE: no trailing comment on the assignment line. Make keeps trailing whitespace in a value, so
 # "0.0.3 \t\t# ..." would have baked spaces into the .nacp version and the -D define.
-APP_VERSION :=	1.1.0
+APP_VERSION :=	1.1.1
 ROMFS		:=	romfs
-ICON		:=  icon.jpg
+ICON		:=  assets/icon.jpg
 
 #---------------------------------------------------------------------------------
 # options for code generation
@@ -60,6 +60,38 @@ ARCH	:=	-march=armv8-a+crc+crypto -mtune=cortex-a57 -mtp=soft -fPIE
 # NanoVG: disable its stb_image (we feed RGBA buffers via nvgCreateImageRGBA, and SpriteManager
 # already owns the STB_IMAGE_IMPLEMENTATION) — avoids duplicate symbols. Keeps fontstash for text.
 DEFINES	:=	-DNVG_NO_STB -DPKSE_VERSION='"$(APP_VERSION)"'
+
+#---------------------------------------------------------------------------------
+# Production builds:  make clean && make all prod
+#
+# 'prod' is a MODIFIER, not something that builds -- it is picked out of MAKECMDGOALS so it can
+# flip a flag for whatever else is on the command line, which is what makes 'make all prod' work
+# ('all' does the building, 'prod' only changes how). 'make PROD=1 all' is equivalent.
+#
+# What it does: -DPKSE_PROD, which compiles every SD-card log sink out of src/Utils/Logger.cpp --
+# the dated debug logs under sdmc:/PKSE/logs and the sdmc:/PKSE/test-trace.log trace. A release
+# build should not drop a new log file on the user's card every time they open the app.
+#
+# The export matters. DEFINES is evaluated ABOVE the top-level/build-dir split, so the sub-make
+# that actually compiles re-derives it from this same file -- and that sub-make is invoked with
+# the goal 'all', not 'prod', so the MAKECMDGOALS test below is FALSE there. Exporting PROD puts
+# it in the sub-make's environment, where it is picked up as a make variable and the -D survives.
+# Without the export this silently builds a normal logging binary that merely looks like a
+# release, which is the worst possible failure for a flag whose whole job is what NOT to ship.
+#
+# Objects do not depend on this flag, so switching modes needs a 'make clean' first. The build
+# prints which mode it is in (see the $(BUILD) rule) rather than leaving that to be assumed.
+#---------------------------------------------------------------------------------
+ifneq (,$(filter prod,$(MAKECMDGOALS)))
+export PROD := 1
+endif
+
+ifeq ($(PROD),1)
+DEFINES	+=	-DPKSE_PROD
+BUILD_MODE	:=	production (SD-card logging compiled out)
+else
+BUILD_MODE	:=	debug (logging enabled)
+endif
 
 #---------------------------------------------------------------------------------
 # SDL2 provides the window, GL context and input ONLY -- rendering is NanoVG on GL,
@@ -191,6 +223,15 @@ default: $(BUILD)
 # Target when you run 'make all'. Downloads type icons + fonts, THEN build (HD sprites: tools/gen_hdsprites.py)
 all: types fonts $(BUILD)
 
+# 'prod' builds nothing -- it is a modifier that sets -DPKSE_PROD for the rest of the command line
+# (see DEFINES near the top). It exists as a target so 'make all prod' has something to resolve.
+# Combine it: 'make clean && make all prod'. On its own it only prints what it would have changed.
+prod:
+	@printf "production mode: SD-card logging compiled out (-DPKSE_PROD)\n"
+	@printf "  combine with a build target, e.g. 'make clean && make all prod'\n"
+
+.PHONY: prod
+
 #---------------------------------------------------------------------------------
 # Sprite and icon download integration
 #---------------------------------------------------------------------------------
@@ -288,6 +329,7 @@ fonts:
 
 $(BUILD):
 	@[ -d $@ ] || mkdir -p $@
+	@printf "build mode: %s\n" "$(BUILD_MODE)"
 	@$(MAKE) --no-print-directory -C $(BUILD) -f $(CURDIR)/Makefile all
 
 #---------------------------------------------------------------------------------

@@ -239,38 +239,41 @@ namespace Pokemon {
         /**
          * Sets shininess by modifying the PID (0x18) only — NOT the Encryption Constant
          * and NOT the stored gender byte (0x1D). Shiny iff (TID^SID^PIDhi^PIDlo) < 16.
+         *
+         * That XOR folds the two halves of the PID together, which is the trap this used
+         * to fall into: turning a Let's Go Pokemon OFF shiny XOR'd the PID with masks that
+         * flipped the SAME bit position in both halves (0x10001000, then 0x01000100). Any
+         * such mask cancels itself inside `PIDhi ^ PIDlo` and leaves the shiny value
+         * untouched, so the branch could not work and the toggle appeared dead in one
+         * direction only. A mask has to be asymmetric between the halves to move it.
+         *
+         * Rather than flip bits and hope, solve for the value outright. Writing
+         *     PIDhi' = PIDhi ^ (current ^ target)
+         * makes the new XOR exactly `target`, because the old PIDhi cancels out. Target 1
+         * is a star shiny; target 16 is the first non-shiny value, so it is the smallest
+         * edit that clears the flag. Only the high word moves, leaving the low byte (the
+         * one the other generations guard as their gender byte) untouched.
          */
 
         if (trainerID32 == 0) {
             return; // Cannot set shiny without trainer ID
         }
-
-        uint32_t p = pid();  // real PID at 0x18
-        uint16_t tidHigh = (trainerID32 >> 16) & 0xFFFF;
-        uint16_t tidLow = trainerID32 & 0xFFFF;
-
-        if (makeShiny) {
-            // Keep the high word of the PID; pick a low word that yields XOR == 1 (star shiny).
-            uint32_t pHigh = (p >> 16) & 0xFFFF;
-            uint32_t H = pHigh ^ tidHigh;
-            uint32_t L = H ^ 1;
-            uint32_t pLow = L ^ tidLow;
-
-            uint32_t newPID = (pHigh << 16) | pLow;
-            writeUInt32LittleEndian(reinterpret_cast<uint8_t*>(data.data() + 0x18), newPID);
-            refreshChecksum();
-
-        } else {
-            uint32_t newPID = p ^ 0x10001000;
-
-            uint32_t xorComponent = newPID ^ trainerID32;
-            uint32_t xorResult = (xorComponent ^ (xorComponent >> 16)) & 0xFFFF;
-            if (xorResult < 16) {
-                newPID ^= 0x01000100;  // still shiny, flip more bits
-            }
-
-            writeUInt32LittleEndian(reinterpret_cast<uint8_t*>(data.data() + 0x18), newPID);
-            refreshChecksum();
+        if (isShiny(trainerID32, species()) == makeShiny) {
+            return; // Already in the requested state
         }
+
+        const uint32_t p = pid();  // real PID at 0x18
+        const uint16_t pidHigh = static_cast<uint16_t>((p >> 16) & 0xFFFF);
+        const uint16_t pidLow  = static_cast<uint16_t>(p & 0xFFFF);
+        const uint16_t tidHigh = static_cast<uint16_t>((trainerID32 >> 16) & 0xFFFF);
+        const uint16_t tidLow  = static_cast<uint16_t>(trainerID32 & 0xFFFF);
+
+        const uint16_t current = static_cast<uint16_t>(pidHigh ^ pidLow ^ tidHigh ^ tidLow);
+        const uint16_t target  = makeShiny ? 1 : 16;
+        const uint16_t newHigh = static_cast<uint16_t>(pidHigh ^ (current ^ target));
+
+        const uint32_t newPID = (static_cast<uint32_t>(newHigh) << 16) | pidLow;
+        writeUInt32LittleEndian(reinterpret_cast<uint8_t*>(data.data() + 0x18), newPID);
+        refreshChecksum();
     }
 }

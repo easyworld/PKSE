@@ -55,12 +55,23 @@ namespace UI {
         std::vector<HitRect> userRects;
 
         void loadUsers();
+        // Titles come from enumerating SAVE DATA, not installed applications: a game played from a
+        // cartridge that is currently out, or one that has been uninstalled, keeps its save on
+        // internal storage and must still be editable.
         void loadTitlesForUser(UserEntry& user);
+        static bool scanSaveSpace(UserEntry& user, int spaceId, int& scanned, int& forUser);
         void setUser(int idx);
         void selectCurrentTitle();
 
         const UserEntry* currentUser() const;
-        int titleColumns() const;   // grid columns for the current user's title count (<= 5)
+        int titleColumns() const;      // grid columns for the current user's title count (<= 5)
+        int titleRows() const;         // rows those tiles occupy
+
+        // Top row of the scroll window. Persistent STATE, not derived from the selection: it moves
+        // only when the selected tile would otherwise fall outside the window, so the grid holds
+        // still while the cursor moves within it instead of re-centring (which reads as paging).
+        int scrollRow = 0;
+        void scrollSelectionIntoView();
     };
 }
 

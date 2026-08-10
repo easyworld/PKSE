@@ -475,9 +475,10 @@ namespace Modals {
             // A freshly-created mon has no "保存" -- every field is an unsaved edit until committed, so
             // X reads KEEP (commit + close); Discard still lives on the B Keep/Discard prompt.
             const std::string saveSeg = screen.creator.editing ? "X：保留" : "X：保存";
-            // For an existing mon, B rolls back to the last Save (unsaved edits are discarded) -- so B
-            // reads "放弃" while there are unsaved changes, and plain "关闭" once clean/saved.
-            const std::string backSeg = (!screen.creator.editing && screen.pokemonEditDirty()) ? "B：放弃" : "B：关闭";
+            // B always reads "关闭" now: with unsaved edits it raises the Save/Discard/Back prompt
+            // rather than discarding on the spot, so promising "放弃" would describe the old
+            // behaviour. Dirtiness is already signalled by the top-bar "未保存的更改" marker.
+            const std::string backSeg = "B：关闭";
             if (sel >= 15)      navHint = "A：编辑  |  Y：奖章  |  L：随机个体值  |  " + legalSeg + "右：数值  |  " + saveSeg + "  |  " + backSeg;
             else if (sel >= 10) navHint = "A：编辑  |  Y：奖章  |  L：随机个体值  |  " + legalSeg + "左：数值  |  " + saveSeg + "  |  " + backSeg;
             else                navHint = "A：编辑  |  Y：奖章  |  L：随机个体值  |  " + legalSeg + "左：详情  |  右：招式  |  " + saveSeg + "  |  " + backSeg;
