@@ -9,6 +9,9 @@
 #include <cstring>
 
 #include "Trainer/Trainer9LZA.h"
+#include "Pokemon/SpeciesConverter9.h"    // gen9NationalToInternal -- dex entries are keyed by internal id
+#include "Pokemon/PersonalInfoTable.h"    // getPersonalInfo -> presence + genderRatio
+#include "Pokemon/FormInfo.h"             // isMegaForm / hasMegaForm -- the entry's "seen mega" bits
 #include "Trainer/Inventory9LZA.h"
 #include "Names/ItemPouches.h"   // getPouchItems -- per-pouch legal ids
 #include "Utils/Logger.h"
@@ -546,6 +549,241 @@ namespace Trainer {
             std::span<const std::byte>(enc, SIZE_PARTY9_LZA));
         delete[] enc;
         return p;
+    }
+
+    // ========================================
+    // Pokedex (Zukan9a)
+    // ========================================
+    //
+    // Z-A has ONE dex block, not Scarlet/Violet's pair, and a much bigger entry: 0x84 bytes against
+    // S/V's 0x20. It is still keyed by the Gen 9 INTERNAL species id (SpeciesConverter9), and it still
+    // uses per-form bitfields -- but it records more per form, because Z-A is the Mega game.
+    //
+    // Entry, 0x84 bytes (PKHeX PokeDexEntry9a):
+    //   0x00 u32 forms caught        0x04 u32 forms seen      0x08 u16 language flags
+    //   0x0A u8  is-new ("NEW" badge -- Z-A has a real flag for this; S/V does not)
+    //   0x0B u8  genders seen (1 male, 2 female, 4 genderless)
+    //   0x0C u32 forms seen SHINY (per form, unlike S/V's single models-seen byte)
+    //   0x10 u8  megas seen (bit per mega slot)   0x11 u8 alpha seen
+    //   0x5A/0x5B/0x5C  displayed form / gender / shiny      (0x12-0x59 and 0x5D+ are unused)
+    //
+    // The displayed GENDER is not the raw gender byte: it is PKHeX's DisplayGender9a, where 3 means
+    // "gendered but the two look the same". Only species with a visible gender difference store 1/2.
+    namespace {
+        constexpr size_t ZA_ENTRY_SIZE = 0x84;
+
+        int zaLangSlot(uint8_t language) {   // slot 6 unused, so 7+ shift down by two
+            if (language == 0 || language == 6 || language > 10) return -1;
+            return (language >= 7) ? language - 2 : language - 1;
+        }
+
+        inline uint32_t rdU32(const std::vector<uint8_t>& d, size_t o) {
+            return static_cast<uint32_t>(d[o]) | (static_cast<uint32_t>(d[o + 1]) << 8)
+                 | (static_cast<uint32_t>(d[o + 2]) << 16) | (static_cast<uint32_t>(d[o + 3]) << 24);
+        }
+        inline void wrU32(std::vector<uint8_t>& d, size_t o, uint32_t v) {
+            d[o]     = static_cast<uint8_t>(v);         d[o + 1] = static_cast<uint8_t>(v >> 8);
+            d[o + 2] = static_cast<uint8_t>(v >> 16);   d[o + 3] = static_cast<uint8_t>(v >> 24);
+        }
+        inline uint16_t rdU16(const std::vector<uint8_t>& d, size_t o) {
+            return static_cast<uint16_t>(d[o] | (d[o + 1] << 8));
+        }
+        inline void wrU16(std::vector<uint8_t>& d, size_t o, uint16_t v) {
+            d[o] = static_cast<uint8_t>(v);  d[o + 1] = static_cast<uint8_t>(v >> 8);
+        }
+
+        // Species that get a SECOND mega slot (bit 1 of the megas-seen byte), regardless of which form
+        // was registered. PKHeX Zukan9a.IsMegaFormXY / IsMegaFormZA plus its two explicit extras.
+        //
+        // Only Charizard and Mewtwo have their second Mega in the base game; the other four pairs and
+        // the two odd ones arrive with Mega Dimension, so they are gated on the save revision.
+        //
+        // PKHeX sets Meowstic and Magearna UNCONDITIONALLY, and that is wrong against a real save: a
+        // revision-0 Z-A save with Meowstic forms 0 and 1 registered has this byte at 0x00, not 0x02.
+        // Its own GetFallbackBitsDLC agrees, listing Meowstic only in the DLC branch. Magearna is not
+        // in the test save, but its Megas are Mega Dimension content too, so it is gated the same way.
+        bool zaSecondMegaSlot(uint16_t species, int saveRevision) {
+            switch (species) {
+                case 6:    // Charizard  Mega X / Y   -- base game
+                case 150:  // Mewtwo     Mega X / Y   -- base game
+                    return true;
+                case 26:   // Raichu     Mega X / Y
+                case 359:  // Absol      Mega + Mega Z
+                case 445:  // Garchomp   Mega + Mega Z
+                case 448:  // Lucario    Mega + Mega Z
+                case 678:  // Meowstic   gendered Megas
+                case 801:  // Magearna   Mega + Original Color
+                    return saveRevision != 0;
+                default:
+                    return false;
+            }
+        }
+
+        // Forms the game treats as one unit: registering any of them reveals the others, because the
+        // mon shifts between them freely. PKHeX Zukan9a.GetFormExtraFlags.
+        uint32_t zaFormExtraFlags(uint16_t species) {
+            switch (species) {
+                case 676:  return 0x01;        // Furfrou    base trim
+                case 681:  return 0x03;        // Aegislash  Shield + Blade
+                case 479:  return 0x3F;        // Rotom      all 5 appliances + base
+                case 648:  return 0x03;        // Meloetta   Aria + Pirouette
+                case 649:  return 0x1F;        // Genesect   all 4 drives + base
+                case 778:  return 0x03;        // Mimikyu    Disguised + Busted
+                case 877:  return 0x03;        // Morpeko    Full Belly + Hangry
+                case 720:  return 0x03;        // Hoopa      Confined + Unbound
+                case 718:  return 0x10;        // Zygarde    Complete
+                default:   return 0;
+            }
+        }
+
+        // The same idea for SHINY flags, which Z-A stores per form. Wider than the above because a
+        // shiny reveals the shiny model of every form it can take -- including Megas, which is why a
+        // plain shiny Charizard marks its Mega X/Y shiny as seen. PKHeX Zukan9a.GetFormExtraFlagsShinySeen.
+        uint32_t zaShinyExtraFlags(uint16_t species, uint8_t form, int saveRevision) {
+            switch (species) {
+                case 676:  return 0x01;        // Furfrou
+                case 681:  return 0x03;        // Aegislash
+                case 664: case 665:            // Scatterbug / Spewpa -> all 20 Vivillon patterns.
+                    return 0xFFFFF;            //   (deliberately NOT Vivillon itself)
+                case 479:  return 0x3F;        // Rotom
+                case 648:  return 0x03;        // Meloetta
+                case 649:  return 0x1F;        // Genesect
+                case 778:  return 0x03;        // Mimikyu
+                case 877:  return 0x03;        // Morpeko
+                case 720:  return 0x03;        // Hoopa
+                case 978:  return (form <= 2) ? (8u << form) : 0u;             // Tatsugiri per-form Mega
+                case 801:  return (form == 1) ? 8u : (form == 0 ? 4u : 0u);    // Magearna Mega
+                case 718:  return 0x3F;        // Zygarde   all forms + Mega
+                case 658:  return (form != 2) ? 0x0B : 0u;                     // Greninja  Mega + Ash/base
+                case 670:  return (form == 5) ? 0x20 : 0u;                     // Floette   Mega (not form 1)
+                default:   break;
+            }
+            // Fallback: reveal the species' Mega slots. Two for the Mega X/Y and Mega Z species, one
+            // for everything else that has a Mega at all.
+            if (zaSecondMegaSlot(species, saveRevision)) {
+                switch (species) {
+                    case 678:  return 0x04;    // Meowstic  Mega only (M, F, Mega)
+                    case 26:   return 0x0C;    // Raichu    X and Y (base, Alolan, X, Y)
+                    default:   return 0x06;    // base, Mega X, Mega Y  /  Mega + Mega Z
+                }
+            }
+            return ::Pokemon::hasMegaForm(species) ? 0x02u : 0u;
+        }
+
+        // PKHeX PokeDexEntry9a.GetDisplayGender -> DisplayGender9a.
+        // 0 genderless, 1 male, 2 female, 3 gendered but the sexes look identical.
+        // Only species with a real visual difference store 1/2 -- everything else stores 3.
+        uint8_t zaDisplayGender(uint8_t gender, uint16_t species, uint8_t genderRatio) {
+            if (gender == 2 || genderRatio == 255) return 0;   // genderless
+            if (genderRatio == 0)   return 1;                  // male only
+            if (genderRatio == 254) return 2;                  // female only
+            switch (species) {   // PKHeX BiGender + BiGenderDLC -- species with distinct models
+                case 3:   case 25:  case 26:  case 41:  case 42:  case 64:  case 65:  case 123:
+                case 129: case 130: case 133: case 154: case 208: case 212: case 214: case 229:
+                case 252: case 253: case 254: case 255: case 256: case 257: case 258: case 259:
+                case 260: case 307: case 308: case 315: case 322: case 323: case 396: case 397:
+                case 398: case 407: case 443: case 444: case 445: case 449: case 450: case 459:
+                case 460: case 485: case 668:
+                    return (gender == 0) ? 1 : 2;
+                default:
+                    return 3;   // gendered, no visible difference
+            }
+        }
+    }
+
+    void Trainer9LZA::updatePokedexBlock()
+    {
+        std::vector<uint8_t>* dex = nullptr;
+        for (auto& block : blocks) {
+            if (block.key == POKEDEX9_LZA) { dex = &block.data; break; }
+        }
+        if (!dex || dex->empty()) return;
+        size_t skippedOutOfRange = 0;
+
+        auto registerMon = [&](const ::Pokemon::Pokemon* pk) {
+            if (!pk || pk->isEgg()) return;
+            const uint16_t species = pk->speciesID();
+            if (species == 0) return;
+            const uint8_t form = pk->form();
+            const ::Pokemon::PersonalInfo& pi = ::Pokemon::getPersonalInfo(species, form);
+            if ((pi.presence & ::Pokemon::PERSONAL_GAME_ZA) == 0) return;   // not in this game
+            if (form > 31) return;   // the form bitfields are u32; nothing real reaches this
+
+            const uint16_t internalId = ::Pokemon::gen9NationalToInternal(species);
+            const size_t base = static_cast<size_t>(internalId) * ZA_ENTRY_SIZE;
+            if (base + ZA_ENTRY_SIZE > dex->size()) { ++skippedOutOfRange; return; }
+
+            const bool    shiny  = pk->isShiny(pk->id32(), pk->species());
+            const uint8_t gender = pk->gender();          // 0 male, 1 female, 2 genderless
+            const int     lang   = zaLangSlot(pk->language());
+            const uint32_t formBit = 1u << form;
+
+            // "Was this species already caught?" decides whether the displayed variant gets set, so it
+            // has to be read BEFORE the caught flags are written.
+            const bool alreadyCaught = rdU32(*dex, base + 0x00) != 0;
+
+            (*dex)[base + 0x0B] |= static_cast<uint8_t>(1u << (gender > 2 ? 2 : gender));
+            wrU32(*dex, base + 0x04, rdU32(*dex, base + 0x04) | formBit);   // seen
+            wrU32(*dex, base + 0x00, rdU32(*dex, base + 0x00) | formBit);   // caught
+
+            if (::Pokemon::isMegaForm(species, form))
+                (*dex)[base + 0x10] |= 0x01;
+            if (zaSecondMegaSlot(species, saveRevision))
+                (*dex)[base + 0x10] |= 0x02;
+            else if (species == 978 /*Tatsugiri*/)
+                (*dex)[base + 0x10] |= static_cast<uint8_t>(1u << (form < 3 ? form : (form - 3) & 0x03));
+
+            if (lang >= 0)
+                wrU16(*dex, base + 0x08, static_cast<uint16_t>(rdU16(*dex, base + 0x08) | (1u << lang)));
+
+            if (shiny) {
+                wrU32(*dex, base + 0x0C, rdU32(*dex, base + 0x0C) | formBit
+                                       | zaShinyExtraFlags(species, form, saveRevision));
+            }
+
+            if (!alreadyCaught) {
+                (*dex)[base + 0x5A] = form;
+                (*dex)[base + 0x5B] = zaDisplayGender(gender, species, pi.genderRatio);
+                (*dex)[base + 0x5C] = shiny ? 1 : 0;
+                const uint32_t extra = zaFormExtraFlags(species);
+                if (extra) {
+                    wrU32(*dex, base + 0x04, rdU32(*dex, base + 0x04) | extra);
+                    wrU32(*dex, base + 0x00, rdU32(*dex, base + 0x00) | extra);
+                }
+                (*dex)[base + 0x0A] = 1;   // the "NEW" badge
+            }
+
+            if (pk->getGameGroup() == Enums::GameVersion::ZA
+                && static_cast<const Pokemon9LZA*>(pk)->isAlpha())
+                (*dex)[base + 0x11] = 1;
+        };
+
+        for (const auto& pk : party) registerMon(pk.get());
+        for (const auto& box : boxes)
+            for (const auto& pk : box) registerMon(pk.get());
+
+        // An entry landing past the end of the block means the layout is not what this code assumes.
+        // Without saying so it reads as "the Pokedex just didn't update" -- the silent-skip failure.
+        if (skippedOutOfRange != 0) {
+            logErrorToFile("Pokedex: entries fell outside the Zukan block and were skipped",
+                           (std::to_string(skippedOutOfRange) + " skipped; size="
+                            + std::to_string(dex->size())
+                            + " entry=" + std::to_string(ZA_ENTRY_SIZE)).c_str());
+        }
+    }
+
+    void Trainer9LZA::updateTrainerInfoBlock()
+    {
+        // Write money / OT name back to the blocks parse reads them from. encrypt() re-hashes.
+        for (auto& block : blocks) {
+            if (block.key == MY_STATUS9_LZA) {
+                if (block.data.size() >= 0x10 + 0x1A)
+                    setString(&block.data[0x10], 0x1A, utf8ToUtf16(trainerName), 12);
+            } else if (block.key == MONEY9_LZA) {
+                if (block.data.size() >= 4)
+                    writeUInt32LittleEndian(block.data.data(), money);   // MONEY9_LZA is a u32 scalar block
+            }
+        }
     }
 
     void Trainer9LZA::updateItemBlock()

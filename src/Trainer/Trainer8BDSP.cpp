@@ -220,6 +220,120 @@ namespace Trainer {
         return p;
     }
 
+    // ---- Pokedex (ZUKAN_WORK @ 0x7A328, size 0x30B8) -----------------------------------------
+    //
+    // BDSP stores none of this as bitfields. Everything is a 4-byte-aligned array indexed by
+    // (species - 1), covering the Sinnoh-era National Dex 1..493 (PKHeX Zukan8b):
+    //
+    //   0x0000  u32[493] state        0 None / 1 HeardOf / 2 Seen / 3 Caught  -- a VALUE, not a flag
+    //   0x07B4  u32[493] male shiny   \  "have you seen this gender/shininess", one u32 per species
+    //   0x0F68  u32[493] female shiny  |  each holding 0 or 1
+    //   0x171C  u32[493] male          |
+    //   0x1ED0  u32[493] female       /
+    //   0x2684  per-species FORM arrays (see FORM_ARRAYS), each immediately followed by its shiny twin
+    //   0x28FC  u32[493] language flags
+    //   0x30B0  regional dex obtained    0x30B4  national dex obtained
+    //
+    // The offsets chain from the array sizes and land exactly on 0x30B0 / 0x30B4 / 0x30B8, which is
+    // what makes them checkable rather than copied.
+    namespace {
+        constexpr size_t BDSP_DEX          = 0x7A328;   // ZUKAN_WORK, absolute in saveData
+        constexpr size_t BDSP_DEX_SIZE     = 0x30B8;
+        constexpr uint16_t BDSP_MAX_SPECIES = 493;      // Arceus
+        constexpr size_t OFS_STATE         = 0x0000;
+        constexpr size_t OFS_MALE_SHINY    = 0x07B4;
+        constexpr size_t OFS_FEMALE_SHINY  = 0x0F68;
+        constexpr size_t OFS_MALE          = 0x171C;
+        constexpr size_t OFS_FEMALE        = 0x1ED0;
+        constexpr size_t OFS_LANGUAGE      = 0x28FC;
+        constexpr uint32_t ZUKAN_CAUGHT    = 3;         // ZukanState8b.Caught
+
+        // Species that have a per-form array, its entry count, and where the NON-shiny array starts.
+        // The shiny twin follows immediately, count * 4 bytes later.
+        struct BdspFormArray { uint16_t species; uint16_t count; size_t offset; };
+        constexpr BdspFormArray FORM_ARRAYS[] = {
+            { 201, 28,  9860 },   // Unown
+            { 351,  4, 10084 },   // Castform
+            { 386,  4, 10116 },   // Deoxys
+            { 412,  3, 10148 },   // Burmy
+            { 413,  3, 10172 },   // Wormadam
+            { 414,  3, 10196 },   // Mothim
+            { 421,  2, 10220 },   // Cherrim
+            { 422,  2, 10236 },   // Shellos
+            { 423,  2, 10252 },   // Gastrodon
+            { 479,  6, 10268 },   // Rotom
+            { 487,  2, 10316 },   // Giratina
+            { 492,  2, 10332 },   // Shaymin
+            { 493, 18, 10348 },   // Arceus
+        };
+
+        // Language id -> bit. Slot 6 is unused, so ids 7+ shift down by two (PKHeX GetLanguageBit).
+        int bdspLangBit(uint8_t language) {
+            if (language == 0 || language == 6 || language > 10) return -1;
+            return (language >= 7) ? language - 2 : language - 1;
+        }
+    }
+
+    void Trainer8BDSP::updatePokedexBlock()
+    {
+        if (saveData.size() < BDSP_DEX + BDSP_DEX_SIZE) return;   // not a layout we recognise
+
+        auto putU32 = [&](size_t rel, uint32_t v) {
+            writeUInt32LittleEndian(&saveData[BDSP_DEX + rel], v);
+        };
+        auto getU32 = [&](size_t rel) {
+            return readUInt32LittleEndian(&saveData[BDSP_DEX + rel]);
+        };
+
+        auto registerMon = [&](const ::Pokemon::Pokemon* pk) {
+            if (!pk || pk->isEgg()) return;
+            const uint16_t species = pk->speciesID();
+            if (species == 0 || species > BDSP_MAX_SPECIES) return;   // BDSP's dex stops at Arceus
+
+            const size_t i = static_cast<size_t>(species - 1) * 4;
+            const bool shiny = pk->isShiny(pk->id32(), pk->species());
+
+            // State is a value, not a flag: only ever raise it, so a Pokemon already Caught is not
+            // knocked back down and a Seen one is promoted.
+            if (getU32(OFS_STATE + i) < ZUKAN_CAUGHT) putU32(OFS_STATE + i, ZUKAN_CAUGHT);
+
+            // Gender/shiny "have seen" markers. A GENDERLESS Pokemon sets BOTH, which is what the
+            // games do -- it is not a male-by-default case like the other formats.
+            const uint8_t gender = pk->gender();
+            if (gender == 0 || gender == 2) putU32((shiny ? OFS_MALE_SHINY   : OFS_MALE)   + i, 1);
+            if (gender == 1 || gender == 2) putU32((shiny ? OFS_FEMALE_SHINY : OFS_FEMALE) + i, 1);
+
+            const int lang = bdspLangBit(pk->language());
+            if (lang >= 0) putU32(OFS_LANGUAGE + i, getU32(OFS_LANGUAGE + i) | (1u << lang));
+
+            // Per-form array, for the thirteen species that have one. Non-shiny and shiny are separate
+            // arrays, the shiny one immediately after.
+            const uint8_t form = pk->form();
+            for (const auto& fa : FORM_ARRAYS) {
+                if (fa.species != species) continue;
+                if (form >= fa.count) break;      // a form this game's dex has no slot for
+                const size_t ofs = fa.offset + (shiny ? static_cast<size_t>(fa.count) * 4 : 0)
+                                 + static_cast<size_t>(form) * 4;
+                putU32(ofs, 1);
+                break;
+            }
+        };
+
+        for (const auto& pk : party) registerMon(pk.get());
+        for (const auto& box : boxes)
+            for (const auto& pk : box) registerMon(pk.get());
+    }
+
+    void Trainer8BDSP::updateTrainerInfoBlock()
+    {
+        // Raw-buffer game: write straight into saveData (like updateItemBlock); recomputeHash() runs
+        // after.
+        if (saveData.size() < BDSP_MYSTATUS + 0x1A) return;
+        setString(&saveData[BDSP_MYSTATUS], 0x1A, utf8ToUtf16(trainerName), 12);
+        if (saveData.size() >= BDSP_MONEY + 4)
+            writeUInt32LittleEndian(&saveData[BDSP_MONEY], money);
+    }
+
     void Trainer8BDSP::updateItemBlock()
     {
         // Write each parsed item's count (int32) in place — non-destructive: touches only known items,

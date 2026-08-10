@@ -9,6 +9,8 @@
 #include <cstring>
 
 #include "Trainer/Trainer8LA.h"
+#include "Pokemon/PLADexTable.h"          // getPLAStatisticsIndex -- the species+form -> entry lookup
+#include "Pokemon/PersonalInfoTable.h"    // getPersonalInfo -> per-game presence
 #include "Utils/Logger.h"
 
 using namespace Utils;
@@ -80,7 +82,14 @@ namespace Trainer {
         size_t nameLength = 0x1A;  // 26 bytes = 13 UTF-16LE chars
         auto nameSpan = std::span<const uint8_t>(block.data.data() + 0x20, nameLength);
         this->trainerName = utf16ToUtf8(getString(nameSpan.data(), nameLength));
-        this->trainerGender = block.data[0x15] & 1;   // 0x15: gender (0=M, 1=F)
+        // The u32 at 0x3C identifies which of the eight preset characters the player chose at the start
+        // of the game, and that choice is also what fixes the gender -- PLA has no independent gender
+        // field. Bit 1 of the code is the gender (male codes 0,1,4,5 / female 2,3,6,7). Read from here
+        // rather than the plain 0/1 byte at 0x15, which is the value PKHeX calls "Gender".
+        if (block.data.size() >= 0x3C + 4) {
+            const uint32_t code = readUInt32LittleEndian(&block.data[0x3C]);
+            this->trainerGender = static_cast<uint8_t>((code >> 1) & 1);
+        }
         logInfoToFile("Parsed Trainer Name", this->trainerName.c_str());
     }
 
@@ -492,6 +501,183 @@ namespace Trainer {
             std::span<const std::byte>(enc, SIZE_PARTY8_LA));
         delete[] enc;
         return p;
+    }
+
+    // ========================================
+    // Pokedex (PokedexSave8a)
+    // ========================================
+    //
+    // Legends: Arceus is the outlier of the seven. There is no seen/caught bitfield: the dex is a
+    // RESEARCH LOG, one 0x1E460 block split in two, and the two halves are indexed differently.
+    //
+    //   0x00000  global data (0x10)                    0x00010  five 0x10 per-dex local records
+    //   0x00070  research entries -- 0x58 each, indexed straight by SPECIES (981 of them)
+    //   0x151A8  statistics entries -- 0x18 each, 1480 slots, indexed by a LOOKUP TABLE keyed on
+    //            (species | form<<11). Not by species, not by form -- see PLADexTable.
+    //
+    // Research entry (per species), the fields this writes:
+    //   0x00 u32 flags -- bit0 has-ever-been-updated, bit1 has-any-report, bit2 perfect,
+    //                     bit3 selected-gender-is-female, bit4 selected-shiny, bit5 selected-alpha
+    //   0x0A u16 NumObtained   0x50 u8 selected form
+    //
+    // Statistics entry (per species+form):
+    //   0x00 u32 flags (bit0 = has max size records)   0x04 u8 seen-in-wild   0x05 u8 obtained
+    //   0x06 u8 caught-in-wild   0x08/0x0C/0x10/0x14 f32 min/max height, min/max weight
+    //
+    // The three flag BYTES are indexed by a variant shift, not by form: shiny +4, alpha +2, female +1.
+    // So one byte covers all eight combinations of the three.
+    namespace {
+        constexpr size_t PLA_RESEARCH_BASE   = 0x70;
+        constexpr size_t PLA_RESEARCH_SIZE   = 0x58;
+        constexpr size_t PLA_STATS_BASE      = 0x151A8;
+        constexpr size_t PLA_STATS_SIZE      = 0x18;
+        constexpr size_t PLA_BLOCK_SIZE      = 0x1E460;
+        constexpr uint16_t PLA_MAX_RESEARCH_POINTS = 60000;   // PokedexConstants8a
+
+        inline uint32_t rdU32(const std::vector<uint8_t>& d, size_t o) {
+            return static_cast<uint32_t>(d[o]) | (static_cast<uint32_t>(d[o + 1]) << 8)
+                 | (static_cast<uint32_t>(d[o + 2]) << 16) | (static_cast<uint32_t>(d[o + 3]) << 24);
+        }
+        inline void wrU32(std::vector<uint8_t>& d, size_t o, uint32_t v) {
+            d[o]     = static_cast<uint8_t>(v);         d[o + 1] = static_cast<uint8_t>(v >> 8);
+            d[o + 2] = static_cast<uint8_t>(v >> 16);   d[o + 3] = static_cast<uint8_t>(v >> 24);
+        }
+        inline uint16_t rdU16(const std::vector<uint8_t>& d, size_t o) {
+            return static_cast<uint16_t>(d[o] | (d[o + 1] << 8));
+        }
+        inline void wrU16(std::vector<uint8_t>& d, size_t o, uint16_t v) {
+            d[o] = static_cast<uint8_t>(v);  d[o + 1] = static_cast<uint8_t>(v >> 8);
+        }
+        inline float rdF32(const std::vector<uint8_t>& d, size_t o) {
+            float f; std::memcpy(&f, &d[o], sizeof f); return f;
+        }
+        inline void wrF32(std::vector<uint8_t>& d, size_t o, float f) {
+            std::memcpy(&d[o], &f, sizeof f);
+        }
+    }
+
+    void Trainer8LA::updatePokedexBlock()
+    {
+        std::vector<uint8_t>* dex = nullptr;
+        for (auto& block : blocks) {
+            if (block.key == POKEDEX8_LA) { dex = &block.data; break; }
+        }
+        if (!dex || dex->size() < PLA_BLOCK_SIZE) {
+            if (dex) logErrorToFile("Pokedex: PLA Zukan block is short; skipped",
+                                    ("size=" + std::to_string(dex->size())
+                                     + " expected=" + std::to_string(PLA_BLOCK_SIZE)).c_str());
+            return;
+        }
+        size_t skippedNoEntry = 0;
+
+        auto registerMon = [&](const ::Pokemon::Pokemon* pk) {
+            if (!pk || pk->isEgg()) return;
+            const uint16_t species = pk->speciesID();
+            if (species == 0 || species > ::Pokemon::PLA_MAX_SPECIES) return;
+            const uint8_t form = pk->form();
+            const ::Pokemon::PersonalInfo& pi = ::Pokemon::getPersonalInfo(species, form);
+            if ((pi.presence & ::Pokemon::PERSONAL_GAME_PLA) == 0) return;   // not in this game
+
+            // Statistics entries are reached through the lookup, and plenty of species+form pairs
+            // simply have none -- that is a legitimate "no dex slot", not an error.
+            const uint16_t statIdx = ::Pokemon::getPLAStatisticsIndex(species, form);
+            if (statIdx == ::Pokemon::PLA_NO_STAT_ENTRY) { ++skippedNoEntry; return; }
+
+            const size_t research = PLA_RESEARCH_BASE + static_cast<size_t>(species) * PLA_RESEARCH_SIZE;
+            const size_t stats    = PLA_STATS_BASE    + static_cast<size_t>(statIdx) * PLA_STATS_SIZE;
+
+            const bool    alpha  = (pk->getGameGroup() == Enums::GameVersion::PLA)
+                                   && static_cast<const Pokemon8LA*>(pk)->isAlpha();
+            const bool    shiny  = pk->isShiny(pk->id32(), pk->species());
+            const uint8_t gender = pk->gender();          // 0 male, 1 female, 2 genderless
+            // Variant shift: shiny +4, alpha +2, female +1. Genderless does NOT shift (PKHeX masks
+            // the gender with ~2, so only the female bit counts).
+            const int shift = (shiny ? 4 : 0) + (alpha ? 2 : 0) + (((gender & ~2) != 0) ? 1 : 0);
+            const uint8_t bit = static_cast<uint8_t>(1u << shift);
+
+            // Size records, BEFORE the obtain bit goes in -- the "have we obtained one before?" test
+            // reads the very flags we are about to set. Alphas are excluded: they are fixed at maximum
+            // size, so letting one in would wreck the species' real min/max. Mask 0x33 is the four
+            // non-alpha slots (shift 0,1,4,5). PKHeX SetPokeObtained.
+            if (!alpha) {
+                const float h = (pk->getGameGroup() == Enums::GameVersion::PLA)
+                                ? static_cast<const Pokemon8LA*>(pk)->heightAbsolute() : 0.0f;
+                const float w = (pk->getGameGroup() == Enums::GameVersion::PLA)
+                                ? static_cast<const Pokemon8LA*>(pk)->weightAbsolute() : 0.0f;
+                if (h > 0.0f && w > 0.0f) {
+                    const bool hadNonAlpha = ((*dex)[stats + 0x05] & 0x33) != 0;
+                    if (hadNonAlpha) {
+                        const bool hasMax = (rdU32(*dex, stats + 0x00) & 0x01) != 0;
+                        const float baseH = hasMax ? rdF32(*dex, stats + 0x0C) : rdF32(*dex, stats + 0x08);
+                        const float baseW = hasMax ? rdF32(*dex, stats + 0x14) : rdF32(*dex, stats + 0x10);
+                        wrF32(*dex, stats + 0x0C, h > baseH ? h : baseH);
+                        wrF32(*dex, stats + 0x14, w > baseW ? w : baseW);
+                        if (!hasMax) wrU32(*dex, stats + 0x00, rdU32(*dex, stats + 0x00) | 0x01);
+                        const float minH = rdF32(*dex, stats + 0x08), minW = rdF32(*dex, stats + 0x10);
+                        wrF32(*dex, stats + 0x08, h < minH ? h : minH);
+                        wrF32(*dex, stats + 0x10, w < minW ? w : minW);
+                    } else {
+                        wrF32(*dex, stats + 0x08, h);   // first of its kind -> seeds the minimum
+                        wrF32(*dex, stats + 0x10, w);
+                    }
+                }
+            }
+
+            // "Is this species new?" has to be read before NumObtained is touched, for the same reason.
+            const bool wasNew = rdU16(*dex, research + 0x0A) == 0;
+
+            (*dex)[stats + 0x04] |= bit;   // seen in the wild
+            (*dex)[stats + 0x05] |= bit;   // obtained
+            // 0x06 caught-in-wild is deliberately NOT set: a mon that arrived by transfer or was made
+            // in the editor was never caught in this game's wild, and that flag feeds catch research.
+
+            // Research entry: bump the obtained counter (the "catch N of these" task) and mark the
+            // species touched. has-any-report (bit1) is deliberately left alone -- that means the
+            // player has REPORTED to Laventon, which has not happened; the game grants it when they do.
+            wrU32(*dex, research + 0x00, rdU32(*dex, research + 0x00) | 0x01);   // has-ever-been-updated
+            const uint32_t obtained = rdU16(*dex, research + 0x0A) + 1u;
+            wrU16(*dex, research + 0x0A,
+                  static_cast<uint16_t>(obtained > PLA_MAX_RESEARCH_POINTS ? PLA_MAX_RESEARCH_POINTS : obtained));
+
+            // Selected variant -- what the dex page shows for this species. Only for a species that had
+            // none, so an entry the player already had keeps what it was showing.
+            if (wasNew) {
+                (*dex)[research + 0x50] = form;
+                uint32_t flags = rdU32(*dex, research + 0x00) & ~0x38u;   // clear gender/shiny/alpha
+                // The female bit only means anything where the dex keeps the two sexes as separate
+                // models. Where it does not, male and female share one record and the bit would claim
+                // a variant the page cannot show (PKHeX reads the same PokemonInfoGenders bit 3).
+                if (gender == 1 && ::Pokemon::plaTracksGenderSeparately(species, form)) flags |= 0x08;
+                if (shiny)       flags |= 0x10;
+                if (alpha)       flags |= 0x20;
+                wrU32(*dex, research + 0x00, flags);
+            }
+        };
+
+        for (const auto& pk : party) registerMon(pk.get());
+        for (const auto& box : boxes)
+            for (const auto& pk : box) registerMon(pk.get());
+
+        // Not an error -- many species+form pairs genuinely have no statistics slot -- but a sudden
+        // jump here would mean the lookup table is wrong, and silence is how that hides.
+        if (skippedNoEntry != 0) {
+            logInfoToFile("Pokedex: species+form with no PLA statistics entry",
+                          (std::to_string(skippedNoEntry) + " skipped").c_str());
+        }
+    }
+
+    void Trainer8LA::updateTrainerInfoBlock()
+    {
+        // Write money / OT name back to the blocks parse reads them from. encrypt() re-hashes.
+        for (auto& block : blocks) {
+            if (block.key == MY_STATUS8_LA) {
+                if (block.data.size() >= 0x20 + 0x1A)
+                    setString(&block.data[0x20], 0x1A, utf8ToUtf16(trainerName), 12);
+            } else if (block.key == MONEY8_LA) {
+                if (block.data.size() >= 4)
+                    writeUInt32LittleEndian(block.data.data(), money);   // MONEY8_LA is a u32 scalar block
+            }
+        }
     }
 
     void Trainer8LA::updateItemBlock()

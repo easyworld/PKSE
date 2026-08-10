@@ -33,7 +33,7 @@ using namespace Utils;
 namespace UI {
 namespace Modals {
 
-    // Pokemon HOME "查看能力"-style editor page. Full-screen, three columns: the render + details
+    // HOME "查看能力"-style editor page. Full-screen, three columns: the render + details
     // (left), the editable stat table + shiny/nature/gender (center — the navigable "数值" column),
     // and the moveset editor (right — moves + held item). Editing is handled in TrainerViewScreen; this
     // only draws + captures touch.
@@ -112,7 +112,7 @@ namespace Modals {
         }
         // Type badges under the render (icons, centered).
         {
-            Pokemon::TypePair types = Pokemon::getPokemonTypes(p->speciesID(), p->form());
+            Pokemon::TypePair types = Pokemon::getPokemonTypes(p->speciesID(), p->form(), p->getGameGroup());
             Sprite* t1 = SpriteManager::getTypeSprite(types.type1);
             Sprite* t2 = Pokemon::hasSecondType(types) ? SpriteManager::getTypeSprite(types.type2) : nullptr;
             const int th = 22;
@@ -163,13 +163,14 @@ namespace Modals {
             }
             iy += RH;
         };
-        // FireRed/LeafGreen (Gen 3) is the only format that wires none of nickname / exp / form / met
-        // date / fateful, so those rows are editable everywhere EXCEPT there (notGen3). Stat Nature
-        // (mints) and the egg-met conditions are Gen 8+ / breeding-only -> the tighter modernFmt gate.
+        // FireRed/LeafGreen (Gen 3) wires none of exp / form / met date / fateful, so those rows are
+        // editable everywhere EXCEPT there (notGen3). Stat Nature (mints) and the egg-met conditions
+        // are Gen 8+ / breeding-only -> the tighter modernFmt gate.
         const bool notGen3   = (p->getGameGroup() != Enums::GameVersion::FRLG);
         const bool modernFmt = (notGen3 && p->getGameGroup() != Enums::GameVersion::GG);
-        // Nickname leads the column -- it's the name shown in-game.
-        if (notGen3) editRow("昵称", utf16ToUtf8(p->nickname()), 23);
+        // Nickname leads the column -- it's the name shown in-game. Gen 3 is NOT excluded: its field is
+        // shorter (10) and its character set narrower, but it is as editable as any other format's.
+        editRow("昵称", utf16ToUtf8(p->nickname()), 23);
         editRow("特性",    getAbilityName(p->ability()), 15);
         editRow("亲密度", std::to_string(p->friendship()), 16);
         // Form -- when the species has alternate forms AND the format can set them (Gen 3 forms are
@@ -187,7 +188,7 @@ namespace Modals {
 
         // ---- Original Trainer / met info ----
         std::string ot = utf16ToUtf8(p->otName());
-        if (!ot.empty()) { ot += (p->otGender() == 0) ? "（雄）" : "（雌）"; row("初训家", ot); }
+        if (!ot.empty()) { ot += (p->otGender() == 0) ? "（雄）" : "（雌）"; row("OT", ot); }
         // Trainer ID in the format the game shows (six digits for Gen 7+ origins, 16-bit TID otherwise;
         // a mon with no origin falls back to its own format -- only Gen 3 is 16-bit among these games).
         {
@@ -196,18 +197,26 @@ namespace Modals {
                                              : (p->getGameGroup() != Enums::GameVersion::FRLG);
             if (sixDigit) snprintf(buf, sizeof(buf), "%06u", p->id32() % 1000000u);
             else          snprintf(buf, sizeof(buf), "%05u", p->id32() & 0xFFFFu);
-            row("初训家 ID", buf);
+            row("OT ID", buf);
+        }
+        // Handling Trainer (Gen 7+): shown only once a mon has actually been handled by someone (htName
+        // non-empty), like the OT row above. This makes the OT/HT re-stamp verifiable on-device --
+        // change trainer gender/name, reopen a traded-in mon, and HT should track you. FireRed/LeafGreen
+        // has no handler concept, so htName() is empty there and this row stays hidden.
+        {
+            std::string ht = utf16ToUtf8(p->htName());
+            if (!ht.empty()) { ht += (p->htGender() == 0) ? "（雄）" : "（雌）"; row("HT", ht); }
         }
         { snprintf(buf, sizeof(buf), "等级 %u", p->metLevel()); editRow("相遇等级", buf, 18); }
         // Origin-generation location routing: a Gen 3/4 mon's MET id is remapped into the current
         // format's numbering when it is transferred up (Gen 5+ keep their own table), so a Gen 3/4 met
-        // must be named with the format's table -- else a Platinum starter link-traded to SV reads "(none)".
+        // must be named with the format's table -- else a Platinum starter link-traded to SV reads "（无）".
         const uint8_t fmtVer = Enums::getGroupRepVersion(p->getGameGroup());
         { const char* loc = Names::getMetLocationName(Enums::locationTableVersion(p->originGame(), fmtVer, false), p->metLocation());
           editRow("相遇地点", (loc[0] != '\0') ? std::string(loc) : std::string("（无）"), 25); }
         // Met date -- every format records one except Gen 3 (FireRed/LeafGreen). Year byte is +2000.
         if (notGen3) {
-            // A transferred mon can carry no met date (00/00) -- show "(none)" instead of "00/00/2000",
+            // A transferred mon can carry no met date (00/00) -- show "（无）" instead of "00/00/2000",
             // matching the egg-date row and how PKHeX blanks an unset date.
             if (p->metMonth() == 0 || p->metDay() == 0) snprintf(buf, sizeof(buf), "（无）");
             else snprintf(buf, sizeof(buf), "%02u/%02u/%04u", p->metDay(), p->metMonth(), 2000 + p->metYear());
@@ -376,10 +385,14 @@ namespace Modals {
             ty += statRowH;
         }
 
-        // Gender row (selectable index 8) — cycled with Left/Right (or A).
+        // Gender row (selectable index 8) — A opens the picker. READ-ONLY for a fixed-gender species
+        // (male-only Braviary, female-only Miltank, genderless Magnemite): the value still shows, but
+        // there is no highlight and no touch target, and the cursor steps over it — the same way the
+        // left column handles a read-only row by not listing it. See TrainerViewScreen::genderEditable.
         ty += 6;
         {
-            const bool s = (sel == 8);
+            const bool editable = screen.genderEditable(*p);
+            const bool s = editable && (sel == 8);
             if (s) { fb.drawFilledRoundedRect(Cx + 8, ty - 6, Cw - 16, statRowH - 6, 10, Colors::Selected);
                      fb.drawRoundedRect(Cx + 8, ty - 6, Cw - 16, statRowH - 6, 10, Colors::Accent, 2); }
             fb.drawText(nameX, ty, "性别", s ? Colors::Text : Colors::TextDim);
@@ -388,7 +401,7 @@ namespace Modals {
             const Color gc = (gv == 0) ? Colors::Blue : (gv == 1) ? Colors::Magenta : Colors::Text;
             int gw, gh; fb.measureText(gname, gw, gh);
             fb.drawText(Cx + Cw - 18 - gw, ty, gname, gc);
-            screen.touchButtons.push_back({ 8, Cx + 8, ty - 6, Cw - 16, statRowH - 6 });
+            if (editable) screen.touchButtons.push_back({ 8, Cx + 8, ty - 6, Cw - 16, statRowH - 6 });
             ty += statRowH;
         }
 

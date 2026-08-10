@@ -39,6 +39,35 @@ NOTE on ability slots: PKHeX stores "no second ability" as a DUPLICATE of Abilit
 (e.g. Bulbasaur = Overgrow/Overgrow/Chlorophyll), not 0. These values are emitted
 verbatim from PKHeX; a consumer treats "ability2 == ability1" as "single ability".
 
+TYPES live at 0x06 / 0x07 in ALL FIVE modern formats above (the stat block is the same
+six bytes in each, and the type pair follows it), so they need no per-format offsets.
+They are emitted PER FORM like everything else here, which is the point: types are one
+of the things a regional form actually changes -- Hisuian Braviary is Psychic/Flying
+where the Unovan one is Normal/Flying. PKHeX again stores a single-typed species as
+Type2 == Type1; that is normalised to 255 ("no second type") on the way out, matching
+PKSE's TYPE_NONE.
+
+GEN 3 TYPES need their own table for the same reason its abilities do: Gen 3 predates the
+Fairy type, so 18 of its 386 species are typed differently there -- Clefairy is Normal in
+FireRed and Fairy in Scarlet/Violet, Marill is pure Water, Gardevoir is pure Psychic.
+Reading the modern row for a Gen 3 mon claims a type that game has never heard of.
+
+The ENCODING needs no conversion, though: PKHeX's personal_fr already stores Gen 6+ type
+ids rather than the raw Gen 3 ones (Charmander is 9 = Fire there, not the in-game 10 --
+Gen 3 spends id 9 on the unused "???" type and shifts everything above it). Verified by
+histogram: personal_fr uses ids 0..16 with no 17, i.e. the modern numbering minus Fairy.
+
+GENERATION 3 gets its OWN ability table (personal_fr, PersonalInfo3, SIZE 0x1C,
+Ability1 @0x16 / Ability2 @0x17, both u8, indexed straight by National Dex id --
+PersonalTable3.GetFormIndex is `species`, so Gen 3 forms share one row). The S/V
+slots above are NOT usable for FireRed/LeafGreen: 101 of the 386 Gen 3 species have
+a different slot pair there (Sableye is Keen Eye alone in Gen 3, Keen Eye/Stall in
+S/V) and 355 of them have an S/V hidden ability, a slot Gen 3 does not have at all.
+A PK3 stores only a BIT, and the game resolves it through its own table, so offering
+an S/V-only ability for a Gen 3 mon writes a bit that displays as something else.
+FireRed and LeafGreen carry identical ability data (verified: 0 differences), so one
+table serves both.
+
 Regenerate:  python tools/gen_personal.py
 Pulls the PKHeX personal binaries it reads from GitHub on demand
 (tools/pkhex_source.py); no local PKHeX checkout required.
@@ -58,6 +87,21 @@ SPECIES_NAMES_SRC = os.path.join(ROOT, "src", "Names", "SpeciesNames.cpp")
 
 MAX_SPECIES = 1025            # National Dex #1025 Pecharunt (PKHeX MaxSpeciesID_9)
 BASE_ROWS = MAX_SPECIES + 1   # indices 0..1025
+
+# Generation 3 ability table (PersonalInfo3). Indexed by National Dex id, forms share
+# a row, abilities are single bytes. FR and LG are byte-identical here.
+G3_MAX_SPECIES = 386          # PKHeX MaxSpeciesID_3 (Deoxys)
+G3_SIZE = 0x1C                # PersonalInfo3.SIZE
+G3_AB1, G3_AB2 = 0x16, 0x17
+
+# Type pair. Same offsets in every modern format AND in PersonalInfo3 -- the six stat
+# bytes come first in all of them and the types follow. All of these tables (personal_fr
+# included) are already in Gen 6+ type numbering, so no id conversion is needed anywhere;
+# check_g3_type_encoding() below enforces that rather than assuming it.
+TYPE1, TYPE2 = 0x06, 0x07
+TYPE_NONE = 255               # PKSE's "single-typed"; PKHeX duplicates Type1 instead
+TYPE_FIRE = 9                 # Gen 6+ id; the raw Gen 3 id for Fire is 10
+CHARMANDER = 4
 
 # National Dex numbers used by the GG (Let's Go) presence rule.
 MELTAN, MELMETAL, PIKACHU = 808, 809, 25
@@ -133,8 +177,10 @@ class Table:
 
     def fields(self, species, form):
         e = self._ent(self.form_index(species, form))
+        t1, t2 = e[TYPE1], e[TYPE2]
         return dict(a1=self._ab(e, self.a1), a2=self._ab(e, self.a2), ah=self._ab(e, self.ah),
                     gender=e[self.g], friendship=e[self.fr],
+                    t1=t1, t2=(TYPE_NONE if t2 == t1 else t2),
                     height=self._u16(e, self.hh), weight=self._u16(e, self.ww))
 
     def present(self, species, form):
@@ -206,6 +252,7 @@ def build():
         f = pick_fields(sp, form)
         return dict(sp=sp, form=form, a1=f["a1"], a2=f["a2"], ah=f["ah"],
                     gender=f["gender"], friendship=f["friendship"],
+                    t1=f["t1"], t2=f["t2"],
                     formCount=union_fc[sp], formIndex=form_index,
                     presence=presence(sp, form), height=f["height"], weight=f["weight"])
 
@@ -226,6 +273,46 @@ def build():
         base_rows[sp] = make_row(sp, 0, fi)
 
     return names, base_rows, alt_rows
+
+
+def build_g3():
+    """Gen 3 (species, ability1, ability2, type1, type2) rows for National Dex 0..386.
+
+    Cross-checks FireRed against LeafGreen and refuses to emit if they ever disagree
+    -- one table stands in for both, so a divergence has to be caught here.
+    """
+    with open(pkhex_path("Resources/byte/personal/personal_fr"), "rb") as fh:
+        fr = fh.read()
+    with open(pkhex_path("Resources/byte/personal/personal_lg"), "rb") as fh:
+        lg = fh.read()
+    need = (G3_MAX_SPECIES + 1) * G3_SIZE
+    for tag, raw in (("personal_fr", fr), ("personal_lg", lg)):
+        if len(raw) < need:
+            raise SystemExit(f"{tag}: {len(raw)} bytes, need >= {need}")
+
+    rows = []
+    for sp in range(G3_MAX_SPECIES + 1):
+        o = sp * G3_SIZE
+        a1, a2 = fr[o + G3_AB1], fr[o + G3_AB2]
+        if (a1, a2) != (lg[o + G3_AB1], lg[o + G3_AB2]):
+            raise SystemExit(f"species {sp}: FR/LG ability mismatch -- they need separate tables")
+        t1, t2 = fr[o + TYPE1], fr[o + TYPE2]
+        if (t1, t2) != (lg[o + TYPE1], lg[o + TYPE2]):
+            raise SystemExit(f"species {sp}: FR/LG type mismatch -- they need separate tables")
+        rows.append((sp, a1, a2, t1, TYPE_NONE if t2 == t1 else t2))
+
+    # personal_fr must already be in Gen 6+ type numbering, not raw Gen 3 ids. Pin it on
+    # Charmander (pure Fire -> 9 modern, 10 raw) and on the absence of Fairy, which is the
+    # only id the two numberings put out of range of each other.
+    o = CHARMANDER * G3_SIZE
+    if fr[o + TYPE1] != TYPE_FIRE:
+        raise SystemExit(f"personal_fr: Charmander type is {fr[o + TYPE1]}, expected {TYPE_FIRE} "
+                         "-- the table is in raw Gen 3 ids and now needs a remap")
+    worst = max(max(t1, t2) for _, _, _, t1, t2 in rows if t2 != TYPE_NONE)
+    if worst > 16:
+        raise SystemExit(f"personal_fr: type id {worst} > 16 -- Gen 3 has no Fairy, so this is "
+                         "either raw Gen 3 numbering or a bad parse")
+    return rows
 
 
 HDR = '''/**
@@ -270,6 +357,8 @@ namespace Pokemon {{
         uint8_t  baseFriendship;
         uint8_t  formCount;       // number of forms across supported games; valid forms are 0..formCount-1
         uint8_t  presence;        // OR of PersonalGameBit: which games this species+form exists in
+        uint8_t  type1;           // Gen 6+ type ids -- the PokemonTypes.h TYPE_* constants
+        uint8_t  type2;           // TYPE_NONE (255) when single-typed
         uint16_t height;          // PKHeX personal Height (base) -- used for the LGPE absolute size
         uint16_t weight;          // PKHeX personal Weight (base)
     }};
@@ -284,6 +373,32 @@ namespace Pokemon {{
     // Resolve a (species, form) to its entry, mirroring PKHeX's FormIndex redirection.
     // Out-of-range species or forms fall back to the species' form-0 (or index 0) entry.
     const PersonalInfo& getPersonalInfo(uint16_t species, uint8_t form);
+
+    // ---- Generation 3 (FireRed/LeafGreen) abilities + types ----
+    // Gen 3's slot pair is NOT the one above: the S/V row disagrees for 101 of these
+    // species and always carries a hidden ability, which Gen 3 has no slot for. A PK3
+    // stores only a selector BIT and the game resolves it through its own table, so
+    // this is the only table that describes what a Gen 3 mon can actually hold.
+    // Forms share a row (PKHeX PersonalTable3.GetFormIndex is the species id).
+    //
+    // Its TYPES disagree with the modern table too, for {G3TYPEDIFF} of the {G3MAX} species: Gen 3
+    // predates the Fairy type, so Clefairy is Normal there and Fairy in Scarlet/Violet.
+    // These are the SAME Gen 6+ type ids used above -- only the values differ, not the
+    // encoding -- so a caller switches table without translating.
+    struct PersonalAbilityG3 {{
+        uint8_t ability1;
+        uint8_t ability2;   // == ability1 when the species has only one ability
+        uint8_t type1;
+        uint8_t type2;      // TYPE_NONE (255) when single-typed
+    }};
+
+    constexpr uint16_t PERSONAL_G3_MAX_SPECIES = {G3MAX};
+
+    extern const PersonalAbilityG3 PERSONAL_ABILITY_G3[PERSONAL_G3_MAX_SPECIES + 1];
+
+    // Gen 3 ability slots + types for a species. Out-of-range species return all-zero
+    // abilities and Normal/none, the same shape the modern lookup falls back to.
+    const PersonalAbilityG3& getPersonalAbilityG3(uint16_t species);
 }}
 
 #endif  // PKM_PERSONAL_INFO_TABLE_H
@@ -300,20 +415,27 @@ def fmt_row(r, names):
             comment = f"{sp} {name}"
     else:
         comment = f"{sp} {name} form {r['form']}"
-    return ("        {{ {a1:>4}, {a2:>4}, {ah:>4}, {fi:>5}, {g:>4}, {fr:>4}, {fc:>3}, 0x{pr:02X}, {h:>4}, {w:>5} }},"
-            "  // {c}\n").format(
+    return ("        {{ {a1:>4}, {a2:>4}, {ah:>4}, {fi:>5}, {g:>4}, {fr:>4}, {fc:>3}, 0x{pr:02X},"
+            " {t1:>3}, {t2:>4}, {h:>4}, {w:>5} }},  // {c}\n").format(
         a1=r["a1"], a2=r["a2"], ah=r["ah"], fi=r["formIndex"],
         g=r["gender"], fr=r["friendship"], fc=r["formCount"], pr=r["presence"],
-        h=r["height"], w=r["weight"], c=comment)
+        t1=r["t1"], t2=r["t2"], h=r["height"], w=r["weight"], c=comment)
 
 
 def main():
     names, base_rows, alt_rows = build()
+    g3_rows = build_g3()
     total = len(base_rows) + len(alt_rows)
+
+    # How far Gen 3 typing drifts from the modern table -- reported, and baked into the
+    # header comment, so the reason this second table exists stays visible.
+    g3_type_diff = sum(1 for sp, _, _, t1, t2 in g3_rows
+                       if sp and (t1, t2) != (base_rows[sp]["t1"], base_rows[sp]["t2"]))
 
     # Header
     with open(OUT_H, "w", encoding="utf-8", newline="\n") as fh:
-        fh.write(HDR.format(MAX=MAX_SPECIES, COUNT=total, BASE=BASE_ROWS))
+        fh.write(HDR.format(MAX=MAX_SPECIES, COUNT=total, BASE=BASE_ROWS,
+                            G3MAX=G3_MAX_SPECIES, G3TYPEDIFF=g3_type_diff))
 
     # Source
     p = []
@@ -328,7 +450,7 @@ def main():
              ' * its form-1 row; form N resolves to formIndex + N - 1 (see getPersonalInfo).\n'
              ' *\n'
              ' * Columns: { ability1, ability2, abilityHidden, formIndex, genderRatio,\n'
-             ' *            baseFriendship, formCount, presence, height, weight }\n'
+             ' *            baseFriendship, formCount, presence, type1, type2, height, weight }\n'
              ' */\n\n' % (MAX_SPECIES, BASE_ROWS))
     p.append('#include "Pokemon/PersonalInfoTable.h"\n\n')
     p.append("namespace Pokemon {\n\n")
@@ -348,17 +470,44 @@ def main():
     p.append("        if (form == 0 || base.formIndex == 0 || form >= base.formCount)\n")
     p.append("            return base;\n")
     p.append("        return PERSONAL_INFO_TABLE[base.formIndex + form - 1];\n")
+    p.append("    }\n\n")
+
+    # ---- Gen 3 ability + type table ----
+    p.append("    // Generation 3 (FireRed/LeafGreen) ability slots and types, from PKHeX's personal_fr.\n")
+    p.append("    // Indexed by National Dex id; ability2 == ability1 means \"single ability\", and\n")
+    p.append("    // type2 == 255 means \"single type\". Type ids are the same Gen 6+ numbering used\n")
+    p.append("    // everywhere else in PKSE -- Gen 3 differs in its VALUES (no Fairy), not its encoding.\n")
+    p.append("    const PersonalAbilityG3 PERSONAL_ABILITY_G3[PERSONAL_G3_MAX_SPECIES + 1] = {\n")
+    for sp, a1, a2, t1, t2 in g3_rows:
+        name = names[sp] if sp < len(names) else "?"
+        p.append("        {{ {a1:>3}, {a2:>3}, {t1:>3}, {t2:>4} }},  // {sp} {n}\n".format(
+            a1=a1, a2=a2, t1=t1, t2=t2, sp=sp, n=name))
+    p.append("    };\n\n")
+    p.append("    const PersonalAbilityG3& getPersonalAbilityG3(uint16_t species) {\n")
+    p.append("        static const PersonalAbilityG3 none = { 0, 0, 0, 255 };\n")
+    p.append("        if (species > PERSONAL_G3_MAX_SPECIES)\n")
+    p.append("            return none;\n")
+    p.append("        return PERSONAL_ABILITY_G3[species];\n")
     p.append("    }\n")
     p.append("}\n")
 
     with open(OUT_CPP, "w", encoding="utf-8", newline="\n") as fh:
         fh.write("".join(p))
 
+    dual3 = sum(1 for _, a1, a2, _, _ in g3_rows if a1 != a2)
+    # Forms whose type pair differs from their own species' form 0 -- exactly the ones a
+    # species-keyed type table gets wrong.
+    form_type_diff = sum(1 for r in alt_rows
+                         if (r["t1"], r["t2"]) != (base_rows[r["sp"]]["t1"], base_rows[r["sp"]]["t2"]))
     print("Wrote", OUT_H)
     print("Wrote", OUT_CPP)
     print(f"  base rows      : {len(base_rows)} (species 0..{MAX_SPECIES})")
     print(f"  alt-form rows  : {len(alt_rows)}")
     print(f"  TOTAL rows     : {total}")
+    print(f"  Gen 3 ability  : {len(g3_rows)} rows (species 0..{G3_MAX_SPECIES}), "
+          f"{dual3} with two distinct abilities")
+    print(f"  types          : {form_type_diff} alternate forms retype their base species; "
+          f"{g3_type_diff} species are typed differently in Gen 3")
 
 
 if __name__ == "__main__":

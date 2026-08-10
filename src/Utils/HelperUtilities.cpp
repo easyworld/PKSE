@@ -56,6 +56,11 @@ namespace Utils {
         ptr[3] = static_cast<uint8_t>((value >> 24) & 0xFF);
     }
 
+    void writeUInt64LittleEndian(uint8_t* ptr, uint64_t value) {
+        for (int i = 0; i < 8; ++i)
+            ptr[i] = static_cast<uint8_t>((value >> (i * 8)) & 0xFF);
+    }
+
     uint32_t rand32() noexcept {
         // Process-lifetime Mersenne Twister, seeded once from libnx's system tick counter
         // (armGetSystemTick, a u64). The high and low halves are folded together so all of the

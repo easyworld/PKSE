@@ -1,7 +1,7 @@
 /**
  * Bank.h - Persistent cross-GAME Pokemon storage ("bank")
  *
- * A PKSM-style storage bank: boxes of Pokemon that live OUTSIDE any single save file,
+ * A HOME-style storage bank: boxes of Pokemon that live OUTSIDE any single save file,
  * persisted to the SD card under sdmc:/PKSE/bank. UNIFIED across all games: every slot
  * carries its own game-group tag + native (encrypted) per-gen bytes, so Pokemon from all
  * six titles coexist in one bank. Deposit is passive (store as-is, byte-in == byte-out) --
@@ -23,7 +23,12 @@
 namespace Trainer {
     class Bank {
     public:
-        static constexpr size_t BANK_BOX_COUNT = 8;         // number of bank boxes
+        /// Number of bank boxes. 8 was not enough to stage a full generation for testing (Gen 3 alone
+        /// is 386 Pokemon = 13 boxes); PKSM ships 150. The on-disk record table is fixed-size so that
+        /// slot N sits at a computable offset, which makes the file grow with this constant --
+        /// 100 boxes is ~1.1 MB. Raising it is safe: the header stores the count the file was written
+        /// with, and load() honours THAT, so a smaller older bank still opens (see load()).
+        static constexpr size_t BANK_BOX_COUNT = 100;
         static constexpr size_t BANK_SLOTS_PER_BOX = 30;    // 6x5 grid per box
 
         /// Constructs the unified bank and loads any existing on-SD contents. On first run it
@@ -38,7 +43,7 @@ namespace Trainer {
         bool save() const;
 
         /// True if the in-memory boxes differ from the last saved/loaded on-disk state.
-        /// Used to prompt Save/Discard when leaving the storage view (PKSM-style).
+        /// Used to prompt Save/Discard when leaving the storage view (HOME-style).
         bool hasChanged() const;
 
         size_t boxCount() const noexcept { return BANK_BOX_COUNT; }

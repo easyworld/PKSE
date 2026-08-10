@@ -61,7 +61,7 @@ namespace UI {
         void drawHDivider(int x, int y, int w);                   // subtle horizontal rule
         void drawFilledEllipse(int cx, int cy, int rx, int ry, Color color);  // e.g. soft shadows
 
-        // --- Rounded / vector primitives (Pokemon HOME look, Phase 4) ---
+        // --- Rounded / vector primitives (HOME look, Phase 4) ---
         // Anti-aliased on the horizontal edges of rounded corners (fractional coverage);
         // straight edges are exact. `r` is the corner radius (clamped to min(w,h)/2).
         void drawFilledRoundedRect(int x, int y, int w, int h, int r, Color color);
@@ -71,10 +71,15 @@ namespace UI {
         // Draws a Pokemon egg (cream oval + teal spots) centered at (cx,cy), ~size px tall.
         // Used in the box/storage grids in place of the species sprite when a mon is an egg.
         void drawEgg(int cx, int cy, int size);
-        // Draws Pokemon HOME's shiny mark -- a four-pointed sparkle (concave-sided star) --
+        // Draws HOME's shiny mark -- a four-pointed sparkle (concave-sided star) --
         // filling a size×size box whose top-left is (x,y), so it drops into existing marker
         // rows the same way drawSymbol did. Replaces the old ★ glyph everywhere shiny is shown.
         void drawShinyMark(int x, int y, int size, Color color);
+        // Storage-grid cursor: a wide arrowhead pointing straight down, no shaft. Its POINT lands on
+        // (tipX, tipY) with the head above, symmetric about that x. `headHeight` sizes the head --
+        // the visible arrow; the mitred outline runs on below it to the point at tipY, adding ~27%
+        // more. Drawn in the active cursor mode's colour.
+        void drawPointerCursor(int tipX, int tipY, int headHeight, Color color);
         // Stadium (fully-rounded) pill = rounded rect with r = h/2. HOME's headers/badges/buttons.
         void drawPill(int x, int y, int w, int h, Color color);
         void drawPillBorder(int x, int y, int w, int h, Color color, int thickness = 1);
@@ -89,9 +94,6 @@ namespace UI {
                              float maxValue, Color fill, Color web, Color outline);
         // Two-tone rounded type badge (HOME style): colored icon chip + name. Returns total width drawn.
         int  drawTypeBadge(int x, int y, const std::string& typeName, Color typeColor);
-        // Rounded name-label with a downward triangle tail — HOME's box-grid selection cursor.
-        void drawNameCursorLabel(int cx, int topY, const std::string& text, Color fill, Color textColor);
-
         // Draw a sprite with a gentle idle animation (bob + breathe) and a soft ground
         // shadow, driven by the frame tick. (x,y,boxW,boxH) is the nominal placement box;
         // (srcW,srcH) the sprite's native size; `phase` offsets the timing per sprite.

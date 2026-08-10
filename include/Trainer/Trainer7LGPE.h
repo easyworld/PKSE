@@ -132,6 +132,8 @@ namespace Trainer {
          * Updates the MY_ITEM block with modified inventory data.
          */
         void updateItemBlock() override;
+        void updateTrainerInfoBlock() override;   // money / OT name
+        void updatePokedexBlock() override;       // Zukan: caught + seen/displayed/language flags
 
         /**
          * Creates a species-0, checksum-valid blank PB7 entity via the encrypt->decrypt round-trip:

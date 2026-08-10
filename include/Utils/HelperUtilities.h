@@ -28,6 +28,9 @@ namespace Utils {
     /// Helper to write little-endian uint32_t to a byte pointer.
     void writeUInt32LittleEndian(uint8_t* ptr, uint32_t value);
 
+    /// Helper to write little-endian uint64_t to a byte pointer.
+    void writeUInt64LittleEndian(uint8_t* ptr, uint64_t value);
+
     /// Returns a pseudo-random 32-bit value. Backed by a process-lifetime std::mt19937 seeded
     /// once from the libnx system tick. Used by the Pokemon creator for a new mon's PID /
     /// EncryptionConstant (a unique-per-call value is sufficient there).

@@ -133,12 +133,17 @@ namespace UI {
             return it->second.sprite;
         }
 
-        // Get the sprite ID for this form
-        uint32_t spriteId = Pokemon::getFormSpriteId(speciesId, formId);
+        // Resolve the sprite stem for this form. Prefer the NAME-keyed table: the peer-form
+        // families (Unown letters, Arceus/Silvally types, Vivillon patterns, Alcremie creams,
+        // Furfrou trims, flower colours, seasons, seas) have no numeric PokeAPI id at all, so
+        // getFormSpriteId() cannot reach them. It returns "" for everything else.
         std::string suffix = isShiny ? "s" : "";
-        std::string sid = std::to_string(spriteId);
+        const char* named = Pokemon::getFormSpriteName(speciesId, formId);
+        std::string sid = (named && named[0] != '\0')
+                              ? std::string(named)
+                              : std::to_string(Pokemon::getFormSpriteId(speciesId, formId));
 
-        // Prefer the HD render (transparent Pokemon HOME PNG) for this sprite id, then
+        // Prefer the HD render (transparent HOME PNG) for this sprite id, then
         // fall back to the bundled 96px sprite.
         Sprite* sprite = loadSprite("sprites/pokemon_hd/" + sid + suffix + ".png");
         if (!sprite) {

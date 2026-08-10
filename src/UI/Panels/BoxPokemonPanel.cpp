@@ -3,6 +3,7 @@
 #include <string>
 
 #include "UI/Panels/BoxPokemonPanel.h"
+#include "UI/Panels/CarriedSprite.h"   // drawLiftedMon -- shared with the bank
 #include "UI/TrainerViewScreen.h"
 #include "UI/Common.h"
 #include "UI/PKSEFramebuffer.h"
@@ -30,7 +31,7 @@ namespace Panels {
         return w;
     }
 
-    // Pokemon HOME-style box: rounded card, indigo header with a centered name pill and ‹ ›
+    // HOME-style box: rounded card, indigo header with a centered name pill and ‹ ›
     // arrows, a grid of sprite-on-disc cells, a floating name-cursor on the selection, and a
     // slim selected-info strip at the bottom.
     void drawBoxPokemon(TrainerViewScreen& screen, PKSEFramebuffer& fb, int x, int y, int width, int height) {
@@ -98,19 +99,23 @@ namespace Panels {
         int discR = std::min(colPitch, rowPitch) / 2 - 6;
         if (discR < 18) discR = 18;
 
-        int selCx = 0, selTopY = 0;            // where to hang the name-cursor (drawn last, on top)
-        std::string selLabel;
+        // The cursor and anything riding it are drawn last, over the finished grid.
+        int selCx = 0, selDiscTop = 0, selDiscR = discR;
         bool haveSel = false;
 
-        // Cursor scale-pop (Phase 4.6): restart the pop timer when the selection changes; the
-        // selected disc briefly scales up (~16%) then settles over 0.14s.
-        const double nowT = fb.getTimeSeconds();
-        if (screen.detailViewActive && screen.selectedItemIndex != screen.animPrevBoxSlot) {
-            screen.animBoxPopStart = nowT;
-            screen.animPrevBoxSlot = screen.selectedItemIndex;
+        // Y grabs the slot under the cursor and a second Y drops it. The grabbed Pokemon is not
+        // actually moved out of its slot until then (see the Y handler), but it READS as picked up:
+        // its slot is drawn empty and the Pokemon itself travels with the cursor, exactly as a
+        // carried one does in the bank. Sourced from the grabbed slot rather than the visible box,
+        // so it keeps following the cursor after changing box with L/R.
+        const ::Pokemon::Pokemon* carried = nullptr;
+        if (screen.swapActive &&
+            screen.swapSourceBox >= 0 && screen.swapSourceBox < static_cast<int>(screen.trainer.boxes.size()) &&
+            screen.swapSourceSlot >= 0 && screen.swapSourceSlot < slotsPerBox) {
+            carried = screen.trainer.boxes[screen.swapSourceBox][screen.swapSourceSlot].get();
         }
-        const double popRaw = 1.0 - (nowT - screen.animBoxPopStart) / 0.14;
-        const double pop = popRaw > 0.0 ? popRaw : 0.0;
+
+        const double nowT = fb.getTimeSeconds();   // drives the cursor's bob
 
         for (int row = 0; row < GRID_ROWS; ++row) {
             for (int col = 0; col < GRID_COLS; ++col) {
@@ -127,25 +132,22 @@ namespace Panels {
                 const bool grabbed  = screen.swapActive &&
                                       screen.swapSourceBox == screen.selectedBoxIndex &&
                                       screen.swapSourceSlot == slotIndex;
-                // Selected disc pops (scales up ~16%) briefly when the cursor lands on it.
-                const int r = selected ? discR + static_cast<int>(std::lround(discR * 0.16 * pop)) : discR;
 
                 const auto& pokemon = currentBox[slotIndex];
                 std::string speciesName = pokemon ? std::string(pokemon->species()) : "";
-                const bool empty = !pokemon || speciesName == "无" || speciesName == "空" ||
+                // A grabbed slot renders empty: its occupant is drawn riding the cursor instead, so
+                // showing it here too would put the same Pokemon on screen twice.
+                const bool empty = grabbed || !pokemon || speciesName == "无" || speciesName == "空" ||
                                    pokemon->speciesID() == 0;
 
-                // Selection halo (soft glow behind the disc).
-                if (selected) fb.drawFilledCircle(cx, cy, r + 5, Color(Colors::Accent.r, Colors::Accent.g, Colors::Accent.b, 70));
-
                 // Disc: occupied a touch lighter than empty for subtle depth.
-                fb.drawFilledCircle(cx, cy, r, empty ? Colors::Panel : Colors::PanelAlt);
+                fb.drawFilledCircle(cx, cy, discR, empty ? Colors::Panel : Colors::PanelAlt);
 
                 if (empty) {
-                    fb.drawCircle(cx, cy, r, Colors::Border, 1);
+                    fb.drawCircle(cx, cy, discR, Colors::Border, 1);
                 } else {
                     const bool isShiny = pokemon->isShiny(pokemon->id32(), speciesName);
-                    int sz = std::min(static_cast<int>(r * 1.8), colPitch - 6);
+                    int sz = std::min(static_cast<int>(discR * 1.8), colPitch - 6);
                     if (pokemon->isEgg()) {
                         // Eggs show as an egg in the grid; the summary panel still shows the species.
                         fb.drawEgg(cx, cy, sz);
@@ -158,43 +160,42 @@ namespace Panels {
                     }
                     // Markers: partner heart (top-left), party number (bottom-left), shiny star (top-right).
                     if (screen.trainer.isStarterPokemon(screen.selectedBoxIndex, slotIndex))
-                        fb.drawSymbol(cx - r, cy - r + 2, "♥", Colors::PartnerHeart);
+                        fb.drawSymbol(cx - discR, cy - discR + 2, "♥", Colors::PartnerHeart);
                     int partyPos = screen.trainer.getPartyPosition(screen.selectedBoxIndex, slotIndex);
                     if (partyPos > 0) {
                         // Gold badge + dark digit (bottom-left), legible on any sprite in either theme.
                         const std::string n = std::to_string(partyPos);
-                        const int bx = cx - r + 9, by = cy + r - 9;
+                        const int bx = cx - discR + 9, by = cy + discR - 9;
                         fb.drawFilledCircle(bx, by, 9, Colors::PartyBadge);
                         int tw, th; fb.measureText(n, tw, th, TextStyle::Caption);
                         fb.drawText(bx - tw / 2, by - th / 2, n, Colors::PartyBadgeText, TextStyle::Caption);
                     }
                     if (isShiny)
-                        fb.drawShinyMark(cx + r - 15, cy - r + 1, 15, Colors::ShinyStar);
-
-                    if (selected) {
-                        selCx = cx; selTopY = cy - r - 2; haveSel = true;
-                        selLabel = Names::getDisplayName(pokemon->speciesID(), pokemon->form(), speciesName)
-                                 + " (等级 " + std::to_string(pokemon->level()) + ")";
-                    }
+                        fb.drawShinyMark(cx + discR - 15, cy - discR + 1, 15, Colors::ShinyStar);
                 }
 
-                // Selection / grab ring on top of the disc.
-                if (grabbed)       fb.drawCircle(cx, cy, r + 2, Colors::Primary, 3);
-                else if (selected) fb.drawCircle(cx, cy, r + 2, Colors::Accent, 3);
+                if (selected) { selCx = cx; selDiscTop = cy - discR; selDiscR = discR; haveSel = true; }
             }
         }
 
-        // Card border, then the floating HOME name-cursor over the selected disc (drawn last = on top).
         fb.drawRoundedRect(x, y, width, height, 16, Colors::Border, 1);
+
+        // Cursor last, over the finished grid: the same arrow the bank uses, in this view's own
+        // colours -- indigo while browsing, amber while carrying, matching the rings it replaces.
+        // Anything in hand rides it, drawn first so the arrow stays on top.
+        const Color cur = screen.swapActive ? Colors::Primary : Colors::Accent;
+        const int bob = static_cast<int>(std::sin(nowT * 3.4) * 3.0);
         if (haveSel) {
-            // Theme-aware chip: indigo accent in light mode, near-black in dark mode; always light
-            // text so it stays readable (a fixed dark chip + Colors::Text went invisible in light mode).
-            const Color cursorFill = (g_themeMode == ThemeMode::Light) ? Colors::Accent : Color(24, 23, 32, 240);
-            fb.drawNameCursorLabel(selCx, selTopY, selLabel, cursorFill, Colors::White);
+            if (carried) drawLiftedMon(fb, carried, selCx, selDiscTop + selDiscR + bob, selDiscR);
+            fb.drawPointerCursor(selCx, selDiscTop - 3 + bob, kGridCursorH, cur);
+        } else if (headerFocused) {
+            // The box-name pill is a cursor position of its own; point at it too, so navigating up
+            // off the top row never leaves the cursor invisible.
+            fb.drawPointerCursor(x + width / 2, pillY - 2 + bob, kGridCursorH, cur);
         }
     }
 
-    // Pokemon HOME-style summary side-panel (shown right of the box when entered): big idle HD
+    // HOME-style summary side-panel (shown right of the box when entered): big idle HD
     // render, name/level/gender/shiny, type icons, the stat hexagon (actual stats), and a
     // Nature/Ability/Held Item card. Tapping it (id 2000) opens the full editor. Read-only display.
     void drawBoxSummaryPanel(TrainerViewScreen& screen, PKSEFramebuffer& fb, int x, int y, int width, int height) {
@@ -256,7 +257,7 @@ namespace Panels {
         }
         // Type icons, centered.
         {
-            Pokemon::TypePair types = Pokemon::getPokemonTypes(p->speciesID(), p->form());
+            Pokemon::TypePair types = Pokemon::getPokemonTypes(p->speciesID(), p->form(), p->getGameGroup());
             Sprite* t1 = SpriteManager::getTypeSprite(types.type1);
             Sprite* t2 = Pokemon::hasSecondType(types) ? SpriteManager::getTypeSprite(types.type2) : nullptr;
             const int th = 20;

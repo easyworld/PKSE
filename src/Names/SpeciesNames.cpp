@@ -1,9 +1,15 @@
+// AUTO-GENERATED from PKHeX's Simplified Chinese species-name text (species id = array index).
+// Source: PKHeX.Core/Resources/text/other/zh-Hans/text_Species_zh-Hans.txt
+// Regenerate with tools/gen_speciesnames.py (fetches from GitHub; see tools/pkhex_source.py).
+//
+// Names are verbatim and use the official Simplified Chinese terminology.
+//
+// Index 0 is "无" (PKSE's empty slot), where PKHeX has "蛋".
 #include <cstdint>
 #include <cstddef>
 
 namespace Names {
-    // Species name lookup table - indexed by Species ID
-    static const char* SPECIES_NAMES[] = {
+    static const char* const SPECIES_NAMES[] = {
         "无",
         "妙蛙种子",
         "妙蛙草",
@@ -1031,12 +1037,11 @@ namespace Names {
         "太乐巴戈斯",
         "桃歹郎",
     };
-    constexpr size_t SPECIES_NAMES_COUNT = 1026;
 
+    // Out of range returns "未知", which the legality checker tests for by value.
     const char* getSpeciesName(uint16_t speciesId) {
-        if (speciesId >= SPECIES_NAMES_COUNT) {
-            return "未知";
-        }
+        constexpr size_t count = sizeof(SPECIES_NAMES) / sizeof(SPECIES_NAMES[0]);
+        if (speciesId >= count) return "未知";
         return SPECIES_NAMES[speciesId];
     }
 }

@@ -7,7 +7,7 @@
  * see Enums::GameVersion).
  *
  * IDs are BANKED (id / 10000): bank 0 = in-world locations, bank 3 (30000) =
- * Link Trade / region + Pokemon HOME/GO transfers, bank 4 (40000) = events,
+ * Link Trade / region + HOME/GO transfers, bank 4 (40000) = events,
  * bank 6 (60000) = egg received-from sources. A traded/transferred/egg mon
  * therefore has a high-banked id; resolving only bank 0 renders it "(none)".
  * Tables are extracted from PKHeX's met-location text resources and the lookup

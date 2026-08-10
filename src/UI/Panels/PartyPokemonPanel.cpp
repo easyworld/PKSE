@@ -129,7 +129,8 @@ namespace Panels {
             }
 
             // --- Type badges (stacked) + sprite (right side) ---
-            Pokemon::TypePair types = Pokemon::getPokemonTypes(pokemon->speciesID(), pokemon->form());
+            Pokemon::TypePair types = Pokemon::getPokemonTypes(pokemon->speciesID(), pokemon->form(),
+                                                               pokemon->getGameGroup());
             const int typeX = cardX + 286;
             drawTypeIcon(fb, SpriteManager::getTypeSprite(types.type1), typeX, cardY + 42, 16);
             if (Pokemon::hasSecondType(types)) {

@@ -1,3 +1,11 @@
+<p align="center">
+  <img src="assets/screenshots/banner.png" alt="PKSE - Pokemon Save Editor" width="640">
+</p>
+
+<p align="center">
+  <a href="LICENSE"><img src="https://img.shields.io/badge/License-AGPL%20v3-blue.svg" alt="License: AGPL v3"></a>
+</p>
+
 # **PKSE - Pokemon Save Editor**
 PKSE is a homebrew application for conveniently editing Pokemon save files on the Nintendo Switch, without having to transfer save files to your PC.
 
@@ -11,11 +19,28 @@ PKSE is a homebrew application for conveniently editing Pokemon save files on th
 
 ## **Screenshots**
 
-<img src="https://i.imgur.com/1jPiTsC.jpeg" width="300"><img src="https://i.imgur.com/kSxSc0s.jpeg" width="300"><br>
-<img src="https://i.imgur.com/pzkCt5W.jpeg" width="300"><img src="https://i.imgur.com/Dvq5jKB.jpeg" width="300"><br>
-<img src="https://i.imgur.com/2ZchNXI.jpeg" width="300"><img src="https://i.imgur.com/2GZ72Vx.jpeg" width="300"><br>
-<img src="https://i.imgur.com/Kpi3MmW.jpeg" width="300"><img src="https://i.imgur.com/8idUsGD.jpeg" width="300"><br>
-<img src="https://i.imgur.com/M2asUM3.jpeg" width="300"><img src="https://i.imgur.com/AC6zoXd.jpeg" width="300"><br>
+Each row is the same screen in the dark and light themes. Click any shot for full size.
+
+<a href="assets/screenshots/0.jpg"><img src="assets/screenshots/0.jpg" alt="Title selection (dark theme)" width="380"></a>
+<a href="assets/screenshots/1.jpg"><img src="assets/screenshots/1.jpg" alt="Title selection (light theme)" width="380"></a>
+
+<a href="assets/screenshots/2.jpg"><img src="assets/screenshots/2.jpg" alt="Main menu (dark theme)" width="380"></a>
+<a href="assets/screenshots/3.jpg"><img src="assets/screenshots/3.jpg" alt="Main menu (light theme)" width="380"></a>
+
+<a href="assets/screenshots/4.jpg"><img src="assets/screenshots/4.jpg" alt="Box view (dark theme)" width="380"></a>
+<a href="assets/screenshots/5.jpg"><img src="assets/screenshots/5.jpg" alt="Box view (light theme)" width="380"></a>
+
+<a href="assets/screenshots/6.jpg"><img src="assets/screenshots/6.jpg" alt="Pokemon details (dark theme)" width="380"></a>
+<a href="assets/screenshots/7.jpg"><img src="assets/screenshots/7.jpg" alt="Pokemon details (light theme)" width="380"></a>
+
+<a href="assets/screenshots/8.jpg"><img src="assets/screenshots/8.jpg" alt="Editing a stat (dark theme)" width="380"></a>
+<a href="assets/screenshots/9.jpg"><img src="assets/screenshots/9.jpg" alt="Editing a stat (light theme)" width="380"></a>
+
+<a href="assets/screenshots/10.jpg"><img src="assets/screenshots/10.jpg" alt="Party view (dark theme)" width="380"></a>
+<a href="assets/screenshots/11.jpg"><img src="assets/screenshots/11.jpg" alt="Party view (light theme)" width="380"></a>
+
+<a href="assets/screenshots/12.jpg"><img src="assets/screenshots/12.jpg" alt="Storage and bank (dark theme)" width="380"></a>
+<a href="assets/screenshots/13.jpg"><img src="assets/screenshots/13.jpg" alt="Storage and bank (light theme)" width="380"></a>
 
 ## **Title Compatibility**
 
@@ -134,7 +159,7 @@ make clean && make
 
 ## **Regenerating the data tables**
 
-Most of the game data PKSE relies on — species / move / ability / item names, learnsets, per-species info (abilities, gender ratios, forms), item-pouch contents, met-location names and move PP — lives in **generated** source files under `src/Names/` and `src/Pokemon/`. These are **committed to the repo**, so a normal build never regenerates them: `make` just compiles them, and you do **not** need any of the tools below to build PKSE.
+Most of the game data PKSE relies on — species / move / ability / item names, learnsets, per-species info (abilities, gender ratios, forms), item-pouch contents, met-location names, move PP and Pokedex entry placement — lives in **generated** source files under `src/Names/` and `src/Pokemon/`. These are **committed to the repo**, so a normal build never regenerates them: `make` just compiles them, and you do **not** need any of the tools below to build PKSE.
 
 You only need to regenerate a table when its upstream data changes — a new game, a DLC that adds Pokemon / moves / items, or a correction in [PKHeX](https://github.com/kwsch/PKHeX). The generators live in `tools/` and are run **by hand, one at a time**.
 
@@ -151,6 +176,10 @@ python tools/gen_movenames.py      # move display names
 python tools/gen_movepresence.py   # which moves exist in each game
 python tools/gen_itempresence.py   # which items a Pokemon may legally hold, per game
 python tools/gen_itempouches.py    # which items belong in each bag pocket
+python tools/gen_speciesnames.py   # species display names
+python tools/gen_swshdex.py        # which of Sword/Shield's three Pokedexes a species is in
+python tools/gen_svdex.py          # which Scarlet/Violet regional Pokedex a species+FORM is in
+python tools/gen_pladex.py         # Legends: Arceus Pokedex statistics-entry lookup
 ```
 
 Each fetches its PKHeX files via `tools/pkhex_source.py` and caches them under `tools/.pkhex_cache/` (gitignored) so re-runs are offline. By default they use a **pinned PKHeX commit** — the one the committed tables were built from — so regenerating reproduces the existing tables exactly. Two overrides:

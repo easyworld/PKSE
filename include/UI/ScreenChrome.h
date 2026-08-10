@@ -135,7 +135,7 @@ namespace UI {
     // --- Tappable badges --------------------------------------------------------------------
     //
     // Every screen already publishes a contextual hint string, so making the badges tappable gives
-    // PKSM-style on-screen action buttons everywhere at once. A tap resolves to that button's press
+    // HOME-style on-screen action buttons everywhere at once. A tap resolves to that button's press
     // and the screen ORs it into padGetButtonsDown, so no existing handler changes -- there is one
     // input path, not two, and a tap can never diverge from what the physical button does.
     //
@@ -270,7 +270,7 @@ namespace UI {
         drawNavHints(fb, 0, W, barY + kNavBarH / 2, hint);
     }
 
-    // A Pokemon HOME-style selectable list tile: rounded (stadium), soft shadow, amber when
+    // A HOME-style selectable list tile: rounded (stadium), soft shadow, amber when
     // selected. `accent` marks a special/primary row (indigo-tinted when not selected, e.g. the
     // "新建备份" action); `enabled` false dims it (e.g. a "没有存档" placeholder).
     inline void drawHomeTile(PKSEFramebuffer& fb, int x, int y, int w, int h,

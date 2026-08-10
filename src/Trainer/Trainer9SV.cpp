@@ -7,8 +7,12 @@
  */
 #include <algorithm>
 #include <cstring>
+#include <string>
 
 #include "Trainer/Trainer9SV.h"
+#include "Pokemon/SpeciesConverter9.h"   // gen9NationalToInternal -- dex entries are keyed by internal id
+#include "Pokemon/PersonalInfoTable.h"    // getPersonalInfo -> presence + genderRatio
+#include "Pokemon/SVDexTable.h"           // getSVDexEntry -- which regional dex a species+form is listed in
 #include "Trainer/Inventory9SV.h"
 #include "Names/ItemPouches.h"   // getPouchItems -- per-pouch legal ids
 #include "Utils/Logger.h"
@@ -43,9 +47,6 @@ namespace Trainer {
                 break;
             case CURRENT_BOX9_SV:
                 parseCurrentBoxBlock(block);
-                break;
-            case SAVE_REVISION9_SV:
-                parseSaveRevisionBlock(block);
                 break;
             // Additional blocks can be handled here
             default:
@@ -298,48 +299,40 @@ namespace Trainer {
         }
     }
 
-    void Trainer9SV::parseSaveRevisionBlock(const Block& block)
+    void Trainer9SV::detectSaveRevision()
     {
         /**
-         * SAVE_REVISION Block Structure (Pokemon Scarlet/Violet):
-         * Contains a u64 (8 bytes) value indicating the save revision:
-         * - 0: Base game (version 1.0.x)
-         * - 1: Mega Dimension DLC (version 2.0.0+)
+         * Detects the DLC level (PKHeX SAV9SV). Scarlet/Violet stores NO save-revision value --
+         * the level is inferred from which blocks the save contains:
          *
-         * This value is critical for determining:
-         * - Which Pokemon species are available
-         * - Which moves are legal
-         * - Which items exist
-         * - Block key compatibility
+         * - Blueberry-points block present            -> The Indigo Disk  (revision 2)
+         * - DLC tera-raid block present with data     -> The Teal Mask    (revision 1)
+         * - neither                                   -> base game        (revision 0)
+         *
+         * This previously read a `0x0926555A` "save revision u64" block copied from Legends: Z-A
+         * (which really does have one). No such block exists in an S/V save, so the parse never
+         * ran and the DLC label in the title bar was permanently blank.
          */
-        if (block.data.size() < 8) {
-            // Default to base game if block is missing or too small
+        bool hasBlueberry = false;
+        bool hasRaidDLC   = false;
+
+        for (const auto& block : this->blocks) {
+            if (block.key == BLUEBERRY_POINTS9_SV)                       hasBlueberry = true;
+            if (block.key == TERA_RAID_DLC9_SV && !block.data.empty())   hasRaidDLC   = true;
+        }
+
+        if (hasBlueberry) {
+            this->saveRevision = 2;
+            this->saveRevisionString = "The Indigo Disk";
+            this->gameVersionString = "v3.0";   // The Indigo Disk requires v3.0.0+
+        } else if (hasRaidDLC) {
+            this->saveRevision = 1;
+            this->saveRevisionString = "The Teal Mask";
+            this->gameVersionString = "v2.0";   // The Teal Mask requires v2.0.1+
+        } else {
             this->saveRevision = 0;
             this->saveRevisionString = "Base";
             this->gameVersionString = "v1.0";
-            logInfoToFile("SAVE_REVISION block too small, defaulting to Base");
-            return;
-        }
-
-        // Read the u64 revision value
-        uint64_t revision = readUInt64LittleEndian(block.data.data());
-        this->saveRevision = static_cast<int>(revision);
-
-        // Map revision to human-readable string and version
-        switch (this->saveRevision) {
-            case 0:
-                this->saveRevisionString = "Base";
-                this->gameVersionString = "v1.0";  // Base game v1.0.x
-                break;
-            case 1:
-                this->saveRevisionString = "Mega Dimension";
-                this->gameVersionString = "v2.0";  // Mega Dimension DLC requires v2.0.0+
-                break;
-            default:
-                // Future DLC/updates
-                this->saveRevisionString = "Rev " + std::to_string(this->saveRevision);
-                this->gameVersionString = "v" + std::to_string(this->saveRevision + 1) + ".0";
-                break;
         }
 
         char buffer[128];
@@ -545,6 +538,163 @@ namespace Trainer {
             std::span<const std::byte>(enc, SIZE_PARTY9_SV));
         delete[] enc;
         return p;
+    }
+
+    // ---- Pokedex -----------------------------------------------------------------------------
+    //
+    // Entries are indexed by the Gen 9 INTERNAL species id, not the National number -- the same
+    // conversion the entity's species field needs (SpeciesConverter9). Two blocks exist and only one
+    // is live: from game 2.0.1 the Paldea block was dummied out in favour of Kitakami, so "Kitakami
+    // has data" means Kitakami is the dex. Their entry layouts are different, not nested.
+    //
+    // Kitakami entry, 0x20 bytes (PKHeX PokeDexEntry9Kitakami):
+    //   0x00 u32 forms obtained (bit per form)   0x04 u32 forms seen   0x08 u32 forms heard
+    //   0x0C u32 forms checked                   0x10 u16 language flags
+    //   0x12 u8 genders seen (1 male, 2 female, 4 genderless)
+    //   0x13 u8 models seen  (1 regular, 2 shiny)
+    //   0x14/0x18/0x1C  displayed form/gender/shiny for the Paldea / Kitakami / Blueberry dexes
+    //
+    // Paldea entry, 0x18 bytes (PKHeX PokeDexEntry9Paldea):
+    //   0x00 u32 state (0 hidden / 1 known-of / 2 seen / 3 obtained)   0x04 u32 forms obtained
+    //   0x08 u16 genders seen   0x0A u16 language   0x0C u8 shiny obtained   0x10 u16 display form
+    //   0x14 u8 display gender  0x15 u8 display shiny
+    namespace {
+        constexpr size_t SV_ENTRY_KITAKAMI = 0x20;
+        constexpr size_t SV_ENTRY_PALDEA   = 0x18;
+
+        int svLangSlot(uint8_t language) {   // slot 6 unused, so 7+ shift down by two
+            if (language == 0 || language == 6 || language > 10) return -1;
+            return (language >= 7) ? language - 2 : language - 1;
+        }
+
+        // Which "genders seen" bits a species implies: a dual-gender species marks both, a fixed one
+        // marks only its own. Mirrors PKHeX SetSeen (IsDualGender ? 3 : bit for FixedGender()).
+        uint8_t svGenderSeenBits(uint8_t genderRatio) {
+            if (genderRatio == 255) return 0x04;   // genderless
+            if (genderRatio == 254) return 0x02;   // female only
+            if (genderRatio == 0)   return 0x01;   // male only
+            return 0x03;                            // both
+        }
+
+        inline uint32_t rdU32(const std::vector<uint8_t>& d, size_t o) {
+            return static_cast<uint32_t>(d[o]) | (static_cast<uint32_t>(d[o + 1]) << 8)
+                 | (static_cast<uint32_t>(d[o + 2]) << 16) | (static_cast<uint32_t>(d[o + 3]) << 24);
+        }
+        inline void wrU32(std::vector<uint8_t>& d, size_t o, uint32_t v) {
+            d[o] = static_cast<uint8_t>(v);         d[o + 1] = static_cast<uint8_t>(v >> 8);
+            d[o + 2] = static_cast<uint8_t>(v >> 16); d[o + 3] = static_cast<uint8_t>(v >> 24);
+        }
+        inline uint16_t rdU16(const std::vector<uint8_t>& d, size_t o) {
+            return static_cast<uint16_t>(d[o] | (d[o + 1] << 8));
+        }
+        inline void wrU16(std::vector<uint8_t>& d, size_t o, uint16_t v) {
+            d[o] = static_cast<uint8_t>(v);  d[o + 1] = static_cast<uint8_t>(v >> 8);
+        }
+    }
+
+    void Trainer9SV::updatePokedexBlock()
+    {
+        std::vector<uint8_t>* paldea = nullptr;
+        std::vector<uint8_t>* kitakami = nullptr;
+        for (auto& block : blocks) {
+            if      (block.key == ZUKAN9_SV_PALDEA)   paldea = &block.data;
+            else if (block.key == ZUKAN9_SV_KITAKAMI) kitakami = &block.data;
+        }
+        const bool useKitakami = (kitakami && !kitakami->empty());
+        std::vector<uint8_t>* dex = useKitakami ? kitakami : paldea;
+        if (!dex || dex->empty()) return;
+        const size_t entrySize = useKitakami ? SV_ENTRY_KITAKAMI : SV_ENTRY_PALDEA;
+        size_t skippedOutOfRange = 0;
+
+        auto registerMon = [&](const ::Pokemon::Pokemon* pk) {
+            if (!pk || pk->isEgg()) return;
+            const uint16_t species = pk->speciesID();
+            if (species == 0) return;
+            const uint8_t form = pk->form();
+            const ::Pokemon::PersonalInfo& pi = ::Pokemon::getPersonalInfo(species, form);
+            if ((pi.presence & ::Pokemon::PERSONAL_GAME_SV) == 0) return;   // not in this game
+            if (form > 31) return;   // the form bitfields are u32; nothing real reaches this
+
+            // Entries are keyed by the INTERNAL id, which diverges from the National number at #917.
+            const uint16_t internalId = ::Pokemon::gen9NationalToInternal(species);
+            const size_t base = static_cast<size_t>(internalId) * entrySize;
+            if (base + entrySize > dex->size()) { ++skippedOutOfRange; return; }
+
+            const bool shiny = pk->isShiny(pk->id32(), pk->species());
+            const uint8_t gender = pk->gender();          // 0 male, 1 female, 2 genderless
+            const int lang = svLangSlot(pk->language());
+            const uint32_t formBit = 1u << form;
+
+            if (useKitakami) {
+                wrU32(*dex, base + 0x00, rdU32(*dex, base + 0x00) | formBit);   // obtained
+                wrU32(*dex, base + 0x04, rdU32(*dex, base + 0x04) | formBit);   // seen
+                wrU32(*dex, base + 0x08, rdU32(*dex, base + 0x08) | formBit);   // heard of
+                if (lang >= 0)
+                    wrU16(*dex, base + 0x10, static_cast<uint16_t>(rdU16(*dex, base + 0x10) | (1u << lang)));
+                (*dex)[base + 0x12] |= svGenderSeenBits(pi.genderRatio);
+                (*dex)[base + 0x13] |= static_cast<uint8_t>(0x01 | (shiny ? 0x02 : 0x00));  // models seen
+                // Displayed variant, one slot per regional dex (Paldea / Kitakami / Blueberry). A slot
+                // is written only for a dex this species+FORM is actually listed in, and only where
+                // nothing is displayed yet -- so a species first obtained as an alternate form shows
+                // that form, and an entry the player already has keeps what it was showing.
+                //
+                // Membership is per form, not per species: Kantonian Diglett is a Paldea entry while
+                // Alolan Diglett is a Blueberry one, and Alolan Meowth is in NO S/V dex at all. Writing
+                // all three slots unconditionally made the regular Pokedex draw a regional variant it
+                // can never list. PKHeX Zukan9 SetLocalStates does the same check.
+                const ::Pokemon::SVDexEntry& regional = ::Pokemon::getSVDexEntry(species, form);
+                const uint16_t listedIn[3] = { regional.paldea, regional.kitakami, regional.blueberry };
+                const size_t   slotAt[3]   = { 0x14, 0x18, 0x1C };
+                for (int i = 0; i < 3; ++i) {
+                    if (listedIn[i] == 0) continue;              // not in that regional dex
+                    if ((*dex)[base + slotAt[i]] != 0) continue; // already showing something
+                    (*dex)[base + slotAt[i]]     = form;
+                    (*dex)[base + slotAt[i] + 1] = gender;
+                    (*dex)[base + slotAt[i] + 2] = shiny ? 1 : 0;
+                }
+            } else {
+                if (rdU32(*dex, base + 0x00) < 3) wrU32(*dex, base + 0x00, 3);  // state: obtained
+                wrU32(*dex, base + 0x04, rdU32(*dex, base + 0x04) | formBit);   // forms obtained
+                (*dex)[base + 0x08] |= svGenderSeenBits(pi.genderRatio);
+                if (lang >= 0)
+                    wrU16(*dex, base + 0x0A, static_cast<uint16_t>(rdU16(*dex, base + 0x0A) | (1u << lang)));
+                if (shiny) (*dex)[base + 0x0C] = 1;
+                if (rdU16(*dex, base + 0x10) == 0 && (*dex)[base + 0x14] == 0) {
+                    wrU16(*dex, base + 0x10, form);
+                    (*dex)[base + 0x14] = gender;
+                    (*dex)[base + 0x15] = shiny ? 1 : 0;
+                }
+            }
+        };
+
+        for (const auto& pk : party) registerMon(pk.get());
+        for (const auto& box : boxes)
+            for (const auto& pk : box) registerMon(pk.get());
+
+        // An entry landing past the end of the block means the layout is not what this code assumes
+        // (wrong live block, wrong entry size, or an internal id beyond what the save allocates).
+        // Without saying so it reads as "the Pokedex just didn't update" -- the silent-skip failure.
+        if (skippedOutOfRange != 0) {
+            logErrorToFile("Pokedex: entries fell outside the Zukan block and were skipped",
+                           (std::to_string(skippedOutOfRange) + " skipped; block="
+                            + std::string(useKitakami ? "Kitakami" : "Paldea")
+                            + " size=" + std::to_string(dex->size())
+                            + " entry=" + std::to_string(entrySize)).c_str());
+        }
+    }
+
+    void Trainer9SV::updateTrainerInfoBlock()
+    {
+        // Write money / OT name back to the blocks parse reads them from. encrypt() re-hashes.
+        for (auto& block : blocks) {
+            if (block.key == MY_STATUS9_SV) {
+                if (block.data.size() >= 0x10 + 0x1A)
+                    setString(&block.data[0x10], 0x1A, utf8ToUtf16(trainerName), 12);
+            } else if (block.key == MONEY9_SV) {
+                if (block.data.size() >= 4)
+                    writeUInt32LittleEndian(block.data.data(), money);   // MONEY9_SV is a u32 scalar block
+            }
+        }
     }
 
     void Trainer9SV::updateItemBlock()

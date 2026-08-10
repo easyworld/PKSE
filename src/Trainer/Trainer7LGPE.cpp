@@ -11,6 +11,7 @@
 
 #include "Trainer/Trainer7LGPE.h"
 #include "Pokemon/Pokemon7LGPE.h"
+#include "Pokemon/PersonalInfoTable.h"   // getPersonalInfo -> per-game presence + formCount (Pokedex gate)
 #include "Utils/Logger.h"
 
 using namespace Utils;
@@ -559,6 +560,275 @@ namespace Trainer {
             std::span<const std::byte>(enc, SIZE_PARTY7_LGPE));
         delete[] enc;
         return p;
+    }
+
+    // ---- Pokedex (Zukan block, idx 4 @ 0x02A00) ----------------------------------------------
+    //
+    // Far richer than Gen 3's two bit arrays. Layout, relative to the block start (PKHeX Zukan7 /
+    // Zukan7b; the language-flag offset 0x550 is the ctor argument in SaveBlockAccessor7b):
+    //
+    //   0x000  magic u32 (0x2F120F17) + flags u32 + misc 0x80
+    //   0x088  CAUGHT      0x68 bytes  -- bit (species - 1)
+    //   0x0F0  SEEN        4 regions of 0x8C, indexed by shift = (gender & 1) | (shiny << 1)
+    //   0x320  DISPLAYED   4 more regions of 0x8C, i.e. SEEN + (shift + 4) * 0x8C
+    //   0x550  LANGUAGE    bit (dexBit * 9 + langIndex)
+    //
+    // The DISPLAYED flag is what makes an entry actually render; seen alone leaves a blank slot. The
+    // games set it for the FIRST variant registered and leave it there, so it is only written when no
+    // displayed flag exists for that species/form in any of the four regions.
+    namespace {
+        constexpr size_t ZUKAN_OFS_CAUGHT = 0x088;
+        constexpr size_t ZUKAN_OFS_SEEN   = 0x0F0;
+        constexpr size_t ZUKAN_BIT_REGION = 0x08C;   // bytes per seen/displayed region
+        constexpr size_t ZUKAN_OFS_LANG   = 0x550;
+        constexpr int    ZUKAN_LANG_COUNT = 9;
+        constexpr uint16_t LGPE_MAX_SPECIES = 809;   // Melmetal -- the base for alternate-form bits
+
+        // Species that carry alternate dex FORM bits in Let's Go, and how many forms each occupies.
+        // PKHeX DexFormUtil.DexSpeciesWithForm_GG / DexSpeciesCount_GG, verbatim and sorted.
+        constexpr uint16_t GG_FORM_SPECIES[32] = {
+              3,   6,   9,  15,  18,  19,  20,  25,  26,  27,  28,  37,  38,  50,  51,  52,
+             53,  65,  74,  75,  76,  80,  88,  89,  94, 103, 105, 115, 127, 130, 142, 150,
+        };
+        constexpr uint8_t GG_FORM_COUNT[32] = {
+              2,   3,   2,   2,   2,   2,   3,   9,   2,   2,   2,   2,   2,   2,   2,   2,
+              2,   2,   2,   2,   2,   2,   2,   2,   2,   2,   3,   2,   2,   2,   2,   3,
+        };
+
+        // Index of this species' first alternate-form bit, or -1 if it has none in the GG dex.
+        //
+        // PKHeX additionally bails when the GG form count exceeds the save's personal-table FormCount.
+        // That guard is not reproduced: it compares against Let's Go's OWN personal table, and PKSE
+        // carries only the Gen 9-derived one. Checked across all 32 species -- the counts happen to
+        // agree today, so the guard would never fire, but comparing to the wrong table is a trap
+        // waiting for the next data regeneration. The GG table is the authority for the GG dex.
+        int ggFormBitIndex(uint16_t species) {
+            int idx = -1;
+            for (int i = 0; i < 32; ++i) {
+                if (GG_FORM_SPECIES[i] == species) { idx = i; break; }
+            }
+            if (idx < 0) return -1;
+            int prior = -idx;
+            for (int i = 0; i < idx; ++i) prior += GG_FORM_COUNT[i];
+            return prior;
+        }
+
+        // The (species, form) pairs Let's Go's Pokedex actually has an entry for, beyond plain form 0.
+        // PKHeX Zukan7b.SizeDexInfoTable -- which is also the GATE its SetDex uses: a Pokemon whose
+        // (species, form) is absent here is not recorded at all.
+        constexpr uint16_t GG_DEX_FORMS[33][2] = {
+            {  3,1},{  6,1},{  6,2},{  9,1},{ 15,1},{ 18,1},{ 19,1},{ 20,1},{ 26,1},{ 27,1},{ 28,1},
+            { 37,1},{ 38,1},{ 50,1},{ 51,1},{ 52,1},{ 53,1},{ 65,1},{ 74,1},{ 75,1},{ 76,1},{ 80,1},
+            { 88,1},{ 89,1},{ 94,1},{103,1},{105,1},{115,1},{127,1},{130,1},{142,1},{150,1},{150,2},
+        };
+
+        // Dex entry index for a (species, form), or -1 if the dex has no entry. 0-150 are Kanto,
+        // 151/152 are Meltan/Melmetal, and 153+ are the alternate forms above, in table order.
+        // PKHeX Zukan7b.TryGetSizeEntryIndex.
+        int ggDexEntryIndex(uint16_t species, uint8_t form) {
+            if (form == 0) {
+                if (species >= 1 && species <= 151) return species - 1;
+                if (species == 808) return 151;
+                if (species == 809) return 152;
+                return -1;
+            }
+            for (int i = 0; i < 33; ++i) {
+                if (GG_DEX_FORMS[i][0] == species && GG_DEX_FORMS[i][1] == form) return 153 + i;
+            }
+            return -1;
+        }
+
+        // ---- Size records ------------------------------------------------------------------
+        // Let's Go remembers the smallest and largest of each species you have seen. Four groups of
+        // 186 six-byte entries at 0xF78; the table ends exactly on the block's last byte (0x20E8),
+        // which is a useful check that the geometry is right.
+        //   entry[0] height scalar, [1] flag, [2] weight scalar, [3] 0, [4..5] untouched
+        // An untouched entry reads as UNSET (height 0xFE / weight 0x7F) and the dex shows no record.
+        constexpr size_t ZUKAN_SIZE_START = 0xF78;
+        constexpr size_t ZUKAN_SIZE_ENTRY = 6;
+        constexpr size_t ZUKAN_SIZE_COUNT = 186;
+        enum : int { SIZE_MIN_HEIGHT = 0, SIZE_MAX_HEIGHT = 1, SIZE_MIN_WEIGHT = 2, SIZE_MAX_WEIGHT = 3 };
+
+        size_t ggSizeOffset(int group, int index) {
+            return ZUKAN_SIZE_START
+                 + ZUKAN_SIZE_ENTRY * (static_cast<size_t>(index) + static_cast<size_t>(group) * ZUKAN_SIZE_COUNT);
+        }
+        bool ggSizeUnset(const std::vector<uint8_t>& d, size_t ofs) {
+            // UNSET == 0x007F00FE little-endian: FE 00 7F 00.
+            return ofs + 4 <= d.size()
+                && d[ofs] == 0xFE && d[ofs + 1] == 0x00 && d[ofs + 2] == 0x7F && d[ofs + 3] == 0x00;
+        }
+        void ggSizeWrite(std::vector<uint8_t>& d, size_t ofs, uint8_t height, uint8_t weight) {
+            if (ofs + 4 > d.size()) return;
+            d[ofs]     = height;
+            d[ofs + 1] = 0;        // "flagged" marker; the games leave it clear for an ordinary record
+            d[ofs + 2] = weight;
+            d[ofs + 3] = 0;
+        }
+        // Same ratios the creator and the bank converter use for PB7 absolute size (PKHeX PB7).
+        float ggHeightRatio(uint8_t s) { return (static_cast<float>(s) / 255.0f) * 0.79999995f + 0.6f; }
+        float ggWeightRatio(uint8_t s) { return (static_cast<float>(s) / 255.0f) * 0.40000004f + 0.8f; }
+        float ggWeightAbsoluteFrom(const ::Pokemon::PersonalInfo& pi, uint8_t hs, uint8_t ws) {
+            return ggHeightRatio(hs) * (ggWeightRatio(ws) * static_cast<float>(pi.weight));
+        }
+
+        // The partner Pikachu / Eevee are cosmetic overlays on form 0, not dex forms of their own.
+        bool isBuddyForm(uint16_t species, uint8_t form) {
+            return (species == 25 && form == 8) || (species == 133 && form == 1);
+        }
+
+        // Language id -> dex language slot. Slot 6 (langID 6) is unused, so 7+ shift down by two.
+        int ggLangSlot(uint8_t language) {
+            if (language == 0 || language == 6 || language > 10) return -1;
+            return (language >= 7) ? language - 2 : language - 1;
+        }
+
+        inline bool getBit(const std::vector<uint8_t>& d, size_t ofs, int bit) {
+            const size_t byteOfs = ofs + static_cast<size_t>(bit >> 3);
+            return byteOfs < d.size() && (d[byteOfs] & (1u << (bit & 7))) != 0;
+        }
+        inline void setBit(std::vector<uint8_t>& d, size_t ofs, int bit) {
+            const size_t byteOfs = ofs + static_cast<size_t>(bit >> 3);
+            if (byteOfs < d.size()) d[byteOfs] |= static_cast<uint8_t>(1u << (bit & 7));
+        }
+    }
+
+    void Trainer7LGPE::updatePokedexBlock()
+    {
+        std::vector<uint8_t>* dex = nullptr;
+        for (auto& block : blocks) {
+            if (block.key == ZUKAN7_LGPE) { dex = &block.data; break; }
+        }
+        if (!dex || dex->size() < ZUKAN_OFS_LANG) return;   // block missing or too small: leave it alone
+
+        auto registerMon = [&](const ::Pokemon::Pokemon* pk) {
+            if (!pk || pk->isEgg()) return;
+            const uint16_t species = pk->speciesID();
+            if (species == 0 || species > LGPE_MAX_SPECIES) return;
+
+            uint8_t form = pk->form();
+            if (isBuddyForm(species, form)) form = 0;
+            // Gate on the dex's own entry table, not on the personal table's per-game presence bit.
+            // Presence answers "can this game hold it", which is a different question: it is true for
+            // forms the DEX has no entry for, and writing a form bit for one of those would set a flag
+            // the game never reads.
+            const int entryIndex = ggDexEntryIndex(species, form);
+            if (entryIndex < 0) return;
+
+            const int baseBit = species - 1;
+            const uint8_t gender = pk->gender();
+            const bool shiny = pk->isShiny(pk->id32(), pk->species());
+            // Genderless counts as male here, matching the games (gender 2 -> bit 0).
+            const int shift = ((gender == 1) ? 1 : 0) | (shiny ? 2 : 0);
+
+            // CAUGHT is per species -- one bit for Rattata whichever form you own.
+            setBit(*dex, ZUKAN_OFS_CAUGHT, baseBit);
+
+            // Alternate forms live at their own bit, past the species range.
+            int formBit = baseBit;
+            if (form > 0) {
+                const int idx = ggFormBitIndex(species);
+                if (idx >= 0) formBit = LGPE_MAX_SPECIES + idx + (form - 1);
+            }
+
+            // SEEN is per FORM, not per species -- it is indexed by the FORM bit, and that is what
+            // puts a form in the dex's selector. Confirmed against a real save: trading a Kantonian
+            // Rattata for an Alolan one set seen bit 815 (Rattata form 1) and touched nothing else in
+            // the seen regions. Writing it at the species bit instead (which is what PKHeX's
+            // SetDexFlags does) records the sighting against the base form, so the alternate form
+            // never appears however many of them you own.
+            //
+            // Identical for form 0, where formBit == baseBit.
+            setBit(*dex, ZUKAN_OFS_SEEN + static_cast<size_t>(shift) * ZUKAN_BIT_REGION, formBit);
+
+            // DISPLAYED is a single marker per dex entry: "this is the variant to show". The game
+            // MOVES it to whatever you most recently obtained -- the same trade cleared it from the
+            // base Rattata and set it on the Alolan one.
+            //
+            // It is deliberately NOT moved here. PKSE registers in bulk over storage, so "most
+            // recent" would mean "last in box order" -- an arbitrary choice that would silently
+            // change which form the player's dex shows every time they save. It is only set when the
+            // entry has none at all, which is the case that matters: a species whose first sighting
+            // is an alternate form (a fresh Alolan Sandslash) still gets an entry to display.
+            bool anyDisplayed = false;
+            for (int r = 0; r < 4 && !anyDisplayed; ++r) {
+                const size_t ofs = ZUKAN_OFS_SEEN + static_cast<size_t>(r + 4) * ZUKAN_BIT_REGION;
+                anyDisplayed = getBit(*dex, ofs, baseBit) || getBit(*dex, ofs, formBit);
+            }
+            if (!anyDisplayed)
+                setBit(*dex, ZUKAN_OFS_SEEN + static_cast<size_t>(shift + 4) * ZUKAN_BIT_REGION, formBit);
+
+            const int lang = ggLangSlot(pk->language());
+            if (lang >= 0)
+                setBit(*dex, ZUKAN_OFS_LANG, baseBit * ZUKAN_LANG_COUNT + lang);
+
+            // ---- smallest / largest seen ----------------------------------------------------
+            // Compared against the species' BASE size: a Pokemon smaller than base can only ever be a
+            // minimum, larger can only be a maximum, and exactly base is neither. A record is taken
+            // when it beats the stored one, or when nothing is stored yet.
+            //
+            // The size fields are PB7-only, so this needs the derived type. RTTI is off, so the cast is
+            // guarded by getGameGroup() -- the project's standard cross-generation dispatch. A slot in an
+            // LGPE trainer should always hold a PB7 (the bank converts on withdrawal), but a static_cast
+            // is unchecked and this is the one place that would silently read a foreign buffer.
+            if (pk->getGameGroup() != Enums::GameVersion::GG) return;
+            const auto* lg = static_cast<const Pokemon7LGPE*>(pk);
+            const float hAbs = lg->heightAbsolute();
+            const float wAbs = lg->weightAbsolute();
+            // A Pokemon with no absolute size written (0.0) is not a record of anything -- older PKSE
+            // builds left these blank, and treating that as "smallest ever" would stamp a bogus 0 into
+            // the dex that the player could never beat.
+            if (!(hAbs > 0.0f) || !(wAbs > 0.0f)) return;
+
+            const ::Pokemon::PersonalInfo& pi = ::Pokemon::getPersonalInfo(species, form);
+            const uint8_t hs = lg->heightScalar();
+            const uint8_t ws = lg->weightScalar();
+
+            if (hAbs < static_cast<float>(pi.height)) {
+                const size_t ofs = ggSizeOffset(SIZE_MIN_HEIGHT, entryIndex);
+                if (ofs + ZUKAN_SIZE_ENTRY <= dex->size() && (ggSizeUnset(*dex, ofs) || hs < (*dex)[ofs]))
+                    ggSizeWrite(*dex, ofs, hs, ws);
+            } else if (hAbs > static_cast<float>(pi.height)) {
+                const size_t ofs = ggSizeOffset(SIZE_MAX_HEIGHT, entryIndex);
+                if (ofs + ZUKAN_SIZE_ENTRY <= dex->size() && (ggSizeUnset(*dex, ofs) || hs > (*dex)[ofs]))
+                    ggSizeWrite(*dex, ofs, hs, ws);
+            }
+
+            // Weight records compare ABSOLUTE weight, not the scalar: absolute weight depends on the
+            // height scalar too, so a bigger weight scalar is not necessarily a heavier Pokemon.
+            if (wAbs < static_cast<float>(pi.weight)) {
+                const size_t ofs = ggSizeOffset(SIZE_MIN_WEIGHT, entryIndex);
+                if (ofs + ZUKAN_SIZE_ENTRY <= dex->size()
+                    && (ggSizeUnset(*dex, ofs)
+                        || wAbs < ggWeightAbsoluteFrom(pi, (*dex)[ofs], (*dex)[ofs + 2])))
+                    ggSizeWrite(*dex, ofs, hs, ws);
+            } else if (wAbs > static_cast<float>(pi.weight)) {
+                const size_t ofs = ggSizeOffset(SIZE_MAX_WEIGHT, entryIndex);
+                if (ofs + ZUKAN_SIZE_ENTRY <= dex->size()
+                    && (ggSizeUnset(*dex, ofs)
+                        || wAbs > ggWeightAbsoluteFrom(pi, (*dex)[ofs], (*dex)[ofs + 2])))
+                    ggSizeWrite(*dex, ofs, hs, ws);
+            }
+        };
+
+        for (const auto& pk : party) registerMon(pk.get());
+        for (const auto& box : boxes)
+            for (const auto& pk : box) registerMon(pk.get());
+    }
+
+    void Trainer7LGPE::updateTrainerInfoBlock()
+    {
+        // Write money / OT name back to the same blocks they are parsed from. Block CRC-16/ARC
+        // checksums are recomputed later by writeBlocksToSaveData7LGPE().
+        for (auto& block : blocks) {
+            if (block.key == MY_STATUS7_LGPE) {
+                if (block.data.size() >= 0x38 + 26)
+                    setString(&block.data[0x38], 26, utf8ToUtf16(trainerName), 12);   // OT name, 12 chars
+            } else if (block.key == MISC7_LGPE) {
+                if (block.data.size() >= 0x04 + 4)
+                    writeUInt32LittleEndian(&block.data[0x04], money);
+            }
+        }
     }
 
     void Trainer7LGPE::updateItemBlock()

@@ -27,7 +27,6 @@ namespace Trainer {
     constexpr size_t BDSP_MYSTATUS       = 0x79BB4;   // MyStatus8b; OT name (0x1A bytes) starts here
     constexpr size_t BDSP_ID32           = 0x79BD0;   // TID16 @ 0x79BD0 / SID16 @ 0x79BD2
     constexpr size_t BDSP_MONEY          = 0x79BD4;   // u32 (max 999,999)
-    constexpr size_t BDSP_GENDER         = 0x79BD8;   // Male byte (1 = male, 0 = female)
     constexpr size_t BDSP_ROMCODE        = 0x79BDF;   // BD = 0 / SP = 1
     constexpr size_t BDSP_HASH_OFFSET    = 0xE9818;   // MD5 (16 bytes) over the whole file, hash zeroed
     constexpr size_t BDSP_ITEM_BASE      = 0x0563C;   // MyItem8b: item i's 0x10 record at BASE + i*0x10
@@ -54,6 +53,9 @@ namespace Trainer {
         bool supportsBoxNames() const noexcept override { return true; }
         size_t getMaxBoxNameLength() const noexcept override { return BDSP_BOXNAME_LENGTH / 2 - 1; }
         void updateItemBlock() override;   // BDSP items deferred (no-op stub)
+        void updateTrainerInfoBlock() override;
+        void updatePokedexBlock() override;      // ZUKAN_WORK @ 0x7A328   // money / OT name
+        uint32_t getMaxMoney() const noexcept override { return 999999; }   // BDSP keeps the Gen-4 6-digit cap
         bool itemsAreIdIndexed() const override { return true; }   // count at BDSP_ITEM_BASE + itemId*stride
 
         // Species-0, checksum-valid blank PB8 (mirrors updateBoxBlock()'s encrypted-blank fallback:

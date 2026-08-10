@@ -7,10 +7,12 @@
  */
 #include <algorithm>
 #include <cstring>
+#include <string>
 
 #include "Trainer/Trainer8SWSH.h"
 #include "Trainer/Inventory8SWSH.h"
 #include "Pokemon/Pokemon8SWSH.h"
+#include "Pokemon/SWSHDexTable.h"   // getSWSHDexEntry -- which of the three dexes a species lives in
 #include "Utils/Logger.h"
 
 using namespace Utils;
@@ -542,6 +544,146 @@ namespace Trainer {
             std::span<const std::byte>(enc, SIZE_PARTY8_SWSH));
         delete[] enc;
         return p;
+    }
+
+    // ---- Pokedex (three Zukan blocks) --------------------------------------------------------
+    //
+    // Sword/Shield have THREE dexes, one save block each with its own numbering: Galar, Isle of
+    // Armor and Crown Tundra. A species belongs to exactly one (SWSHDexTable, generated from
+    // PKHeX personal_swsh), and its entry is 0x30 bytes at (index - 1) * 0x30 inside that block.
+    //
+    // Entry layout (PKHeX Zukan8):
+    //   0x00  four u64 SEEN regions -- not-shiny/male, not-shiny/female, shiny/male, shiny/female.
+    //         Each bit is a FORM index (0-62); bit 63 is Gigantamax.
+    //   0x20  u32 caught flags: bit0 Owned, bit1 OwnedGigantamax, bits2-14 languages,
+    //         bits15-27 DisplayFormID, bit28 DisplayGigantamax, bits29-30 DisplayGender,
+    //         bit31 DisplayShiny
+    //   0x24  u32 battled count      0x28/0x2C reserved
+    //
+    // Same shape as Gen 3 and Let's Go: run over all of storage at save time, only ever set.
+    namespace {
+        constexpr size_t SWSH_OFS_CAUGHT = 0x20;
+        constexpr size_t SWSH_SEEN_REGION = 8;   // one u64 per region
+
+        // Language id -> dex language slot. Slot 6 (langID 6) is unused, so 7+ shift down by two.
+        // Identical rule to Let's Go (PKHeX Zukan8.GetDexLangFlag).
+        int swshLangSlot(uint8_t language) {
+            if (language == 0 || language == 6 || language > 10) return -1;
+            return (language >= 7) ? language - 2 : language - 1;
+        }
+    }
+
+    void Trainer8SWSH::updatePokedexBlock()
+    {
+        // The three dex blocks. The DLC ones are absent (or empty) on a save without that DLC --
+        // that is exactly how PKSE already detects the save revision -- so a missing block simply
+        // means those species cannot be registered here.
+        std::vector<uint8_t>* galar = nullptr;
+        std::vector<uint8_t>* armor = nullptr;
+        std::vector<uint8_t>* crown = nullptr;
+        for (auto& block : blocks) {
+            if      (block.key == SAVE_REVISION8_SWSH)    galar = &block.data;
+            else if (block.key == SAVE_REVISION8_R1_SWSH) armor = &block.data;
+            else if (block.key == SAVE_REVISION8_R2_SWSH) crown = &block.data;
+        }
+        if (!galar || galar->empty()) return;   // no base dex: nothing sane to write
+
+        // Each dex block should be exactly (entry count) * 0x30. If one is not, the layout this code
+        // assumes is wrong and every write into it would be silently dropped by the bounds check
+        // below -- which reads as "the Pokedex just didn't update". Say so instead.
+        struct { const char* name; const std::vector<uint8_t>* data; uint16_t count; } expect[] = {
+            { "Galar", galar, ::Pokemon::SWSH_DEX_GALAR_COUNT },
+            { "Armor", armor, ::Pokemon::SWSH_DEX_ARMOR_COUNT },
+            { "Crown", crown, ::Pokemon::SWSH_DEX_CROWN_COUNT },
+        };
+        for (const auto& x : expect) {
+            if (!x.data || x.data->empty()) continue;   // DLC the player doesn't have
+            const size_t want = static_cast<size_t>(x.count) * ::Pokemon::SWSH_DEX_ENTRY_SIZE;
+            if (x.data->size() != want) {
+                logErrorToFile("Pokedex block size unexpected; registrations into it will be skipped",
+                               (std::string(x.name) + ": got " + std::to_string(x.data->size())
+                                + ", expected " + std::to_string(want)).c_str());
+            }
+        }
+
+        auto registerMon = [&](const ::Pokemon::Pokemon* pk) {
+            if (!pk || pk->isEgg()) return;
+            const uint16_t species = pk->speciesID();
+            if (species == 0) return;
+
+            const ::Pokemon::SWSHDexEntry e = ::Pokemon::getSWSHDexEntry(species);
+            if (e.dex == ::Pokemon::SWSHDex::None) return;   // not in any SWSH dex
+
+            std::vector<uint8_t>* dex = nullptr;
+            switch (e.dex) {
+                case ::Pokemon::SWSHDex::Galar: dex = galar; break;
+                case ::Pokemon::SWSHDex::Armor: dex = armor; break;
+                case ::Pokemon::SWSHDex::Crown: dex = crown; break;
+                default: return;
+            }
+            // A DLC dex the player does not own is absent or zero-length; skip rather than allocate
+            // one, which would fabricate DLC data in a save that has none.
+            if (!dex || dex->empty()) return;
+
+            const size_t base = static_cast<size_t>(e.index - 1) * ::Pokemon::SWSH_DEX_ENTRY_SIZE;
+            if (base + ::Pokemon::SWSH_DEX_ENTRY_SIZE > dex->size()) return;
+
+            // SEEN: bit = form, inside the u64 for this gender/shiny combination. Forms past 62 have
+            // no bit (63 is Gigantamax), so they are recorded against the base form rather than
+            // spilling into the neighbouring region.
+            uint8_t form = pk->form();
+            if (form > 62) form = 0;
+            const bool shiny = pk->isShiny(pk->id32(), pk->species());
+            const int region = (pk->gender() == 1 ? 1 : 0) | (shiny ? 2 : 0);   // genderless -> male
+            const size_t seenOfs = base + static_cast<size_t>(region) * SWSH_SEEN_REGION;
+            (*dex)[seenOfs + (form >> 3)] |= static_cast<uint8_t>(1u << (form & 7));
+
+            // CAUGHT flags (u32 at 0x20).
+            const size_t cOfs = base + SWSH_OFS_CAUGHT;
+            uint32_t flags = static_cast<uint32_t>((*dex)[cOfs])
+                           | (static_cast<uint32_t>((*dex)[cOfs + 1]) << 8)
+                           | (static_cast<uint32_t>((*dex)[cOfs + 2]) << 16)
+                           | (static_cast<uint32_t>((*dex)[cOfs + 3]) << 24);
+            const bool wasOwned = (flags & 1u) != 0;
+            flags |= 1u;                                    // bit 0: owned
+            const int lang = swshLangSlot(pk->language());
+            if (lang >= 0) flags |= 1u << (2 + lang);        // bits 2-14: languages obtained
+
+            // DisplayFormID (bits 15-27) picks which form the entry shows. Set it only for an entry
+            // that was not owned before, so a species whose first catch is an alternate form displays
+            // that form -- and an entry the player already has keeps whatever it was showing. Not
+            // moved on later saves: registration walks storage, so "latest" would mean "last in box
+            // order", which would change the dex display arbitrarily every save.
+            if (!wasOwned) {
+                flags = (flags & ~(0x1FFFu << 15)) | (static_cast<uint32_t>(form & 0x1FFF) << 15);
+                if (shiny) flags |= 1u << 31;                // bit 31: display shiny
+                if (pk->gender() == 1) flags |= 1u << 30;     // bits 29/30: display gender
+                else                   flags |= 1u << 29;
+            }
+            (*dex)[cOfs]     = static_cast<uint8_t>(flags);
+            (*dex)[cOfs + 1] = static_cast<uint8_t>(flags >> 8);
+            (*dex)[cOfs + 2] = static_cast<uint8_t>(flags >> 16);
+            (*dex)[cOfs + 3] = static_cast<uint8_t>(flags >> 24);
+        };
+
+        for (const auto& pk : party) registerMon(pk.get());
+        for (const auto& box : boxes)
+            for (const auto& pk : box) registerMon(pk.get());
+    }
+
+    void Trainer8SWSH::updateTrainerInfoBlock()
+    {
+        // OT name (0xB0) goes back into MyStatus8; money into its own block -- the same authoritative
+        // places parse reads them, so edits take effect in-game. encrypt() re-hashes.
+        for (auto& block : blocks) {
+            if (block.key == MY_STATUS8_SWSH) {
+                if (block.data.size() >= 0xB0 + 0x1A)
+                    setString(&block.data[0xB0], 0x1A, utf8ToUtf16(trainerName), 12);
+            } else if (block.key == MONEY8_SWSH) {
+                if (block.data.size() >= 0x04 + 4)
+                    writeUInt32LittleEndian(&block.data[0x04], money);
+            }
+        }
     }
 
     void Trainer8SWSH::updateItemBlock()

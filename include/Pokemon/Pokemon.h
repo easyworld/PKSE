@@ -389,8 +389,19 @@ namespace Pokemon {
         // Names & handler
         // ========================================
 
-        /** Sets the nickname (UTF-16, max 12 chars). Does not change the isNicknamed flag. */
+        /** Sets the nickname (UTF-16, max getMaxNicknameLength() chars). Does not change isNicknamed. */
         virtual void setNickname(const std::u16string& value) noexcept { (void)value; }
+
+        /** Nickname capacity in CHARACTERS -- 12 in every format but Gen 3, whose field is 10. */
+        virtual int getMaxNicknameLength() const noexcept { return 12; }
+
+        /**
+         * Whether this format can represent every character of `value`. Only Gen 3 ever says no: it
+         * predates Unicode and stores names in its own single-byte table, so a name the Switch keyboard
+         * was happy to produce may be unwritable. Check before setNickname -- the Gen 3 encoder ends the
+         * name at the first character it can't map, which silently truncates rather than refusing.
+         */
+        virtual bool canStoreNickname(const std::u16string& value) const noexcept { (void)value; return true; }
 
         /** "Has a custom nickname" flag. Formats that don't wire it report false / ignore the set. */
         virtual bool isNicknamed() const noexcept { return false; }

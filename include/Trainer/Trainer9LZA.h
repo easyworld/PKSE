@@ -55,7 +55,9 @@ namespace Trainer {
     constexpr size_t SAVE_REVISION9_LZA = 0x0926555A;       // Save Revision (u64)
 
     // Additional blocks (for future use)
-    // constexpr size_t POKEDEX9_LZA = 0x2D87BE5C;          // Pokedex completion
+    // Pokedex. ONE block, unlike Scarlet/Violet's pair -- Z-A has a single regional dex. Entries are
+    // 0x84 bytes, keyed by the Gen 9 INTERNAL species id (PKHeX Zukan9a / PokeDexEntry9a).
+    constexpr size_t POKEDEX9_LZA = 0x2D87BE5C;
     // constexpr size_t LAST_SAVED9_LZA = 0x1522C79C;       // Last save timestamp
     // constexpr size_t EVENT_FLAG9_LZA = 0x58505C5E;       // Game event flags
 
@@ -149,6 +151,8 @@ namespace Trainer {
          * Updates the ITEM_KEY block with modified inventory data.
          */
         void updateItemBlock() override;
+        void updateTrainerInfoBlock() override;   // money / OT name
+        void updatePokedexBlock() override;       // Zukan9a: seen/caught/shiny/mega/alpha per form
         bool itemsAreIdIndexed() const override { return true; }   // count at itemId * 0x10
 
         /**

@@ -13,6 +13,7 @@
 #include <cstring>
 
 #include "Trainer/Trainer3FRLG.h"
+#include "Utils/Gen3Text.h"        // the Gen 3 character set, shared with Pokemon3FRLG + Convert
 #include "Utils/HelperUtilities.h"
 #include "Utils/Logger.h"
 
@@ -23,25 +24,20 @@ using namespace Encryption;
 namespace Trainer {
 
     namespace {
-        // ---- Gen 3 English text (subset covering trainer + box names): space, digits, A-Z, a-z ----
+        // ---- Gen 3 English text for the trainer + box names (table: Utils/Gen3Text.h) ----
+        // Decodes through UTF-16 and hands back UTF-8, so the accents and the ♀/♂ a Gen 3 name may
+        // legitimately contain survive into a std::string. Going straight to narrow chars is what
+        // silently dropped them before -- none of them fit in one.
         std::string g3Decode(const uint8_t* p, size_t maxLen) {
-            std::string out;
+            std::u16string wide;
             for (size_t i = 0; i < maxLen; ++i) {
                 const uint8_t b = p[i];
-                if (b == 0xFF) break;                                   // terminator
-                if (b == 0x00) out += ' ';
-                else if (b >= 0xA1 && b <= 0xAA) out += static_cast<char>('0' + (b - 0xA1));
-                else if (b >= 0xBB && b <= 0xD4) out += static_cast<char>('A' + (b - 0xBB));
-                else if (b >= 0xD5 && b <= 0xEE) out += static_cast<char>('a' + (b - 0xD5));
-                else if (b == 0xAB) out += '!';
-                else if (b == 0xAC) out += '?';
-                else if (b == 0xAD) out += '.';
-                else if (b == 0xAE) out += '-';
-                // other unmapped bytes (accents/rarer symbols) are skipped rather than shown as '?'
+                if (b == Utils::GEN3_TERMINATOR) break;
+                if (const char16_t c = Utils::gen3ToChar(b)) wide += c;   // 0 = no glyph -> skip it
             }
             // trim trailing spaces (Gen 3 pads short names with spaces)
-            while (!out.empty() && out.back() == ' ') out.pop_back();
-            return out;
+            while (!wide.empty() && wide.back() == u' ') wide.pop_back();
+            return Utils::utf16ToUtf8(wide);
         }
 
         /**
@@ -59,26 +55,22 @@ namespace Trainer {
          * don't rewrite bytes you have no reason to touch. Decoding never noticed either way, since
          * g3Decode stops at the terminator -- which is precisely why only a byte compare found it.
          *
-         * Iterating UTF-8 as bytes is deliberate: any multi-byte character has a lead byte >= 0x80,
-         * falls through every branch, and is correctly rejected.
+         * `in` is UTF-8 and is decoded before mapping. Walking it as raw bytes instead used to reject
+         * every multi-byte character on the lead byte alone, which quietly refused names Gen 3 can in
+         * fact store -- ♀, ♂ and the accented letters all have real bytes in its table.
+         *
+         * maxChars counts Gen 3 bytes, i.e. glyphs, not UTF-8 code units, so a name of accents still
+         * measures against the field the way the player sees it.
          */
         bool g3Encode(const std::string& in, uint8_t* out, size_t bytes, size_t maxChars) {
             size_t n = 0;
-            for (const char ch : in) {
+            for (const char16_t c : Utils::utf8ToUtf16(in)) {
                 if (n >= maxChars || n >= bytes) break;
-                uint8_t b;
-                if (ch == ' ')                     b = 0x00;
-                else if (ch >= '0' && ch <= '9')   b = static_cast<uint8_t>(0xA1 + (ch - '0'));
-                else if (ch >= 'A' && ch <= 'Z')   b = static_cast<uint8_t>(0xBB + (ch - 'A'));
-                else if (ch >= 'a' && ch <= 'z')   b = static_cast<uint8_t>(0xD5 + (ch - 'a'));
-                else if (ch == '!')                b = 0xAB;
-                else if (ch == '?')                b = 0xAC;
-                else if (ch == '.')                b = 0xAD;
-                else if (ch == '-')                b = 0xAE;
-                else return false;                 // no Gen 3 glyph for this character
+                const uint8_t b = Utils::charToGen3(c);
+                if (b == Utils::GEN3_TERMINATOR) return false;   // no Gen 3 glyph for this character
                 out[n++] = b;
             }
-            if (n < bytes) out[n] = 0xFF;          // terminator; everything past it is left alone
+            if (n < bytes) out[n] = Utils::GEN3_TERMINATOR;   // terminator; everything past it is left alone
             return true;
         }
 
@@ -245,8 +237,9 @@ namespace Trainer {
     }
 
     bool Trainer3FRLG::canStoreBoxName(const std::string& name) const {
-        // Gen 3's table covers space, 0-9, A-Z, a-z and ! ? . - and nothing else, so anything the
-        // Switch keyboard adds beyond that must be refused up front rather than dropped on write.
+        // Gen 3's table is wide (247 bytes: letters, digits, accents, ♀/♂, common punctuation) but
+        // it is not Unicode, so whatever the Switch keyboard adds past it must be refused up front
+        // rather than dropped on write.
         uint8_t scratch[FRLG_BOX_NAME_BYTES];
         return g3Encode(name, scratch, FRLG_BOX_NAME_BYTES, FRLG_BOX_NAME_CHARS);
     }
@@ -269,6 +262,74 @@ namespace Trainer {
             writeBlock(STORAGE_ID, FRLG_BOX_NAME_OFFSET + b * FRLG_BOX_NAME_BYTES,
                        nameBuf, FRLG_BOX_NAME_BYTES);
         }
+    }
+
+    // ---- Pokedex ----------------------------------------------------------------------------
+    //
+    // Gen 3 keeps two flag arrays indexed by (national dex number - 1): CAUGHT once, and SEEN in
+    // **three** separate places -- one in the Small block and two mirrors in the Large block. The game
+    // cross-checks them, so writing only the first leaves a dex that disagrees with itself. Offsets are
+    // PKHeX's (SAV3.SetSeen/SetCaught + SaveBlock3LargeFRLG.SeenOffset2/3).
+    //
+    // 386 species need 49 bytes of flags. Read/modify/write the whole array once per location rather
+    // than a byte per Pokemon, and only ever OR bits in -- never clear one (see updatePokedexBlock).
+    void Trainer3FRLG::updatePokedexBlock() {
+        constexpr size_t DEX_SMALL       = 0x18;              // Pokedex struct, Small block
+        constexpr size_t OFS_CAUGHT      = DEX_SMALL + 0x10;  // 0x28
+        constexpr size_t OFS_SEEN_SMALL  = DEX_SMALL + 0x44;  // 0x5C
+        constexpr size_t OFS_PID_UNOWN   = DEX_SMALL + 0x04;  // 0x1C -- decides the letter the dex shows
+        constexpr size_t OFS_PID_SPINDA  = DEX_SMALL + 0x08;  // 0x20 -- likewise, the spot pattern
+        constexpr size_t OFS_SEEN_LARGE2 = 0x5F8;
+        constexpr size_t OFS_SEEN_LARGE3 = 0x3A18;
+        constexpr size_t FLAG_BYTES      = 49;                // ceil(386 / 8)
+        constexpr uint16_t MAX_SPECIES3  = 386;
+
+        uint8_t caught[FLAG_BYTES], seen[FLAG_BYTES], mirror2[FLAG_BYTES], mirror3[FLAG_BYTES];
+        readBlock(SMALL_ID, OFS_CAUGHT,      caught,  FLAG_BYTES);
+        readBlock(SMALL_ID, OFS_SEEN_SMALL,  seen,    FLAG_BYTES);
+        readBlock(LARGE_ID, OFS_SEEN_LARGE2, mirror2, FLAG_BYTES);
+        readBlock(LARGE_ID, OFS_SEEN_LARGE3, mirror3, FLAG_BYTES);
+        // Start from the UNION of all three copies. They are supposed to agree, but if they have drifted
+        // (a half-written save, an older tool) then rebuilding the mirrors from the Small array alone
+        // would delete whatever the mirrors knew and the Small one didn't. Merging can only add.
+        for (size_t i = 0; i < FLAG_BYTES; ++i) seen[i] |= static_cast<uint8_t>(mirror2[i] | mirror3[i]);
+
+        // Unown's letter and Spinda's spots are drawn in the dex from a stored PID, not from the entity.
+        // The games record the FIRST one seen and never revise it, so only write when the species is not
+        // already flagged -- otherwise every save would repaint the dex from whatever is in box order.
+        auto firstSeen = [&](uint16_t species) {
+            const int bit = species - 1;
+            return (seen[bit >> 3] & (1u << (bit & 7))) == 0;
+        };
+
+        auto registerMon = [&](const ::Pokemon::Pokemon* pk) {
+            if (!pk) return;
+            const uint16_t species = pk->speciesID();
+            if (species == 0 || species > MAX_SPECIES3) return;
+            if (pk->isEgg()) return;          // an egg is not seen or owned until it hatches
+            if (species == 201 || species == 327) {   // Unown / Spinda
+                if (firstSeen(species)) {
+                    uint8_t pidLE[4];
+                    const uint32_t pid = pk->pid();
+                    pidLE[0] = static_cast<uint8_t>(pid);        pidLE[1] = static_cast<uint8_t>(pid >> 8);
+                    pidLE[2] = static_cast<uint8_t>(pid >> 16);  pidLE[3] = static_cast<uint8_t>(pid >> 24);
+                    writeBlock(SMALL_ID, species == 201 ? OFS_PID_UNOWN : OFS_PID_SPINDA, pidLE, 4);
+                }
+            }
+            const int bit = species - 1;
+            caught[bit >> 3] |= static_cast<uint8_t>(1u << (bit & 7));
+            seen[bit >> 3]   |= static_cast<uint8_t>(1u << (bit & 7));
+        };
+
+        for (const auto& pk : party) registerMon(pk.get());
+        for (const auto& box : boxes)
+            for (const auto& pk : box) registerMon(pk.get());
+
+        writeBlock(SMALL_ID, OFS_CAUGHT,     caught, FLAG_BYTES);
+        writeBlock(SMALL_ID, OFS_SEEN_SMALL, seen,   FLAG_BYTES);
+        // The two Large-block mirrors carry the SEEN array only; there is no second caught array.
+        writeBlock(LARGE_ID, OFS_SEEN_LARGE2, seen, FLAG_BYTES);
+        writeBlock(LARGE_ID, OFS_SEEN_LARGE3, seen, FLAG_BYTES);
     }
 
     void Trainer3FRLG::updateCurrentBoxBlock() {
@@ -347,6 +408,19 @@ namespace Trainer {
         }
     }
 
+    void Trainer3FRLG::updateTrainerInfoBlock() {
+        // Raw sector-mapped save: OT name (g3-encoded, 7 chars @ 0x00) lives in the Small sector; money
+        // in the Large block at 0x290, XOR-keyed with the security key. finalizeChecksums() runs after.
+        // g3Encode writes 7 chars + a 0xFF terminator into 8 bytes, stopping before the gender byte at
+        // 0x08; the UI has already rejected any name the Gen-3 glyph table can't store.
+        const size_t sm = m_sectorOfs[SMALL_ID];
+        if (sm + 0x09 <= saveData.size())
+            g3Encode(this->trainerName, &saveData[sm + 0x00], 8, 7);
+        uint8_t moneyBuf[4];
+        writeUInt32LittleEndian(moneyBuf, this->money ^ m_key);
+        writeBlock(LARGE_ID, 0x290, moneyBuf, 4);
+    }
+
     void Trainer3FRLG::updateItemBlock() {
         const uint16_t key16 = static_cast<uint16_t>(m_key & 0xFFFF);
         for (size_t p = 0; p < items.size() && p < POUCH_COUNT3_FRLG; ++p) {
@@ -369,10 +443,8 @@ namespace Trainer {
                 writeBlock(LARGE_ID, pi.offset + slot * 4, entry, 4);
             }
         }
-        // Persist money (edited via trainer info); a no-op round-trip when unchanged.
-        uint8_t moneyBuf[4];
-        writeUInt32LittleEndian(moneyBuf, this->money ^ m_key);
-        writeBlock(LARGE_ID, 0x290, moneyBuf, 4);
+        // Money is written by updateTrainerInfoBlock(), which the save flow calls alongside this;
+        // keeping it there avoids a double-write of the same XOR-keyed value.
     }
 
     std::unique_ptr<::Pokemon::Pokemon> Trainer3FRLG::createBlankPokemon() const {

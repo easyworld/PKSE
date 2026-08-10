@@ -32,19 +32,18 @@ namespace UI {
             Party,
             Boxes,
             Items,
-            Storage,  // PKSM-style dual-pane: save boxes (left) <-> bank (right)
+            Storage,  // HOME-style dual-pane: save boxes (left) <-> bank (right)
             Trainer,  // trainer info card (reached from the HOME main menu)
             Settings  // settings screen (auto-backup + theme)
         };
 
-        // Cursor modes for the Storage view (cycled with Y). Colors: red / blue / green.
+        // Cursor modes for the Storage view (cycled with Y). Colors: red / blue / green -- the same
+        // three-arrow scheme HOME uses, and the cursor arrow is drawn in the active mode's color.
         enum class CursorMode {
             Menu,   // red:   A opens a per-Pokemon menu (Move / Edit / Release)
-            Move,   // blue:  A directly picks up / places / swaps
-            Multi   // green: A toggles multi-selection; act on the group via the group menu
+            Move,   // blue:  A directly picks up / places / swaps one Pokemon
+            Multi   // green: A anchors a rectangle, moving expands it, A again grabs the whole block
         };
-        // A storage slot address (which pane, box, slot).
-        struct SlotRef { int pane; int box; int slot; };
         // Where the details editor's target Pokemon lives.
         enum class EditSource { Party, Box, Bank };
 
@@ -59,18 +58,33 @@ namespace UI {
         void returnHeldToOrigin();
         std::unique_ptr<Pokemon::Pokemon>& storageSlot(int pane, int box, int slot);  // pane 0=save,1=bank
         bool storageSlotLocked(int pane, int box, int slot);   // LGPE party members (save pane) are locked
-        bool prepareHeldForPane(int pane);  // convert the carried mon into the save's format if needed (Phase B)
         bool convertForPane(std::unique_ptr<Pokemon::Pokemon>& pk, int destPane);  // convert a mon in place for a dest pane (Phase B)
-        void buildAbilityPickerOrder(uint16_t species, uint8_t form, uint16_t current);  // legal abilities first (green + top)
+        void buildAbilityPickerOrder(uint16_t species, uint8_t form, Enums::GameVersion group, uint16_t current);  // the species' legal ability slots (all ids too, when illegal edits are allowed)
         void buildCreatorSpeciesOrder();  // creator: filter the species picker to the open game's dex
         void buildMovePickerOrder(uint16_t species, uint8_t form, Enums::GameVersion group, uint16_t current);  // learnable moves first
+        void buildFormPickerOrder(uint16_t species, uint8_t current, Enums::GameVersion group);  // storable forms only (drops battle-only ones + the ones this game doesn't have)
+        void buildGenderPickerOrder(uint16_t species, uint8_t form, uint8_t current);  // only the genders the species can be (one row when fixed-gender)
+        bool genderEditable(const Pokemon::Pokemon& p) const;  // false -> the Gender row is read-only (nothing to change it TO)
         void openStorageEditor(int pane, int box, int slot);   // open the details modal on a storage slot
-        void transferSelectionToOtherPane();                   // green group menu: bulk move the selection to the other pane
-        void moveSelectionTo(int destPane, int destBox, int destSlot);  // green: drop the selection starting at a slot
+
+        // --- HOME-style rectangle select + block carry (see moveMon below) ---
+        int paneCols(int pane) const;      // grid columns (LGPE save boxes are 5 wide, everything else 6)
+        int paneSlots(int pane) const;     // slots per box in that pane
+        int paneBoxes(int pane) const;     // box count in that pane
+        void storagePickup();          // the A press: anchor / grab / put down, whichever applies
+        void pickupSingle();           // Move mode: lift the slot under the cursor as a 1x1 block
+        void pickupMulti();            // Multi mode: anchor the rectangle, or grab it if already anchoring
+        void grabSelection(bool remove);   // lift (or copy, when !remove) the anchored rectangle into moveMon
+        void scrunchSelection();       // trim all-empty edge rows/columns off the grabbed block
+        void postPickup();             // drop an all-empty block so the hands read as free
+        bool checkPutDownBounds() const;   // does the block fit in the focused pane from the cursor cell?
+        void putDownBlock();           // exact-slot placement: cell (x,y) -> cursor slot + x + y*cols
+        void cancelSelection();        // abandon an in-progress rectangle
+
         bool lgpeConversionInvolved(int destPane, const Pokemon::Pokemon* pk) const;  // would placing pk into destPane run an LGPE (AV/EV-reset) conversion?
-        bool selectionInvolvesLgpe(int destPane) const;        // does any multi-selected mon trigger an LGPE conversion into destPane?
+        bool blockInvolvesLgpe(int destPane) const;            // does any carried mon trigger an LGPE conversion into destPane?
         bool gen3DowngradeInvolved(int destPane, const Pokemon::Pokemon* pk) const;  // would placing pk into destPane convert it DOWN into Gen 3 (destructive PID rebuild)?
-        bool selectionInvolvesGen3Downgrade(int destPane) const;  // does any multi-selected mon trigger a Gen 3 downgrade into destPane?
+        bool blockInvolvesGen3Downgrade(int destPane) const;    // does any carried mon trigger a Gen 3 downgrade into destPane?
         Pokemon::Pokemon* detailsTargetPokemon();              // resolve the editor's current target (party/box/bank)
         void mirrorEditedPartyMember();                        // after an edit, keep an LGPE party member's box/party copies in sync
         void snapshotEditTarget();     // capture the target's bytes as the save baseline (modal open + X = Save); revert restores to it
@@ -109,12 +123,25 @@ namespace UI {
         // 3 Items, 4 Trainer, 5 Settings (circular icons). Replaces the old left mode-selector.
         int homeMenuIndex = 0;
 
-        // Box cursor scale-pop (Phase 4.6): the selected disc briefly pops when the cursor moves.
-        int animPrevBoxSlot = -1;
-        double animBoxPopStart = -100.0;
-
         // Selected row in the Settings view (0-4); reached from the menu's Settings icon.
         int settingsSelectedRow = 0;
+
+        // Trainer info view: the focused editable row (0 Name, 1 Money) and a
+        // one-frame-deferred edit request. Name/Money open the blocking swkbd; deferring one frame lets
+        // the row highlight render before the applet suspends the app (same trick as pendingHeaderRename).
+        // -1 = nothing pending.
+        int trainerSelectedRow = 0;
+        int pendingTrainerEdit = -1;
+        void editTrainerName();     // swkbd edit of the OT name (charset-validated, per-game length cap)
+        void editTrainerMoney();    // numpad edit of money (clamped to the game's max)
+        // After a name edit, re-stamp the trainer identity your Pokemon store so they stay
+        // recognized as yours (party + boxes; NOT the cross-game bank). Both the OT name AND the
+        // Gen 7+ handler (HT) name are part of the identity the games match on, so a bare trainer
+        // edit would make your caught mons read as traded (obedience / traded-EXP) and your traded-in
+        // mons lose you as their handler. Matches OT by ID32 + the carried OT name, and HT by the carried
+        // HT name (the HT format has no TID/SID). `caughtName` is the pre-rename name for a rename, the
+        // unchanged name otherwise; genuinely foreign stamps are untouched. Returns count changed.
+        int restampCaughtPokemonIdentity(const std::u16string& caughtName);
 
         // Box swap (Phase 3 3.1): press Y to grab the slot under the cursor, then Y on another
         // occupied slot to swap them. swapSourceBox/Slot record the grabbed slot.
@@ -127,7 +154,7 @@ namespace UI {
         // appears after the dialog closes). Consumed at the top of the next update().
         bool pendingHeaderRename = false;
 
-        // --- PKSM-style Storage view: dual-pane save boxes <-> bank ---
+        // --- HOME-style Storage view: dual-pane save boxes <-> bank ---
         std::unique_ptr<Trainer::Bank> bank;        // created in the ctor
         CursorMode cursorMode = CursorMode::Menu;   // default red (menu); cycled with Y
         int storageFocusPane = 0;                   // 0 = save (left), 1 = bank (right)
@@ -142,22 +169,39 @@ namespace UI {
             storageStatus = msg;
             storageStatusFrames = frames;
         }
-        // Carried single Pokemon (Move-mode pick-up, or the red menu's "招式").
-        std::unique_ptr<Pokemon::Pokemon> heldPokemon;
-        int heldPane = 0, heldFromBox = 0, heldFromSlot = 0;   // origin (for cancel/return)
+        // --- The carried block ---
+        // Cells of the rectangle currently in hand, row-major over selectDimensions (w x h). A null
+        // cell is a hole -- the source slot was empty, or it was locked and deliberately left behind.
+        // An empty vector means hands free.
+        //
+        // A Move-mode pick-up is just a 1x1 block, so this is the ONLY carry state: there is no
+        // separate "held single Pokemon" to keep in sync, and every guard that asks "are we holding
+        // something?" (compaction, sort, exit, box rename) answers for both cases at once.
+        std::vector<std::unique_ptr<Pokemon::Pokemon>> moveMon;
+        // Two meanings:
+        //   while currentlySelecting -> the anchor cell as (column, row) of the rectangle being drawn
+        //   while carrying           -> the block's dimensions as (width, height)
+        std::pair<int, int> selectDimensions{0, 0};
+        bool currentlySelecting = false;         // Multi mode: a rectangle is being dragged out
+        int selectPane = 0, selectBox = 0;       // which pane/box the in-progress rectangle lives in
+        // Origin of the block's TOP-LEFT cell, so B can put the whole thing back where it came from.
+        int heldPane = 0, heldFromBox = 0, heldFromSlot = 0;
+        bool carrying() const { return !moveMon.empty(); }
+        int carriedCount() const;                // non-null cells in moveMon
+        const Pokemon::Pokemon* firstCarried() const;   // first non-null cell, or nullptr
+
         // Red per-Pokemon action menu (Move / Edit / Release / Cancel).
         bool storageMenuActive = false;
         int storageMenuIndex = 0;
         int menuPane = 0, menuBox = 0, menuSlot = 0;           // the slot the menu acts on
-        // Green multi-selection + its group menu (Move / Release / Clear / Cancel).
-        std::vector<SlotRef> multiSel;
+        // Group menu for the carried block (Release all / Return to origin / Cancel), opened with Minus.
         bool groupMenuActive = false;
         int groupMenuIndex = 0;
-        // Release confirmation (single slot, or the whole multi-selection when releaseGroup).
+        // Release confirmation (single slot, or the whole carried block when releaseGroup).
         bool releaseConfirmActive = false;
         int releasePane = 0, releaseBox = 0, releaseSlot = 0;
         bool releaseGroup = false;
-        // Leaving the storage view with unsaved bank changes: prompt Save / Discard / Cancel (PKSM-style).
+        // Leaving the storage view with unsaved bank changes: prompt Save / Discard / Cancel (HOME-style).
         bool storageExitConfirmActive = false;
         int storageExitConfirmIndex = 0;   // 0=Save & Exit, 1=Discard & Exit, 2=Cancel
         // Set when + (exit app) raised that prompt instead of B. Closing the app is not an answer to
@@ -185,7 +229,7 @@ namespace UI {
 
         // Save confirmation state
         bool saveConfirmActive = false;
-        // Save destination picker, on PKSM's model.
+        // Save destination picker.
         //   0 = this backup   1 = new named backup   2 = game save
         //
         // Whether "游戏存档" is offered depends on WHERE THIS SESSION CAME FROM, not on a blanket
@@ -263,14 +307,25 @@ namespace UI {
             int  keepConfirmIndex = 1;           // cursor: 0 = Discard, 1 = Keep (default)
         };
         CreatorState creator;
-        // Let's Go move acknowledgement (settings-gated by g_lgpeMoveWarn): moving a mon to/from LGPE
-        // resets AVs/EVs, so the user confirms first. The pending storage action is stashed + run on Yes.
-        enum class LgpePending { None, PlaceHeld, GroupMoveTo, GroupTransfer };
-        bool lgpeMoveConfirmActive = false;
-        int  lgpeMoveConfirmIndex = 1;          // cursor: 0 = Cancel, 1 = Continue (default)
-        LgpePending lgpePending = LgpePending::None;
-        bool moveConfirmGen3 = false;           // pending confirm is a Gen 3 downgrade (PID rebuild), not only an LGPE AV/EV reset
-        int lgpePendPane = 0, lgpePendBox = 0, lgpePendSlot = 0;
+        // Lossy-move acknowledgements. TWO independent warnings about two unrelated losses, kept apart
+        // because they are not the same question:
+        //
+        //   Gen 3 down-convert  -- rebuilds the PID to preserve nature, and drops nickname/ribbons/held
+        //                          item. Destructive and irreversible, so it is shown ALWAYS, whatever
+        //                          the Move warning setting says.
+        //   Let's Go transfer   -- resets AV/EV training to 0 and drops unlearnable moves. Recoverable
+        //                          by re-training, so it is gated by g_moveWarn.
+        //
+        // A move can be both (an LGPE mon into FireRed). The Gen 3 notice supersedes: it is the more
+        // severe of the two and stacking dialogs on one action reads as a bug.
+        enum class PendingMove { None, PlaceHeld };
+        bool gen3ConvertConfirmActive = false;   // "要转换为第三世代格式吗？"     -- never gated
+        bool lgpeTransferConfirmActive = false;  // "Let's Go 传送"     -- gated by g_moveWarn
+        int  moveConfirmIndex = 1;               // cursor: 0 = Cancel, 1 = Continue (default)
+        // The action both warnings guard is the same one, so the stash they resume is shared.
+        PendingMove pendingMove = PendingMove::None;
+        int pendingMovePane = 0, pendingMoveBox = 0, pendingMoveSlot = 0;
+        bool moveConfirmActive() const noexcept { return gen3ConvertConfirmActive || lgpeTransferConfirmActive; }
 
         // Reusable selection panel (picker) for choosing a value from a list — nature, gender, move.
         bool pickerActive = false;

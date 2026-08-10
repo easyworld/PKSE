@@ -27,16 +27,11 @@ namespace Trainer {
     // Generation 9 Scarlet/Violet Save File Block Keys
     // ========================================
     // Block keys are consistent across all game versions.
-    // DLC/version content is tracked via the SAVE_REVISION block.
     //
-    // Save Revision values (KSaveRevision):
-    // - 0: Base game (v1.0.x)
-    // - 1: Mega Dimension DLC (v2.0.0+)
-    //
-    // The save revision determines:
-    // - Which Pokemon species are available
-    // - Which moves are legal
-    // - Which items exist
+    // S/V has NO save-revision block. Unlike Legends: Z-A -- which does store one -- the DLC level
+    // here is inferred from which blocks EXIST (PKHeX SAV9SV): the Blueberry-points block means
+    // The Indigo Disk, and a DLC tera-raid block means The Teal Mask. See detectSaveRevision(),
+    // the same approach Trainer8SWSH already uses for Isle of Armor / Crown Tundra.
     // ========================================
 
     // Core game blocks (present in all versions)
@@ -50,11 +45,17 @@ namespace Trainer {
     constexpr size_t CURRENT_BOX9_SV = 0x017C3CBB;         // Current box index ("U32 Box Index")
     // constexpr size_t BOX_WALLPAPERS9_SV = 0x2EB1B190;   // Box Wallpapers
 
-    // Version detection block
-    constexpr size_t SAVE_REVISION9_SV = 0x0926555A;       // Save Revision (u64)
+    // DLC-presence markers, read only by detectSaveRevision() (never written).
+    constexpr size_t BLUEBERRY_POINTS9_SV = 0x66A33824;    // u32 BP -- exists only with The Indigo Disk
+    constexpr size_t TERA_RAID_DLC9_SV    = 0x100B93DA;    // Kitakami + Blueberry raid dens (2 x 0xC80)
 
     // Additional blocks (for future use)
-    // constexpr size_t POKEDEX9_SV = 0x2D87BE5C;          // Pokedex completion
+    // Pokedex. TWO blocks: the original Paldea one and the Kitakami one added by the DLC. From game
+    // version 2.0.1 the developers dummied out the Paldea block and use Kitakami exclusively, so the
+    // rule is "if the Kitakami block has data, it IS the dex" (PKHeX Zukan9). Their entry layouts
+    // differ (0x18 vs 0x20), so which one is live decides how an entry is written.
+    constexpr size_t ZUKAN9_SV_PALDEA   = 0x0DEAAEBD;
+    constexpr size_t ZUKAN9_SV_KITAKAMI = 0xF5D7C0E2;
     // constexpr size_t LAST_SAVED9_SV = 0x1522C79C;       // Last save timestamp
     // constexpr size_t EVENT_FLAG9_SV = 0x58505C5E;       // Game event flags
 
@@ -107,10 +108,10 @@ namespace Trainer {
             boxes.resize(BOX_COUNT9_SV);
             boxNames.resize(BOX_COUNT9_SV);
 
-            // Parse all blocks to extract data (includes SAVE_REVISION9_SV -> parseSaveRevisionBlock).
             for (const auto& block : this->blocks) {
                 parseBlock(block);
             }
+            detectSaveRevision();   // by block presence -- S/V stores no revision value
         }
 
         /// Destructor - cleanup handled by base class and unique_ptrs
@@ -148,6 +149,8 @@ namespace Trainer {
          * Updates the ITEM_KEY block with modified inventory data.
          */
         void updateItemBlock() override;
+        void updateTrainerInfoBlock() override;
+        void updatePokedexBlock() override;      // Paldea / Kitakami Zukan blocks
         bool itemsAreIdIndexed() const override { return true; }   // count at itemId * 0x10
 
         /**
@@ -249,12 +252,13 @@ namespace Trainer {
         void parseCurrentBoxBlock(const Block& block);
 
         /**
-         * Parses the SAVE_REVISION block to detect DLC version.
-         * Revision values:
+         * Detects the DLC level from which blocks the save contains -- S/V has no revision value
+         * to read. Revision values:
          * - 0: Base game
-         * - 1: Mega Dimension (MD) DLC
+         * - 1: The Teal Mask (TM)
+         * - 2: The Indigo Disk (ID)
          */
-        void parseSaveRevisionBlock(const Block& block);
+        void detectSaveRevision();
     };
 }
 

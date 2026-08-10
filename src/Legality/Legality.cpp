@@ -14,6 +14,8 @@
 #include "Pokemon/Pokemon.h"
 #include "Pokemon/Experience.h"
 #include "Pokemon/PersonalInfoTable.h"
+#include "Pokemon/AbilityInfo.h"       // getAbilitySlots -> per-generation ability slots
+#include "Pokemon/FormInfo.h"          // isFormGenderSpecific -> gender stored as the form index
 #include "Pokemon/LearnsetTable.h"
 #include "Trainer/Trainer.h"     // Trainer::getSpeciesName / getItemName (name-table sentinels)
 #include "Names/MoveNames.h"     // Names::getMoveName
@@ -54,7 +56,7 @@ namespace Legality {
         // Species/form personal data (abilities / gender ratio / per-game presence) for the L2 checks.
         const Pokemon::PersonalInfo& pi = Pokemon::getPersonalInfo(species, pk.form());
 
-        // ---- L1: species id known (name-table sentinel = "Unknown") ----
+        // ---- L1: species id known (name-table sentinel = "未知") ----
         if (std::string(Trainer::getSpeciesName(species)) == "未知")
             add(r, Severity::Invalid, "未知的宝可梦种类 ID " + std::to_string(species));
 
@@ -64,16 +66,44 @@ namespace Legality {
         if (gen8plus && pk.statNature() > 24)
             add(r, Severity::Invalid, "能力性格超出范围（" + std::to_string(pk.statNature()) + "）");
 
-        // ---- L1: EVs (<=252 each, <=510 total) ----
+        // ---- L1: EVs ----
         const uint8_t ev[6] = { pk.evHP(), pk.evATK(), pk.evDEF(), pk.evSPE(), pk.evSPA(), pk.evSPD() };
         int evTotal = 0;
-        for (int i = 0; i < 6; ++i) {
-            evTotal += ev[i];
-            if (ev[i] > 252)
-                add(r, Severity::Invalid, std::string(statName(i)) + "努力值超过 252（" + std::to_string(ev[i]) + "）");
+        for (int i = 0; i < 6; ++i) evTotal += ev[i];
+
+        if (pk.hasAwakeningValues()) {
+            // Let's Go has no EV training -- it replaced it with Awakening Values. Nothing in the game
+            // writes these bytes and the stat formula has no EV term (PKHeX PB7.LoadStats), so on a
+            // legitimate Pokemon they are all 0.
+            //
+            // The 252/510 caps are the wrong question here, not merely a differently-worded one: they
+            // would pass a fully trained 510 spread as perfectly legal while a lone stray 4 slipped by
+            // in silence. What matters is non-zero at all, so that is what is checked.
+            //
+            // Reported as a WARNING, not Invalid. PKHeX has this exact rule ("Cannot receive EVs.") but
+            // deliberately leaves it disabled, so calling it illegal outright would be a stronger claim
+            // than the reference is willing to make. It is still worth surfacing -- the value cannot come
+            // from playing the game -- and it is harmless in itself, since no stat reads it.
+            if (evTotal != 0) {
+                std::string which;
+                for (int i = 0; i < 6; ++i) {
+                    if (ev[i] == 0) continue;
+                    if (!which.empty()) which += ", ";
+                    which += std::string(statName(i)) + " " + std::to_string(ev[i]);
+                }
+                add(r, Severity::Warning,
+                    "Let's Go 中不存在努力值，但该宝可梦携带了 " + which +
+                    "；觉醒值才是其能力训练方式，这些字节不会产生效果");
+            }
+        } else {
+            // Everywhere else: <=252 per stat, <=510 total.
+            for (int i = 0; i < 6; ++i) {
+                if (ev[i] > 252)
+                    add(r, Severity::Invalid, std::string(statName(i)) + "努力值超过 252（" + std::to_string(ev[i]) + "）");
+            }
+            if (evTotal > 510)
+                add(r, Severity::Invalid, "努力值总和超过 510（" + std::to_string(evTotal) + "）");
         }
-        if (evTotal > 510)
-            add(r, Severity::Invalid, "努力值总和超过 510（" + std::to_string(evTotal) + "）");
 
         // ---- L1: AVs (Let's Go only, <=200 each) ----
         if (pk.hasAwakeningValues()) {
@@ -88,9 +118,13 @@ namespace Legality {
             const uint8_t an = pk.abilityNumber();
             if (an != 1 && an != 2 && an != 4)
                 add(r, Severity::Warning, "异常的特性槽位（" + std::to_string(an) + "）");
-            // PKHeX encodes "single ability" as ability2 == ability1, so this set collapses naturally.
-            const uint16_t ab = pk.ability();
-            if (ab != pi.ability1 && ab != pi.ability2 && ab != pi.abilityHidden)
+            // Slots are per-generation: Gen 3 has two of them and its pair differs from the modern
+            // table for 101 species, so checking a Gen 3 mon against the modern one both misses real
+            // problems and invents fake ones. PKHeX encodes "single ability" as ability2 == ability1,
+            // so that set collapses naturally.
+            const Pokemon::AbilitySlots slots =
+                Pokemon::getAbilitySlots(pk.speciesID(), pk.form(), pk.getGameGroup());
+            if (!Pokemon::isAbilityLegal(slots, pk.ability()))
                 add(r, Severity::Invalid, "该特性不适用于此宝可梦种类");
         }
 
@@ -160,6 +194,19 @@ namespace Legality {
             const uint8_t g = pk.gender();
             if (g > 2)
                 add(r, Severity::Invalid, "性别数值超出范围（" + std::to_string(g) + "）");
+            // Meowstic, Indeedee, Basculegion and Oinkologne keep the gender in the form index, so
+            // the per-form ratio read above describes the FORM: reporting "male-only species" about
+            // a Meowstic would be a false statement about a species that is plainly dual-gender.
+            // What can actually be wrong is the pairing -- PKHeX checks the same invariant, from the
+            // form side, as `(form & 1) != gender`.
+            else if (Pokemon::isFormGenderSpecific(species)) {
+                if (g > 1)
+                    add(r, Severity::Invalid, "有性别的宝可梦被标记为无性别");
+                else if ((pk.form() & 1) != g)
+                    add(r, Severity::Invalid, "形态 " + std::to_string(pk.form()) + " 是" +
+                                              ((pk.form() & 1) ? "雌性" : "雄性") +
+                                              "形态，但性别为" + (g ? "雌性" : "雄性"));
+            }
             else if (pi.genderRatio == 255) {
                 if (g != 2) add(r, Severity::Invalid, "无性别的宝可梦却设置了性别");
             } else if (g == 2)

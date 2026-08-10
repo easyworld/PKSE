@@ -40,6 +40,8 @@ namespace Pokemon {
         uint8_t  baseFriendship;
         uint8_t  formCount;       // number of forms across supported games; valid forms are 0..formCount-1
         uint8_t  presence;        // OR of PersonalGameBit: which games this species+form exists in
+        uint8_t  type1;           // Gen 6+ type ids -- the PokemonTypes.h TYPE_* constants
+        uint8_t  type2;           // TYPE_NONE (255) when single-typed
         uint16_t height;          // PKHeX personal Height (base) -- used for the LGPE absolute size
         uint16_t weight;          // PKHeX personal Weight (base)
     };
@@ -54,6 +56,32 @@ namespace Pokemon {
     // Resolve a (species, form) to its entry, mirroring PKHeX's FormIndex redirection.
     // Out-of-range species or forms fall back to the species' form-0 (or index 0) entry.
     const PersonalInfo& getPersonalInfo(uint16_t species, uint8_t form);
+
+    // ---- Generation 3 (FireRed/LeafGreen) abilities + types ----
+    // Gen 3's slot pair is NOT the one above: the S/V row disagrees for 101 of these
+    // species and always carries a hidden ability, which Gen 3 has no slot for. A PK3
+    // stores only a selector BIT and the game resolves it through its own table, so
+    // this is the only table that describes what a Gen 3 mon can actually hold.
+    // Forms share a row (PKHeX PersonalTable3.GetFormIndex is the species id).
+    //
+    // Its TYPES disagree with the modern table too, for 18 of the 386 species: Gen 3
+    // predates the Fairy type, so Clefairy is Normal there and Fairy in Scarlet/Violet.
+    // These are the SAME Gen 6+ type ids used above -- only the values differ, not the
+    // encoding -- so a caller switches table without translating.
+    struct PersonalAbilityG3 {
+        uint8_t ability1;
+        uint8_t ability2;   // == ability1 when the species has only one ability
+        uint8_t type1;
+        uint8_t type2;      // TYPE_NONE (255) when single-typed
+    };
+
+    constexpr uint16_t PERSONAL_G3_MAX_SPECIES = 386;
+
+    extern const PersonalAbilityG3 PERSONAL_ABILITY_G3[PERSONAL_G3_MAX_SPECIES + 1];
+
+    // Gen 3 ability slots + types for a species. Out-of-range species return all-zero
+    // abilities and Normal/none, the same shape the modern lookup falls back to.
+    const PersonalAbilityG3& getPersonalAbilityG3(uint16_t species);
 }
 
 #endif  // PKM_PERSONAL_INFO_TABLE_H

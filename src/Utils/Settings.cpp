@@ -36,8 +36,11 @@ namespace Utils {
                 g_autoBackupEnabled = (strcmp(val, "0") != 0);
             } else if (strcmp(key, "allowIllegal") == 0) {
                 g_allowIllegalEdits = (strcmp(val, "0") != 0);
-            } else if (strcmp(key, "lgpeMoveWarn") == 0) {
-                g_lgpeMoveWarn = (strcmp(val, "0") != 0);
+            } else if (strcmp(key, "moveWarn") == 0 || strcmp(key, "lgpeMoveWarn") == 0) {
+                // "lgpeMoveWarn" is the old key for the same toggle, still read so an existing
+                // settings.cfg doesn't silently revert the user's choice to the default. Only the
+                // new key is written back, so it ages out on the first save.
+                g_moveWarn = (strcmp(val, "0") != 0);
             } else if (strcmp(key, "injectToGame") == 0) {
                 g_injectToGameSave = (strcmp(val, "0") != 0);
             }
@@ -57,7 +60,7 @@ namespace Utils {
         fprintf(f, "theme=%s\n", (UI::g_themeMode == UI::ThemeMode::Light) ? "light" : "dark");
         fprintf(f, "autoBackup=%d\n", g_autoBackupEnabled ? 1 : 0);
         fprintf(f, "allowIllegal=%d\n", g_allowIllegalEdits ? 1 : 0);
-        fprintf(f, "lgpeMoveWarn=%d\n", g_lgpeMoveWarn ? 1 : 0);
+        fprintf(f, "moveWarn=%d\n", g_moveWarn ? 1 : 0);
         fprintf(f, "injectToGame=%d\n", g_injectToGameSave ? 1 : 0);
         fclose(f);
     }

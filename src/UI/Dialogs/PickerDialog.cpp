@@ -134,11 +134,18 @@ namespace Dialogs {
 
         screen.touchButtons.clear();
         // the Ability picker reorders its options (legal abilities first) via screen.pickerOrder,
-        // and the legal prefix renders green. Every other kind stays identity-indexed (row == value).
+        // and the legal prefix renders green. Form and Gender filter rather than reorder (forms the
+        // game can't hold are dropped; so are genders the species can't be), but they need the same
+        // row -> value indirection. Every other kind stays identity-indexed (row == value).
+        //
+        // A kind that fills pickerOrder and is missing from this list is the sharp edge: labels would
+        // keep using the row index while the write uses pickerOrder, naming one value and writing
+        // another with nothing on screen to show it.
         const bool reorder = (kind == PickerKind::Ability || kind == PickerKind::Species
                            || kind == PickerKind::Move    || kind == PickerKind::PouchItem
                            || kind == PickerKind::PouchItemG3 || kind == PickerKind::MetLocation
-                           || kind == PickerKind::Ball)
+                           || kind == PickerKind::Ball    || kind == PickerKind::Form
+                           || kind == PickerKind::Gender)
                            && !screen.pickerOrder.empty();
         for (int i = 0; i < visible && (first + i) < count; ++i) {
             const int idx = first + i;
@@ -165,7 +172,7 @@ namespace Dialogs {
             } else {
                 label = pickerOptionLabel(kind, val);
             }
-            fb.drawText(px + 28, ry + 8, label, col);
+            fb.drawText(px + 28, ry + (rowH - 4 - fb.lineHeight(TextStyle::Body)) / 2, label, col);
             screen.touchButtons.push_back({ idx, px + 12, ry, pw - 24, rowH - 4 });  // id = option row
         }
 

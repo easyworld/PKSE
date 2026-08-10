@@ -37,7 +37,7 @@ namespace Trainer {
         // ---- Unified on-disk format ----------------------------------------------------------
         // File: BASE_SAVE_DIRECTORY/bank/bank.dat
         //   Header (16 B): char magic[8]="PKSEBANK"; u32 version; u32 boxCount
-        //   Then BANK_BOX_COUNT*BANK_SLOTS_PER_BOX fixed records, each:
+        //   Then boxCount*BANK_SLOTS_PER_BOX fixed records, each:
         //     u32 groupTag; u8 payload[maxPayload]   (payload = native ENCRYPTED per-gen bytes)
         // An empty slot has groupTag == BTAG_EMPTY (0). Records are fixed-size (payload sized to
         // the largest party record across all games) so slot N is always at a computable offset.
@@ -264,11 +264,28 @@ namespace Trainer {
             return;
         }
 
+        // How many boxes the FILE was written with. This is what sizes its record table, and therefore
+        // where its names section begins -- using our own BANK_BOX_COUNT instead would look past the end
+        // of any smaller, older bank and silently drop every custom box name the first time the count
+        // was raised. Records are position-indexed, so a shorter table simply fills the low boxes.
+        uint32_t fileBoxes = readUInt32LittleEndian(file + 12);
+        if (fileBoxes == 0 || fileBoxes > 4096) {
+            // Header damaged or absurd; fall back to the record count the file can actually hold rather
+            // than trusting it to compute an offset.
+            fileBoxes = static_cast<uint32_t>(BANK_BOX_COUNT);
+        }
+        if (fileBoxes > BANK_BOX_COUNT) {
+            // The bank was written by a build with MORE boxes. Everything past ours cannot be loaded,
+            // and saving would drop it, so say so loudly rather than quietly truncating someone's bank.
+            logErrorToFile("Bank: file has more boxes than this build supports; extra boxes will be lost if saved",
+                           std::to_string(fileBoxes).c_str());
+        }
+        const size_t fileTotal = static_cast<size_t>(fileBoxes) * BANK_SLOTS_PER_BOX;
         const size_t total = BANK_BOX_COUNT * BANK_SLOTS_PER_BOX;
         // Whole records only: a file truncated mid-record contributes nothing past the last
         // complete one, which is what keeps the span below inside the buffer.
         const size_t avail = (fileSize > HEADER_SIZE) ? (fileSize - HEADER_SIZE) / recSize : 0;
-        const size_t count = std::min(total, avail);
+        const size_t count = std::min({ total, fileTotal, avail });
         loadRejects = 0;
         for (size_t n = 0; n < count; ++n) {
             const size_t recOff = HEADER_SIZE + n * recSize;
@@ -294,10 +311,12 @@ namespace Trainer {
 
         // Optional names section, appended after the full record table (see NAMES_MARKER). Absent in
         // files written before names existed -- those just keep the default "Bank N" labels.
-        const size_t namesOff = HEADER_SIZE + total * recSize;
+        // Positioned by the FILE's record table, not ours -- see fileBoxes above.
+        const size_t namesOff = HEADER_SIZE + fileTotal * recSize;
         if (fileSize >= namesOff + 4 && std::memcmp(file + namesOff, NAMES_MARKER, 4) == 0) {
             size_t p = namesOff + 4;
-            for (size_t box = 0; box < BANK_BOX_COUNT; ++box) {
+            const size_t nameCount = std::min<size_t>(fileBoxes, BANK_BOX_COUNT);
+            for (size_t box = 0; box < nameCount; ++box) {
                 if (p + 2 > fileSize) break;                            // truncated: stop cleanly
                 const uint16_t len = static_cast<uint16_t>(file[p] | (file[p + 1] << 8));
                 p += 2;

@@ -28,6 +28,7 @@
 #include <string>
 
 #include "Pokemon/Pokemon.h"
+#include "Pokemon/FormInfo.h"   // correctEncryptionConstantForForm
 #include "Pokemon/SpeciesConverter9.h"
 #include "Encryption/Encryption9LZA.h"
 #include "Utils/HelperUtilities.h"
@@ -514,6 +515,11 @@ namespace Pokemon {
         void setForm(uint8_t formValue) noexcept override
         {
             data[0x24] = static_cast<std::byte>(formValue);
+            // Maushold and Dudunsparce read their form from EncryptionConstant % 100, so the form byte
+            // alone is only half the edit -- left mismatched the Pokemon is illegal, and the games
+            // cannot produce that state. A no-op for every other species. See FormInfo.
+            setEncryptionConstant(
+                correctEncryptionConstantForForm(speciesID(), formValue, encryptionConstant()));
             recalculateStats();
             refreshChecksum();
         }
@@ -603,6 +609,13 @@ namespace Pokemon {
             data[0x22] = static_cast<std::byte>(b);
             refreshChecksum();
         }
+
+        /**
+         * Alpha flag -- a whole byte at 0x23 (PA9), not a bit. Z-A keeps Legends: Arceus's Alphas, and
+         * its Pokedex entry records "an Alpha of this species was seen" separately from the form flags.
+         * Read-only here: nothing in PKSE creates an Alpha, but a save can already contain one.
+         */
+        bool isAlpha() const noexcept { return static_cast<uint8_t>(data[0x23]) != 0; }
 
         /** Fateful-encounter flag -- bit 0 of the gender byte at 0x22 (setGender leaves bit 0 alone). */
         bool isFatefulEncounter() const noexcept override { return (static_cast<uint8_t>(data[0x22]) & 0x01) != 0; }

@@ -54,7 +54,15 @@ namespace Conversion {
     /// Converts `src` into `destGroup`'s entity format, preserving origin identity and refreshing the
     /// checksum. Returns a NEW entity, or nullptr with `result` set to the reason. A same-format pair
     /// yields SameGroup + nullptr (the caller should just move the original -- no conversion needed).
-    std::unique_ptr<Pokemon::Pokemon> convert(const Pokemon::Pokemon& src, Enums::GameVersion destGroup, Result& result);
+    ///
+    /// `destOriginVersion` is the exact destination GAME's origin byte, used only where an origin cannot
+    /// be carried across and has to be restamped -- today that is the Gen 3 down-convert, whose origin
+    /// field is 4 bits wide and cannot hold a modern game's id. It must be passed because a game *group*
+    /// deliberately collapses a version pair into one value: `FRLG` cannot say FireRed from LeafGreen,
+    /// and stamping a fixed member of the pair is wrong half the time. 0 = unknown, which falls back to
+    /// the group's representative version (the old, always-FireRed behaviour).
+    std::unique_ptr<Pokemon::Pokemon> convert(const Pokemon::Pokemon& src, Enums::GameVersion destGroup, Result& result,
+                                              uint8_t destOriginVersion = 0);
 
     /// True if `destGroup` can accept `src` (same group, or a supported+allowed conversion). Pure check
     /// (no allocation) for gating UI without performing the conversion.
@@ -62,6 +70,31 @@ namespace Conversion {
 
     /// Short human-facing reason for a non-Ok/SameGroup result, for on-screen feedback.
     const char* resultMessage(Result r);
+
+    /// Byte offset of **AffixedRibbon** in a game's entity format, or 0 for the formats that have no
+    /// such field (Gen 3's PK3 and Let's Go's PB7).
+    ///
+    /// AffixedRibbon names the single ribbon the game DISPLAYS on the summary screen. Its "none" value
+    /// is 0xFF, **not** 0 -- 0 is a real index, and index 0 is the Kalos Champion ribbon. So any code
+    /// path that leaves this byte at its zero-initialised default hands the mon a Kalos Champion ribbon
+    /// it does not own. That has now bitten twice, from two different directions (the creator, then
+    /// cross-gen conversion), so the offset lives here once and both call sites read it.
+    size_t affixedRibbonOffset(Enums::GameVersion group) noexcept;
+
+    /// The value meaning "display no ribbon". Not zero -- see affixedRibbonOffset().
+    inline constexpr uint8_t AFFIXED_RIBBON_NONE = 0xFF;
+
+    /// Repairs an invalid AffixedRibbon on `pk` **in place**, re-checksumming if it changed. Returns
+    /// true when it changed something.
+    ///
+    /// Invalid means the byte reads 0 -- "display ribbon index 0", the Kalos Champion ribbon -- while
+    /// the mon does not own that ribbon. Verified against real saves: every genuinely game-caught mon
+    /// carries 0xFF, including ones that DO own ribbons, so a 0 here is never something the game wrote.
+    /// The owned-ribbon guard means a deliberately affixed ribbon is never disturbed.
+    ///
+    /// Call on the way INTO a save (conversion, and the same-group path that skips conversion). Not on
+    /// deposit: the bank stores native bytes untouched by design.
+    bool normalizeAffixedRibbon(Pokemon::Pokemon& pk);
 }
 
 #endif

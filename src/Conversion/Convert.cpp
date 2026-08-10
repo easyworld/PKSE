@@ -28,7 +28,9 @@
 #include "Encryption/Encryption3FRLG.h"
 #include "Names/ItemNames.h"         // itemG3ToModern / itemModernToG3 (Gen 3 <-> modern held item)
 #include "Names/ItemPresence.h"      // isHeldItemPresent -> sanitize the held item to the destination
-#include "Utils/HelperUtilities.h"   // readUInt32LittleEndian
+#include "Globals.h"                // g_allowIllegalEdits -- lifts the BDSP Spinda/Nincada transfer block
+#include "Utils/Gen3Text.h"          // the Gen 3 character set, shared with Pokemon3FRLG + Trainer3FRLG
+#include "Utils/HelperUtilities.h"   // readUInt32LittleEndian; pulls in Utils::utf8ToUtf16
 
 using Enums::GameVersion;
 
@@ -123,8 +125,18 @@ namespace Conversion {
             } else if ((pi.presence & presenceBit(dest)) == 0) {
                 return Result::NotInDex;   // species, or this form specifically, out-of-dex -> refuse
             }
-            if (dest == GameVersion::BDSP && (species == 327 /*Spinda*/ || species == 290 /*Nincada*/))
-                return Result::Blocked;                                            // PKHeX refuses these into BDSP
+            // Spinda and Nincada into BDSP. This is a LEGALITY rule, not a format one: BDSP holds both
+            // species perfectly well -- each is catchable in the Grand Underground and each has a dex
+            // entry (Spinda even has its own spot-pattern block) -- but Pokemon HOME refuses to move
+            // them in, so one that did not originate there reads as illegal. PKHeX says the same:
+            // `Species is Spinda or Nincada && !pk.BDSP -> TransferNotPossible`.
+            //
+            // That is exactly the "the game can hold it but shouldn't" case g_allowIllegalEdits exists
+            // for, so the setting lifts it. Left on by default, since the arriving Pokemon really would
+            // be flagged illegal.
+            if (dest == GameVersion::BDSP && (species == 327 /*Spinda*/ || species == 290 /*Nincada*/)
+                && !g_allowIllegalEdits)
+                return Result::Blocked;
             return Result::Ok;
         }
 
@@ -163,38 +175,16 @@ namespace Conversion {
             wr16(b, o, static_cast<uint16_t>(v)); wr16(b, o + 2, static_cast<uint16_t>(v >> 16));
         }
 
-        // ---- Gen 3 (GBA) <-> Unicode text for cross-gen nickname/OT (EN subset; 0xFF terminator) ----
-        inline char16_t g3ToU16(uint8_t b) {
-            if (b == 0x00) return u' ';
-            if (b >= 0xA1 && b <= 0xAA) return static_cast<char16_t>(u'0' + (b - 0xA1));
-            if (b >= 0xBB && b <= 0xD4) return static_cast<char16_t>(u'A' + (b - 0xBB));
-            if (b >= 0xD5 && b <= 0xEE) return static_cast<char16_t>(u'a' + (b - 0xD5));
-            if (b == 0xAB) return u'!';
-            if (b == 0xAC) return u'?';
-            if (b == 0xAD) return u'.';
-            if (b == 0xAE) return u'-';
-            return u'\0';   // unmapped -> skip
-        }
-        inline uint8_t u16ToG3(char16_t c) {
-            if (c == u' ') return 0x00;
-            if (c >= u'0' && c <= u'9') return static_cast<uint8_t>(0xA1 + (c - u'0'));
-            if (c >= u'A' && c <= u'Z') return static_cast<uint8_t>(0xBB + (c - u'A'));
-            if (c >= u'a' && c <= u'z') return static_cast<uint8_t>(0xD5 + (c - u'a'));
-            if (c == u'!') return 0xAB;
-            if (c == u'?') return 0xAC;
-            if (c == u'.') return 0xAD;
-            if (c == u'-') return 0xAE;
-            return 0xFF;    // unmappable -> terminator
-        }
+        // ---- Gen 3 (GBA) <-> Unicode text for cross-gen nickname/OT (table: Utils/Gen3Text.h) ----
         // Gen 3 name (maxG3 bytes @ s+soff) -> UTF-16LE (dstBytes @ d+doff, zero-terminated + zero-padded).
         void g3NameToUtf16(std::vector<std::byte>& d, size_t doff, const std::vector<std::byte>& s, size_t soff,
                            int maxG3, int dstBytes) {
             int di = 0;
             for (int i = 0; i < maxG3 && di + 2 <= dstBytes; ++i) {
                 const uint8_t b = rd8(s, soff + i);
-                if (b == 0xFF) break;
-                const char16_t c = g3ToU16(b);
-                if (c == u'\0') continue;
+                if (b == Utils::GEN3_TERMINATOR) break;
+                const char16_t c = Utils::gen3ToChar(b);
+                if (c == u'\0') continue;   // no glyph at that byte -> skip it
                 wr16(d, doff + di, static_cast<uint16_t>(c));
                 di += 2;
             }
@@ -207,23 +197,30 @@ namespace Conversion {
             for (int i = 0; i + 2 <= srcBytes && gi < maxG3; i += 2) {
                 const char16_t c = static_cast<char16_t>(rd16(s, soff + i));
                 if (c == 0) break;
-                const uint8_t b = u16ToG3(c);
-                if (b == 0xFF) break;
+                const uint8_t b = Utils::charToGen3(c);
+                if (b == Utils::GEN3_TERMINATOR) break;
                 wr8(d, doff + gi, b);
                 ++gi;
             }
-            for (; gi < maxG3; ++gi) wr8(d, doff + gi, 0xFF);   // Gen 3 pads names with 0xFF
+            for (; gi < maxG3; ++gi) wr8(d, doff + gi, Utils::GEN3_TERMINATOR);   // Gen 3 pads names with 0xFF
         }
-        // Write an ASCII string (e.g. the uppercase species name) as a Gen 3 name (0xFF-terminated/padded).
-        void asciiToG3Name(std::vector<std::byte>& d, size_t doff, const char* str, int maxG3) {
+        // Write a UTF-8 string UPPERCASED as a Gen 3 name (0xFF-terminated/padded) -- the species
+        // name, for the Gen 3 nickname. Must decode UTF-8 rather than walk bytes: the species table
+        // is game-canonical, so five of the names in Gen 3's own range carry a multi-byte character
+        // (Nidoran♀/♂, Farfetch'd) and a per-byte walk would encode their continuation bytes as
+        // garbage or drop the character. Only ASCII is uppercased; ♀/♂ have no case.
+        void utf8UpperToG3Name(std::vector<std::byte>& d, size_t doff, const char* str, int maxG3) {
+            const std::u16string s = Utils::utf8ToUtf16(std::string(str));
             int gi = 0;
-            for (const char* p = str; *p && gi < maxG3; ++p) {
-                const uint8_t b = u16ToG3(static_cast<char16_t>(static_cast<unsigned char>(*p)));
-                if (b == 0xFF) continue;
+            for (char16_t c : s) {
+                if (gi >= maxG3) break;
+                if (c >= u'a' && c <= u'z') c = static_cast<char16_t>(c - u'a' + u'A');
+                const uint8_t b = Utils::charToGen3(c);
+                if (b == Utils::GEN3_TERMINATOR) continue;
                 wr8(d, doff + gi, b);
                 ++gi;
             }
-            for (; gi < maxG3; ++gi) wr8(d, doff + gi, 0xFF);
+            for (; gi < maxG3; ++gi) wr8(d, doff + gi, Utils::GEN3_TERMINATOR);
         }
 
         // PK8 -> PK9, in place. `species`/`form` are the source's (for the imported Tera type).
@@ -244,7 +241,9 @@ namespace Conversion {
             // 0x90-0x9F: PK8 DynamaxLevel(0x90)/Status(0x94)/Palma(0x98) -> PK9 Status(0x90)/Tera(0x94,0x95).
             //            Zero, then import a Tera from the species' primary type (Normal falls back to type2).
             { zeroRange(b, 0x90, 0x10);
-              Pokemon::TypePair tp = Pokemon::getPokemonTypes(species, form);
+              // SV, not the source game: the Tera type is being written INTO a PK9, so it has
+              // to name a type Scarlet/Violet has (and the source here is PK8 either way).
+              Pokemon::TypePair tp = Pokemon::getPokemonTypes(species, form, Enums::GameVersion::SV);
               uint8_t tera = (tp.type1 == 0 /*Normal*/ && tp.type2 != 255) ? tp.type2 : tp.type1;
               wr8(b, 0x94, tera); wr8(b, 0x95, tera); }
             // 0xCE-0xF7 Block C: PK8 PokeJob/Version(0xDE)/BattleVer(0xDF)/Language(0xE2)/FormArg(0xE4)/
@@ -541,7 +540,7 @@ namespace Conversion {
             wr8(d, 0x125, static_cast<uint8_t>((origins & 0x7F) | (((origins >> 15) & 1) << 7)));    // MetLevel + OTgender
             wr16(d, 0x122, rd8(s, 0x45));                           // Met location (Gen 3 id -- carried)
             // Gen 3 records no met DATE, so leaving it 0 reads as "met 00/00/2000" in the destination.
-            // Emulate Pokemon HOME: PKHeX's PK3.ConvertToPK4() stamps MetDate = EncounterDate.GetDateNDS()
+            // Emulate HOME: PKHeX's PK3.ConvertToPK4() stamps MetDate = EncounterDate.GetDateNDS()
             // (the transfer date). Do the same with today's date; it rides the PK8-hub met-date region
             // (0x11C-0x11E, year stored as year-2000) out to every destination format. Skip an egg -- an
             // unhatched egg has no met date until it hatches (isEgg is iv32 bit 30, carried above).
@@ -561,7 +560,10 @@ namespace Conversion {
         }
 
         // PK8 layout -> PK3 (Gen 3). Returns a 100-byte PARTY record (box writes take the first 80 B).
-        std::vector<std::byte> remapPK8toPK3(const std::vector<std::byte>& s) {
+        // `destOriginVersion` is the exact destination game's origin byte (FR = 4, LG = 5). It has to be
+        // passed in: a game GROUP collapses the pair into one value by design, so FRLG alone cannot say
+        // which of the two the save actually is.
+        std::vector<std::byte> remapPK8toPK3(const std::vector<std::byte>& s, uint8_t destOriginVersion) {
             std::vector<std::byte> d(0x64, std::byte{0});
             const uint32_t pid      = rd32(s, 0x1C);
             const uint16_t national = rd16(s, 0x08);
@@ -570,7 +572,7 @@ namespace Conversion {
 
             // Gen 3 derives nature/gender/shiny/ability ALL from the PID, but the source stores nature
             // and gender EXPLICITLY -- copying the PID verbatim silently changes them (an LGPE Calm mon
-            // read as Jolly in FR/LG). Like PKSM's downgrade (PKX::getRandomPID), reroll the PID so its
+            // read as Jolly in FR/LG). The standard down-convert answer is to reroll the PID so its
             // Gen-3-derived traits match the source's: nature, gender, shiny status and ability slot are
             // preserved. IVs are NOT touched (separate field at 0x48). This DOES change the PID (the mon's
             // identity) and yields a PID/IV pair that won't match a real Gen 3 RNG frame -- the UI warns
@@ -602,12 +604,7 @@ namespace Conversion {
             copyBytes(d, 0x24, s, 0x10, 4);                         // EXP
 
             // Gen 3 nickname = the uppercase species name (custom nicknames aren't carried down to Gen 3).
-            { const char* nm = Pokemon::getSpeciesNameGen89(national);
-              char up[16]; int k = 0;
-              for (const char* p = nm; *p && k < 15; ++p) {
-                  char c = *p; if (c >= 'a' && c <= 'z') c = static_cast<char>(c - 'a' + 'A'); up[k++] = c;
-              }
-              up[k] = 0; asciiToG3Name(d, 0x08, up, 10); }
+            utf8UpperToG3Name(d, 0x08, Pokemon::getSpeciesNameGen89(national), 10);
             utf16ToG3Name(d, 0x14, s, 0xF8, 26, 7);                 // OT name (UTF-16 -> Gen 3)
 
             copyBytes(d, 0x2C, s, 0x72, 8);                         // Moves 1-4
@@ -622,7 +619,14 @@ namespace Conversion {
             const uint8_t metLevel = rd8(s, 0x125) & 0x7F;
             const uint8_t otGender = (rd8(s, 0x125) >> 7) & 1;
             uint8_t ball = rd8(s, 0x124);   if (ball == 0 || ball > 12) ball = 4;    // Gen 3 balls 1-12; default Poke Ball
-            uint8_t version = rd8(s, 0xDE); if (version < 1 || version > 5) version = 4;  // clamp to a Gen 3 game (FR)
+            // Origin version. A source that ALREADY holds a Gen 3 value (1-5) came from Gen 3 originally,
+            // so it passes through untouched -- that is the origin-preserving case and it was never wrong.
+            // Everything else is a modern game whose id (SW = 44, VL = 51, ZA = 52 ...) does not fit Gen 3's
+            // 4-bit field, so the mon is stamped with the game it is being written INTO. This is the normal
+            // path, not a rare edge: every cross-gen transfer into Gen 3 takes it. It used to substitute a
+            // literal 4, which is FireRed -- so a LeafGreen save stamped FireRed 100% of the time.
+            uint8_t version = rd8(s, 0xDE);
+            if (version < 1 || version > 5) version = destOriginVersion;
             wr16(d, 0x46, static_cast<uint16_t>((metLevel & 0x7F) | ((version & 0x0F) << 7)
                                               | ((ball & 0x0F) << 11) | ((otGender & 1) << 15)));
             wr8(d, 0x45, static_cast<uint8_t>(rd16(s, 0x122)));     // Met location (Gen 3 ids are u8)
@@ -639,9 +643,15 @@ namespace Conversion {
         return result == Result::Ok || result == Result::SameGroup;
     }
 
-    std::unique_ptr<Pokemon::Pokemon> convert(const Pokemon::Pokemon& src, GameVersion destGroup, Result& result) {
+    std::unique_ptr<Pokemon::Pokemon> convert(const Pokemon::Pokemon& src, GameVersion destGroup, Result& result,
+                                              uint8_t destOriginVersion) {
         result = gate(src, destGroup);
         if (result != Result::Ok) return nullptr;   // SameGroup / NotInDex / Blocked / Unsupported
+
+        // 0 means the caller could not name the exact destination game; fall back to the group's
+        // representative. That is what this did unconditionally before, so an un-updated caller keeps
+        // the old behaviour rather than writing a 0 origin.
+        if (destOriginVersion == 0) destOriginVersion = Enums::getGroupRepVersion(destGroup);
 
         const GameVersion from = src.getGameGroup();
 
@@ -688,7 +698,7 @@ namespace Conversion {
             if (isG9(destGroup))                     transformG8toG9(buf, src.speciesID(), src.form());  // PK8 -> PK9
             else if (destGroup == GameVersion::PLA)  buf = remapPK8toPA8(buf);                           // PK8 -> PA8
             else if (destGroup == GameVersion::GG)   buf = remapPK8toPB7(buf);                           // PK8 -> PB7
-            else if (destGroup == GameVersion::FRLG) buf = remapPK8toPK3(buf);                           // PK8 -> PK3
+            else if (destGroup == GameVersion::FRLG) buf = remapPK8toPK3(buf, destOriginVersion);         // PK8 -> PK3
         }
 
         // Re-key into the destination format, rebuild the entity, refresh its checksum.
@@ -772,9 +782,39 @@ namespace Conversion {
             }
         }
 
+        // AffixedRibbon. A source format without the field (PK3, PB7) never writes it, so the
+        // destination inherits the 0 its buffer was zero-initialised with -- and 0 is a REAL index
+        // naming the Kalos Champion ribbon, not "none" (that is 0xFF). Every mon arriving from FireRed
+        // or Let's Go therefore displayed a ribbon it does not own. The same 0 also rides across a
+        // Gen 8 <-> Gen 9 hop unchanged, so a mon banked before the creator was fixed keeps it.
+        normalizeAffixedRibbon(*out);
+
         out->refreshChecksum();   // stored bytes changed -> recompute the entity checksum
         result = Result::Ok;
         return out;
+    }
+
+    bool normalizeAffixedRibbon(Pokemon::Pokemon& pk) {
+        const size_t affix = affixedRibbonOffset(pk.getGameGroup());
+        if (affix == 0) return false;                       // format has no such field
+        std::span<std::byte> d = pk.getData();
+        if (d.size() <= affix || d.size() < 0x46) return false;
+        if (static_cast<uint8_t>(d[affix]) != 0) return false;          // already names something / None
+        if ((static_cast<uint8_t>(d[0x34]) & 0x01) != 0) return false;  // genuinely owns Kalos Champion
+        d[affix] = std::byte{AFFIXED_RIBBON_NONE};
+        pk.refreshChecksum();                               // the field is inside the checksummed region
+        return true;
+    }
+
+    size_t affixedRibbonOffset(Enums::GameVersion group) noexcept {
+        switch (group) {
+            case GameVersion::SV:
+            case GameVersion::ZA:   return 0xD4;   // PK9 / PA9
+            case GameVersion::SWSH:
+            case GameVersion::BDSP: return 0xE8;   // G8PKM (PK8 / PB8)
+            case GameVersion::PLA:  return 0xF8;   // PA8
+            default:                return 0;      // FRLG (PK3) and GG (PB7) have no such field
+        }
     }
 
     const char* resultMessage(Result r) {
@@ -782,7 +822,8 @@ namespace Conversion {
             case Result::Ok:          return "已转换";
             case Result::SameGroup:   return "同一游戏";
             case Result::NotInDex:    return "此游戏中无法获得该宝可梦";
-            case Result::Blocked:     return "此游戏无法接收该宝可梦种类";
+            // 这项限制可通过设置解除，NotInDex 则是绝对限制。
+            case Result::Blocked:     return "Pokémon HOME 无法将该宝可梦传入此游戏（允许非法数值可绕过）";
             case Result::Unsupported: return "暂不支持与此游戏之间的传送";
         }
         return "";

@@ -435,6 +435,18 @@ namespace Pokemon {
         /** Handling (current) Trainer name (0x78, 26 bytes). */
         std::u16string htName() const override { return getString(reinterpret_cast<const uint8_t*>(data.data() + 0x78), 26); }
         void setHTName(const std::u16string& value) noexcept override { setString(reinterpret_cast<uint8_t*>(data.data() + 0x78), 26, value, 12); refreshChecksum(); }
+        /** Handling Trainer gender (0 = Male, 1 = Female). Location: 0x92 (PKHeX PB7.HandlingTrainerGender),
+         *  directly before currentHandler below. This was the one HT field left on the base stub, and both
+         *  halves of that stub were wrong: the getter returned a hard 0, so every
+         *  handler displayed as Male whatever the save said, and the setter was a no-op, so a trainer gender
+         *  change could never re-stamp it. The re-stamp still counted those mons as updated (the getter's 0
+         *  never matched a Female trainer). */
+        uint8_t htGender() const noexcept override { return static_cast<uint8_t>(data[0x92]); }
+        void setHTGender(uint8_t value) noexcept override { data[0x92] = static_cast<std::byte>(value); refreshChecksum(); }
+        /** Handling Trainer friendship (0-255). Location: 0xA2. Wired alongside htGender -- same omission,
+         *  and an unwired getter that quietly returns 0 is what made the gender bug invisible. */
+        uint8_t htFriendship() const noexcept override { return static_cast<uint8_t>(data[0xA2]); }
+        void setHTFriendship(uint8_t value) noexcept override { data[0xA2] = static_cast<std::byte>(value); refreshChecksum(); }
         /** Current handler flag (0 = OT active, 1 = HT active). Location: 0x93. */
         uint8_t currentHandler() const noexcept override { return static_cast<uint8_t>(data[0x93]); }
         void setCurrentHandler(uint8_t value) noexcept override { data[0x93] = static_cast<std::byte>(value); refreshChecksum(); }
@@ -547,13 +559,23 @@ namespace Pokemon {
         }
 
         // ========================================
-        // Stats - Effort Values (EVs)
+        // Stats - Effort Values (EVs) -- PRESENT IN THE FORMAT, UNUSED BY THE GAME
         // ========================================
 
         /**
-         * Effort Values (EVs) earned through battling.
-         * Location: 0x1E-0x23 (1 byte each)
-         * Max 252 per stat, 510 total (same as other generations).
+         * Let's Go has NO EV mechanic. It replaced EV training with Awakening Values (below), and
+         * nothing in the game reads these bytes: PB7's stat formula is AV + IV + base + level, with no
+         * EV term at all (PKHeX `PB7.LoadStats`, mirrored by computeStat()).
+         *
+         * The bytes are nonetheless real. PB7 inherits the Gen 7 layout, so 0x1E-0x23 exist and PKHeX
+         * maps `EV_HP`..`EV_SPD` onto exactly these offsets. On a legitimate Let's Go Pokemon they are
+         * always 0 -- the game never writes them, and the bank's converter deliberately leaves them 0
+         * when a Pokemon enters LGPE. A non-zero value here therefore means the Pokemon was edited by
+         * something else, which is worth being able to SEE. That is the only reason these getters
+         * exist: the legality checker reads EVs for every format, and reporting the real bytes beats
+         * reporting a hardcoded 0 that would hide the anomaly.
+         *
+         * Overriding is not optional either way -- the base declares them pure virtual.
          */
         uint8_t evHP() const noexcept override  { return static_cast<uint8_t>(data[0x1E]); }
         uint8_t evATK() const noexcept override { return static_cast<uint8_t>(data[0x1F]); }
@@ -563,17 +585,13 @@ namespace Pokemon {
         uint8_t evSPD() const noexcept override { return static_cast<uint8_t>(data[0x23]); }
 
         /**
-         * Sets an Effort Value for a specific stat.
-         * @param statIndex 0=HP, 1=ATK, 2=DEF, 3=SPE, 4=SPA, 5=SPD
-         * @param value EV value (0-252)
+         * Deliberately does nothing. Writing an EV here would change no stat the game computes, while
+         * making the Pokemon read as edited to anything that checks -- all cost, no effect. Use setAV().
+         *
+         * Nothing calls this for Let's Go today: every editor path branches on hasAwakeningValues() and
+         * routes to setAV(). This is the backstop for the one that eventually forgets.
          */
-        void setEV(int statIndex, uint8_t value) noexcept override {
-            if (statIndex >= 0 && statIndex < 6) {
-                data[0x1E + statIndex] = static_cast<std::byte>(value);
-                recalculateStats();
-                refreshChecksum();
-            }
-        }
+        void setEV(int, uint8_t) noexcept override {}
 
         // ========================================
         // Stats - Awakening Values (AVs) - Let's Go Unique

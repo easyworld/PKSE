@@ -54,8 +54,13 @@ namespace Trainer {
     // Version detection block
     constexpr size_t SAVE_REVISION8_LA = 0x0926555A;       // Save Revision (u64)
 
+    // Pokedex ("Zukan"). PLA's dex is a research LOG, one big
+    // 0x1E460 block holding a per-species research entry (0x58 each, 981) and a per-species+FORM
+    // statistics entry (0x18 each, 1480) reached through a lookup table. PKHeX PokedexSave8a.
+    // (The placeholder that sat here was 0x2D87BE5C -- Legends: Z-A's key, copy-pasted.)
+    constexpr size_t POKEDEX8_LA = 0x02168706;
+
     // Additional blocks (for future use)
-    // constexpr size_t POKEDEX8_LA = 0x2D87BE5C;          // Pokedex completion
     // constexpr size_t LAST_SAVED8_LA = 0x1522C79C;       // Last save timestamp
     // constexpr size_t EVENT_FLAG8_LA = 0x58505C5E;       // Game event flags
     constexpr size_t CURRENT_BOX8_LA = 0x017C3CBB;         // Current box index ("U8 Box Index")
@@ -150,6 +155,8 @@ namespace Trainer {
          * Updates the ITEM_KEY block with modified inventory data.
          */
         void updateItemBlock() override;
+        void updateTrainerInfoBlock() override;   // money / OT name
+        void updatePokedexBlock() override;       // PokedexSave8a: research + statistics entries
 
         // Fixed-capacity packed pouches (KeyItems 100 / Stored 180 / Recipes 70), and the general
         // Items bag = min(675, SatchelUpgrades + 20). Enables in-pouch item creation for PLA.

@@ -2,7 +2,7 @@
  * Encryption3FRLG.cpp - Gen 3 (GBA / FRLG) PK3 decrypt/encrypt. See Encryption3FRLG.h.
  *
  * Tables + algorithm verified against PKHeX PokeCrypto.cs (BlockPosition / BlockPositionInvert,
- * CryptArray3) and PKSM crypto.hpp. The 0x20-0x4F block is XORed per 32-bit word with (PID ^ OT_ID32)
+ * CryptArray3). The 0x20-0x4F block is XORed per 32-bit word with (PID ^ OT_ID32)
  * and the four 12-byte substructures are shuffled by (PID % 24).
  */
 #include "Encryption/Encryption3FRLG.h"

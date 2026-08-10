@@ -15,22 +15,16 @@
 #include <string>
 
 #include "Pokemon/Pokemon.h"
+#include "Pokemon/SpeciesConverter3.h"   // the real Gen 3 internal <-> National tables (PKHeX-derived)
 #include "Encryption/Encryption3FRLG.h"
 
 namespace Pokemon {
 
-    // Gen 3 internal <-> National dex species id. 1-251 are identical; Hoenn (National 252-386)
-    // lives at internal 277-411 (a uniform +25 shift after 25 unused internal slots).
-    inline uint16_t g3ToNational(uint16_t internalId) {
-        if (internalId < 252) return internalId;
-        if (internalId >= 277 && internalId <= 411) return static_cast<uint16_t>(internalId - 25);
-        return 0;   // unused Gen 3 internal slot
-    }
-    inline uint16_t nationalToG3(uint16_t national) {
-        if (national < 252) return national;
-        if (national <= 386) return static_cast<uint16_t>(national + 25);
-        return 0;   // not obtainable in Gen 3
-    }
+    // Gen 3 internal <-> National dex species id. Thin aliases over SpeciesConverter3 -- the Hoenn
+    // block is NOT a uniform shift, and assuming it was stored 109 of the 135 Hoenn species as a
+    // different Pokemon. Names kept so existing call sites read unchanged.
+    inline uint16_t g3ToNational(uint16_t internalId) { return gen3InternalToNational(internalId); }
+    inline uint16_t nationalToG3(uint16_t national)   { return gen3NationalToInternal(national); }
 
     class Pokemon3FRLG final : public Pokemon {
     public:
@@ -83,12 +77,22 @@ namespace Pokemon {
             return g == 0 ? "♂" : g == 1 ? "♀" : "";
         }
 
-        // Ability: Gen3 stores a selector bit (IV32 bit31); the id comes from the personal table.
+        // Ability: Gen3 stores a selector BIT (IV32 bit31), never an ability id -- the game
+        // resolves the bit through its own personal table, so the id comes from the Gen 3
+        // table (getPersonalAbilityG3), NOT the modern one. Consequence for editing: the only
+        // abilities a PK3 can express are the species' own two slots, so "allow illegal edits"
+        // cannot widen this list the way it can for every later game.
         uint16_t ability() const noexcept override;
         uint8_t abilityNumber() const noexcept override { return (rd32(0x48) >> 31) & 1 ? 2 : 1; }
+        void setAbility(uint16_t abilityValue) noexcept override;      // id -> slot, then setAbilityNumber
+        void setAbilityNumber(uint8_t number) noexcept override;       // 1/2; flips the bit + re-rolls the PID
 
+        // Decode a Gen 3 name field: maxChars bytes at `offset`, stopping at the 0xFF terminator.
+        std::u16string readG3Name(size_t offset, int maxChars) const;
         std::u16string nickname() const override;   // Gen3 char table @0x08 (10 bytes)
         void setNickname(const std::u16string& value) noexcept override;   // encode into the Gen3 table @0x08
+        int getMaxNicknameLength() const noexcept override { return 10; }  // 10 bytes @0x08, 1 byte per glyph
+        bool canStoreNickname(const std::u16string& value) const noexcept override;
         std::u16string otName() const override;      // Gen3 char table @0x14 (7 bytes)
         void setOTName(const std::u16string& value) noexcept override;   // encode into the Gen3 table @0x14
 
@@ -202,7 +206,7 @@ namespace Pokemon {
         }
         void setLevel(uint8_t level) noexcept override;      // writes EXP for the level, recalcs
         void setNature(uint8_t nature) noexcept override;    // re-rolls PID to the nature (keeps gender + shiny)
-        void setGender(uint8_t gender) noexcept override;    // re-rolls PID to the gender
+        void setGender(uint8_t gender) noexcept override;    // re-rolls PID to the gender (keeps nature + shiny)
         void setShiny(bool makeShiny, uint32_t trainerID32) noexcept override;
         void regeneratePID(uint32_t trainerID32) noexcept override;
         void recalculateStats() noexcept override;
@@ -211,8 +215,18 @@ namespace Pokemon {
         // Compute a battle stat (0=HP..5=SPD) from base/IV/EV/level/nature (Gen3 formula).
         uint16_t computeStat(int idx) const noexcept;
         // Re-roll the PID (bounded search) to satisfy the given constraints; each is -1 for "don't care".
-        // Used by the nature/gender/shiny setters -- all PID-derived in Gen 3. No-op if none found.
-        void rerollPID(int wantShiny, int wantGender, int wantNature) noexcept;
+        // Used by the nature/gender/shiny/ability setters -- all PID-derived in Gen 3. wantAbilityBit
+        // constrains the PID's low bit, which Gen 3 legality requires to match the stored ability bit
+        // (PKHeX AbilityVerifier.GetPIDAbilityMatch). No-op if no PID satisfies them.
+        void rerollPID(int wantShiny, int wantGender, int wantNature, int wantAbilityBit = -1) noexcept;
+        // rerollPID that also holds the mon's CURRENT shininess, retrying without that constraint if
+        // it can't be met in budget. Editing one PID-derived field must not quietly change the others,
+        // but the edit the user asked for still has to land -- so shiny is the constraint that yields.
+        void rerollPreservingShiny(int wantGender, int wantNature, int wantAbilityBit = -1) noexcept;
+        // The PID low bit a re-roll has to preserve so that editing some OTHER PID-derived field
+        // cannot desync the PID from the stored ability bit. -1 (unconstrained) unless the species
+        // has two distinct abilities -- Gen 3 only ties the two together when there is a real choice.
+        int abilityPidBit() const noexcept;
     };
 }
 

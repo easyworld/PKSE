@@ -223,7 +223,7 @@ namespace UI {
     }
 
     void PKSEFramebuffer::drawShinyMark(int x, int y, int size, Color color) {
-        // Pokemon HOME's shiny mark: a four-pointed sparkle. The four tips sit on the cardinal
+        // HOME's shiny mark: a four-pointed sparkle. The four tips sit on the cardinal
         // directions; the edges between them curve INWARD (a quad curve pulled toward a control
         // point near the center), so it reads as a pinched "twinkle" rather than a plain star.
         // Anchored top-left in a size×size box to match how drawSymbol placed the old ★ glyph.
@@ -240,6 +240,88 @@ namespace UI {
         nvgQuadTo(vg, cx - ck, cy - ck, cx,     cy - R);       // -> back to top tip
         nvgClosePath(vg);
         nvgFillColor(vg, toNVG(color)); nvgFill(vg);
+    }
+
+    void PKSEFramebuffer::drawPointerCursor(int tipX, int tipY, int headHeight, Color color) {
+        // The storage grid's cursor: a slim arrowhead, pointing straight down at the slot, with no
+        // shaft. Four corners, in art units 18 wide by 26 tall with the point at (0, 0).
+        //
+        // This is drawn rather than copied. Tracing an existing 3DS-era pointer sprite was tried first
+        // and abandoned: it is 19x28 pixels, so at the size PKSE needs it every wobble in
+        // the original outline shows. The proportions below were instead chosen against a real 78px
+        // slot disc at the sizes the app actually uses.
+        //
+        // Two of them matter more than they look:
+        //   * The notch depth is tied to the width. Arm thickness is w*n/hypot(w,26), so a narrow
+        //     head with a deep notch thins the arms until the outline is most of what is left and
+        //     the colour barely shows -- hence the shallower -20 that goes with these narrow wings.
+        //   * The corners are mitred. Rounding them swallows the notch and the point, and what
+        //     survives reads as a circle.
+        // The body is bevelled rather than flat-filled, which is what stops a solid silhouette from
+        // reading as a flat cut-out.
+        static const signed char kArrow[][2] = {
+            {  0,   0},   // the point
+            { -9, -26},   // left wing
+            {  0, -20},   // the notch in the back edge
+            {  9, -26},   // right wing
+        };
+        constexpr int n = (int)(sizeof(kArrow) / sizeof(kArrow[0]));
+        if (headHeight <= 6 || !ensureFrame()) return;
+
+        // The outline is drawn UNDER the body, not over it. Strokes are centred on the path, so at a
+        // ~60-degree apex they cover the fill for several pixels and the point reads as a hollow V.
+        // Stroking wide first and filling on top leaves the outline entirely outside the body, and
+        // the body itself runs all the way into the point.
+        //
+        // `headHeight` is the head itself -- the part you actually see as the arrow. Below it the
+        // mitred outline runs on to a point, overshooting the apex by outer/sin(halfAngle). That is
+        // measured off the art rather than hardcoded, because it depends strongly on how slim the
+        // head is (2.0x the outline thickness at the widest head tried, 3.1x at this one); pin it to
+        // a constant and a reshape silently pokes the point lower than the caller reserved room for.
+        float halfW = 1.0f, artH = 1.0f;
+        for (int i = 0; i < n; ++i) {
+            halfW = std::max(halfW, (float)std::abs(kArrow[i][0]));
+            artH  = std::max(artH,  (float)-kArrow[i][1]);
+        }
+        // outer is 7% of the WHOLE cursor, and the whole cursor is head + over -- so solve for over
+        // rather than measuring it off a total we do not have yet.
+        const float f     = 0.07f * std::sqrt(halfW * halfW + artH * artH) / halfW;
+        const float over  = headHeight * f / (1.0f - f);
+        const float outer = (headHeight + over) * 0.07f;   // outline thickness outside the body
+        const float s = headHeight / artH;
+        const float baseY = tipY - over;         // the body's apex; the outline's point is at tipY
+        auto trace = [&](float dx, float dy) {
+            nvgBeginPath(vg);
+            for (int i = 0; i < n; ++i) {
+                const float X = tipX + dx + kArrow[i][0] * s;
+                const float Y = baseY + dy + kArrow[i][1] * s;
+                if (i == 0) nvgMoveTo(vg, X, Y); else nvgLineTo(vg, X, Y);
+            }
+            nvgClosePath(vg);
+        };
+        auto shade = [&](float f) {   // f < 1 darkens, f > 1 lightens toward white
+            auto ch = [&](int v) {
+                const float o = (f <= 1.0f) ? v * f : v + (255.0f - v) * (f - 1.0f);
+                return (unsigned char)std::min(255.0f, std::max(0.0f, o));
+            };
+            return nvgRGBA(ch(color.r), ch(color.g), ch(color.b), color.a);
+        };
+
+        // Drop shadow: the whole outer silhouette (stroke + fill), offset.
+        trace(headHeight * 0.04f, headHeight * 0.07f);
+        nvgFillColor(vg, nvgRGBA(0, 0, 0, 105));
+        nvgStrokeColor(vg, nvgRGBA(0, 0, 0, 105)); nvgStrokeWidth(vg, outer * 2.0f);
+        nvgStroke(vg); nvgFill(vg);
+
+        // Widest stroke first, then a narrower dark one over its inner half, then the body over
+        // that: what is left outside the body is a dark rim with a white outline beyond it.
+        trace(0.0f, 0.0f);
+        nvgStrokeColor(vg, nvgRGBA(242, 242, 242, 240)); nvgStrokeWidth(vg, outer * 2.0f);   nvgStroke(vg);
+        nvgStrokeColor(vg, shade(0.42f));                nvgStrokeWidth(vg, outer * 0.9f);   nvgStroke(vg);
+        // Lit from the upper-left, falling off across the head.
+        NVGpaint body = nvgLinearGradient(vg, tipX - halfW * s, baseY - artH * s, tipX + halfW * s, baseY,
+                                          shade(1.5f), toNVG(color));
+        nvgFillPaint(vg, body); nvgFill(vg);
     }
 
     void PKSEFramebuffer::drawPill(int x, int y, int w, int h, Color color) {
@@ -449,27 +531,6 @@ namespace UI {
         Color txt = lum > 150 ? Color(30, 30, 36) : Color(245, 245, 250);
         drawText(x + padX, y + (h - th) / 2, typeName, txt, TextStyle::Caption);
         return total;
-    }
-
-    void PKSEFramebuffer::drawNameCursorLabel(int cx, int topY, const std::string& text,
-                                              Color fill, Color textColor) {
-        int tw, th; measureText(text, tw, th, TextStyle::Caption);
-        const int padX = 12, padY = 6, tri = 7;
-        const int w = tw + padX * 2, h = th + padY * 2;
-        int x = cx - w / 2, y = topY - tri - h;
-        drawSoftShadow(x, y, w, h, 8);
-        drawFilledRoundedRect(x, y, w, h, 8, fill);
-        drawText(x + padX, y + padY, text, textColor, TextStyle::Caption);
-        // Downward triangle tail.
-        if (ensureFrame()) {
-            int ty = y + h;
-            nvgBeginPath(vg);
-            nvgMoveTo(vg, (float)(cx - tri), (float)ty);
-            nvgLineTo(vg, (float)(cx + tri), (float)ty);
-            nvgLineTo(vg, (float)cx, (float)(ty + tri));
-            nvgClosePath(vg);
-            nvgFillColor(vg, toNVG(fill)); nvgFill(vg);
-        }
     }
 
     // ---- Screen fade ----

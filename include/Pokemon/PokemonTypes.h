@@ -1,14 +1,28 @@
 /**
  * PokemonTypes.h - Pokemon Type Data Lookup
  *
- * Provides type data lookup for Pokemon by species ID and form ID.
- * Returns both primary and secondary types for each Pokemon.
+ * Type data for a (species, form) in a given game, read out of the generated personal
+ * table (PersonalInfoTable.cpp) rather than a table of its own.
+ *
+ * Both qualifiers matter, and neither is optional:
+ *
+ *   - FORM. Types are one of the things a regional form actually changes: Hisuian
+ *     Braviary is Psychic/Flying where the Unovan one is Normal/Flying, and 149 of the
+ *     465 alternate forms retype their base species. A species-keyed lookup gets every
+ *     one of them wrong, silently and plausibly.
+ *   - GAME. Gen 3 predates the Fairy type, so 18 of its 386 species are typed
+ *     differently there -- a FireRed Clefairy is Normal, and Marill is pure Water.
+ *
+ * Type ids are the Gen 6+ numbering in every game including Gen 3 (PKHeX normalises it),
+ * so the TYPE_* constants below are the whole vocabulary.
  */
 
 #ifndef POKEMON_TYPES_H
 #define POKEMON_TYPES_H
 
 #include <cstdint>
+
+#include "Enums/GameVersion.h"
 
 namespace Pokemon {
     /**
@@ -20,12 +34,13 @@ namespace Pokemon {
     };
 
     /**
-     * Gets the types for a Pokemon by species ID and form ID.
+     * Gets the types a Pokemon has in a particular game.
      * @param speciesId Pokemon species ID (1-1025)
-     * @param formId Form ID (0 = base form)
+     * @param formId Form ID (0 = base form) -- required; regional forms retype
+     * @param group The mon's game group; only FRLG reads a different table
      * @return TypePair containing primary and secondary types
      */
-    TypePair getPokemonTypes(uint16_t speciesId, uint8_t formId = 0);
+    TypePair getPokemonTypes(uint16_t speciesId, uint8_t formId, Enums::GameVersion group);
 
     /**
      * Check if type2 is valid (not 255)

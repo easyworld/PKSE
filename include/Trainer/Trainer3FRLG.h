@@ -75,10 +75,15 @@ namespace Trainer {
         void updateBoxBlock() override;
         void updateBoxNameBlock() override;
         void updateCurrentBoxBlock() override;   // u8 at Storage logical offset 0
+        void updatePokedexBlock() override;      // seen (x3) + caught flag arrays
         bool supportsBoxNames() const noexcept override { return true; }
         size_t getMaxBoxNameLength() const noexcept override { return FRLG_BOX_NAME_CHARS; }
         bool canStoreBoxName(const std::string& name) const override;
         void updateItemBlock() override;
+        void updateTrainerInfoBlock() override;   // money / OT name
+        uint32_t getMaxMoney() const noexcept override { return 999999; }        // PKHeX SAV3.MaxMoney
+        size_t getMaxTrainerNameLength() const noexcept override { return 7; }   // PKHeX SAV3.MaxStringLengthTrainer
+        int getMaxTrainerNameDigits() const noexcept override { return -1; }     // no digit cap before gen 4
 
         std::unique_ptr<::Pokemon::Pokemon> createBlankPokemon() const override;
 

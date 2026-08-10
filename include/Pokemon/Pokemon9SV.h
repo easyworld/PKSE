@@ -28,6 +28,7 @@
 #include <string>
 
 #include "Pokemon/Pokemon.h"
+#include "Pokemon/FormInfo.h"   // correctEncryptionConstantForForm
 #include "Pokemon/SpeciesConverter9.h"
 #include "Encryption/Encryption9SV.h"
 #include "Utils/HelperUtilities.h"
@@ -513,6 +514,11 @@ namespace Pokemon {
         void setForm(uint8_t formValue) noexcept override
         {
             data[0x24] = static_cast<std::byte>(formValue);
+            // Maushold and Dudunsparce read their form from EncryptionConstant % 100, so the form byte
+            // alone is only half the edit -- left mismatched the Pokemon is illegal, and the games
+            // cannot produce that state. A no-op for every other species. See FormInfo.
+            setEncryptionConstant(
+                correctEncryptionConstantForForm(speciesID(), formValue, encryptionConstant()));
             recalculateStats();
             refreshChecksum();
         }

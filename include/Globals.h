@@ -37,7 +37,7 @@ inline bool g_injectToGameSave = false;
 /// "Working" copy so backups don't pile up.
 inline bool g_autoBackupEnabled = true;
 inline bool g_allowIllegalEdits = false;  // Settings toggle: lift the legal EV/AV caps (0-252 / 0-200 -> 0-255) so illegal values can be set (e.g. to test the legality checker).
-inline bool g_lgpeMoveWarn = true;        // Settings toggle: confirm before a bank move to/from Let's Go (the AV/EV training resets to 0).
+inline bool g_moveWarn = true;            // Settings toggle ("Move warning"): confirm before a bank move that loses data. Covers the Let's Go transfer (AV/EV training resets to 0); the Gen 3 down-convert warns regardless, since it rebuilds the PID and cannot be undone.
 
 /// Number of days to retain debug log files
 inline constexpr uint8_t LOG_RETENTION_DAYS = 30;

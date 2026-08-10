@@ -22,6 +22,7 @@
 #define POKEMON_POKEMON8_LA_H
 
 #include <cstdint>
+#include <cstring>
 #include <span>
 #include <string>
 
@@ -689,6 +690,21 @@ namespace Pokemon {
         {
             return static_cast<uint8_t>(data[0x24]);
         }
+
+        /**
+         * Alpha flag -- bit 5 of 0x16, the byte that also holds AbilityNumber in bits 0-2 (PA8).
+         * Read-only: nothing in PKSE creates an Alpha, but a save can already contain one and the
+         * Pokedex records Alpha sightings in their own slot.
+         */
+        bool isAlpha() const noexcept { return (static_cast<uint8_t>(data[0x16]) & 0x20) != 0; }
+
+        /**
+         * Absolute height / weight -- IEEE-754 floats at 0xAC / 0xB0 (PA8), in the game's own units.
+         * These are the values the Pokedex keeps its per-species size records from, so they are read
+         * as stored rather than recomputed from the scalars.
+         */
+        float heightAbsolute() const noexcept { float f; std::memcpy(&f, &data[0xAC], sizeof f); return f; }
+        float weightAbsolute() const noexcept { float f; std::memcpy(&f, &data[0xB0], sizeof f); return f; }
 
         // ========================================
         // Stats - Effort Values (EVs)
