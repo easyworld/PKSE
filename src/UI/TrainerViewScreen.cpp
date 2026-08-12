@@ -1170,7 +1170,7 @@ namespace UI {
         while (!leaf.empty() && leaf.front() == ' ') leaf.erase(leaf.begin());
         if (leaf.empty()) return "";
 
-        const std::string gameDir = BASE_SAVE_DIRECTORY + "/" + titleName;
+        const std::string gameDir = Utils::getBackupGameDirectory(titleId);
         auto exists = [](const std::string& p) { struct stat st{}; return stat(p.c_str(), &st) == 0; };
 
         // Suffix rather than overwrite -- silently replacing a backup the user made earlier would be

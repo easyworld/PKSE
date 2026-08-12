@@ -205,20 +205,65 @@ namespace Utils {
         return std::string(buffer);
     }
 
+    static const char* backupTitleSlug(u64 titleId) {
+        switch (titleId) {
+            case 0x0100554023408000: return "Pokemon FireRed";
+            case 0x010034D02340E000: return "Pokemon LeafGreen";
+            case 0x010003F003A34000: return "Pokemon Lets Go Pikachu";
+            case 0x0100187003A36000: return "Pokemon Lets Go Eevee";
+            case 0x0100ABF008968000: return "Pokemon Sword";
+            case 0x01008DB008C2C000: return "Pokemon Shield";
+            case 0x0100000011D90000: return "Pokemon Brilliant Diamond";
+            case 0x010018E011D92000: return "Pokemon Shining Pearl";
+            case 0x01001F5010DFA000: return "Pokemon Legends Arceus";
+            case 0x0100A3D008C5C000: return "Pokemon Scarlet";
+            case 0x01008F6008C5E000: return "Pokemon Violet";
+            case 0x0100F43008C44000: return "Pokemon Legends Z-A";
+            default:                 return "Pokemon Unknown";
+        }
+    }
+
+    std::string getBackupGameDirectory(u64 titleId) {
+        char leaf[96];
+        snprintf(leaf, sizeof(leaf), "%s [%016llX]", backupTitleSlug(titleId),
+                 static_cast<unsigned long long>(titleId));
+        return BASE_SAVE_DIRECTORY + "/" + leaf;
+    }
+
+    void migrateLegacyBackupDirectory(u64 titleId, const std::string& titleName) {
+        const std::string legacy = BASE_SAVE_DIRECTORY + "/" + titleName;
+        const std::string stable = getBackupGameDirectory(titleId);
+        if (legacy == stable) return;
+
+        struct stat legacyStat{};
+        if (stat(legacy.c_str(), &legacyStat) != 0 || !S_ISDIR(legacyStat.st_mode)) return;
+
+        struct stat stableStat{};
+        if (stat(stable.c_str(), &stableStat) == 0) {
+            logInfoToFile("Legacy backup directory left unchanged; stable directory already exists", legacy.c_str());
+            return;
+        }
+
+        if (rename(legacy.c_str(), stable.c_str()) == 0) {
+            logInfoToFile("Migrated legacy backup directory to", stable.c_str());
+        } else {
+            logErrorToFile("Could not migrate legacy backup directory", legacy.c_str());
+            logErrorToFile("rename error", strerror(errno));
+        }
+    }
+
     std::string backupSaveData(AccountUid userUid, u64 titleId, std::string titleName, bool timestamped) {
         char titleBuf[32];
         snprintf(titleBuf, sizeof(titleBuf), "0x%016llX", static_cast<unsigned long long>(titleId));
         logInfoToFile("Pokemon titleId: ", titleBuf);
         logInfoToFile("Pokemon Title name: ", titleName.c_str());
 
-        // Create base game directory: PKSE/{titleName}/
-        char gameDirectory[512];
-        snprintf(gameDirectory, sizeof(gameDirectory), "%s/%s", BASE_SAVE_DIRECTORY.c_str(), titleName.c_str());
+        const std::string gameDirectory = getBackupGameDirectory(titleId);
 
-        // History backup -> PKSE/{titleName}/{timestamp}/ ; auto-backup off -> reuse PKSE/{titleName}/Working/
+        // History backup -> per-title/{timestamp}/ ; auto-backup off -> per-title/Working/
         std::string folderName = timestamped ? getTimestamp() : std::string("Working");
         char backupDirectory[1024];
-        snprintf(backupDirectory, sizeof(backupDirectory), "%s/%s", gameDirectory, folderName.c_str());
+        snprintf(backupDirectory, sizeof(backupDirectory), "%s/%s", gameDirectory.c_str(), folderName.c_str());
 
         logInfoToFile("Backup directory", backupDirectory);
         logInfoToFile("Backing up save for title", titleName.c_str());
@@ -228,8 +273,8 @@ namespace Utils {
             logErrorToFile("mkdir error", strerror(errno));
             return "";
         }
-        if (mkdir(gameDirectory, 0777) != 0 && errno != EEXIST) {
-            logErrorToFile("Failed to create game directory", gameDirectory);
+        if (mkdir(gameDirectory.c_str(), 0777) != 0 && errno != EEXIST) {
+            logErrorToFile("Failed to create game directory", gameDirectory.c_str());
             logErrorToFile("mkdir error", strerror(errno));
             return "";
         }

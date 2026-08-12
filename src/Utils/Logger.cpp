@@ -94,7 +94,7 @@ namespace Utils {
     }
     // For internal use only
     void logToFile(const char *type, const char *message, const char *context = NULL) {
-        bool hasContext = (context == NULL || (context != NULL && context[0] == '\0'));
+        const bool hasContext = context != NULL && context[0] != '\0';
 
         // Ensure the directory exists
         if (mkdir(LOG_DIRECTORY, 0777) != 0 && errno != EEXIST)
