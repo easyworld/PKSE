@@ -265,8 +265,7 @@ namespace Save {
 
         if (injectToTitle) {
             logInfoToFile("Restoring modified Let's Go save to game save device...");
-            std::vector<std::string> saveFiles = {"savedata.bin"};
-            if (!restoreBackupToTitle(userUid, titleId, backupDir, saveFiles)) {
+            if (!restoreBackupToTitle(userUid, titleId, backupDir, "savedata.bin")) {
                 logErrorToFile("Failed to restore modified Let's Go save to game");
                 return false;
             }
@@ -342,8 +341,7 @@ namespace Save {
         // Only write into the real game save when THIS save was told to inject
         if (injectToTitle) {
             logInfoToFile("Restoring modified save to game save device...");
-            std::vector<std::string> saveFiles = {"main", "backup", "poke_trade"};
-            if (!restoreBackupToTitle(userUid, titleId, backupDir, saveFiles)) {
+            if (!restoreBackupToTitle(userUid, titleId, backupDir, "main", {"backup", "poke_trade"})) {
                 logErrorToFile("Failed to restore modified save to game");
                 return false;
             }
@@ -465,8 +463,7 @@ namespace Save {
 
         if (injectToTitle) {
             logInfoToFile("Restoring modified BDSP save to game save device...");
-            std::vector<std::string> saveFiles = { "SaveData.bin", "Backup.bin" };
-            if (!restoreBackupToTitle(userUid, titleId, backupDir, saveFiles)) {
+            if (!restoreBackupToTitle(userUid, titleId, backupDir, "SaveData.bin", {"Backup.bin"})) {
                 logErrorToFile("Failed to restore modified save to game");
                 return false;
             }
@@ -510,8 +507,11 @@ namespace Save {
 
         if (injectToTitle) {
             logInfoToFile("Restoring modified save to game save device...");
-            std::vector<std::string> saveFiles = {"main"};
-            if (!restoreBackupToTitle(userUid, titleId, backupDir, saveFiles)) {
+            // Legends: Arceus pairs main with main2 -- NOT with Sword/Shield's backup/poke_trade.
+            // It has no Surprise Trade, so there is no pending trade result for a poke_trade to
+            // hold. Confirmed against real backups; `backup` is carried too because it has been
+            // reported beside them, and a save without one just skips it.
+            if (!restoreBackupToTitle(userUid, titleId, backupDir, "main", {"main2", "backup"})) {
                 logErrorToFile("Failed to restore modified save to game");
                 return false;
             }
@@ -560,8 +560,10 @@ namespace Save {
         // Only write into the real game save when THIS save was told to inject
         if (injectToTitle) {
             logInfoToFile("Restoring modified save to game save device...");
-            std::vector<std::string> saveFiles = {"main"};
-            if (!restoreBackupToTitle(userUid, titleId, backupDir, saveFiles)) {
+            // Only `main` has ever turned up in a real Z-A backup. backup/poke_trade are listed
+            // regardless because Z-A shares Scarlet/Violet's save format, where both exist and are
+            // written conditionally -- if Z-A never produces them they are skipped and cost nothing.
+            if (!restoreBackupToTitle(userUid, titleId, backupDir, "main", {"backup", "poke_trade"})) {
                 logErrorToFile("Failed to restore modified save to game");
                 return false;
             }
@@ -605,8 +607,7 @@ namespace Save {
 
         if (injectToTitle) {
             logInfoToFile("Restoring modified save to game save device...");
-            std::vector<std::string> saveFiles = {"main"};
-            if (!restoreBackupToTitle(userUid, titleId, backupDir, saveFiles)) {
+            if (!restoreBackupToTitle(userUid, titleId, backupDir, "main", {"backup", "poke_trade"})) {
                 logErrorToFile("Failed to restore modified save to game");
                 return false;
             }
@@ -702,8 +703,7 @@ namespace Save {
 
         if (injectToTitle) {
             logInfoToFile("Restoring modified FRLG save to game save device...");
-            std::vector<std::string> saveFiles = { name };
-            if (!restoreBackupToTitle(userUid, titleId, backupDir, saveFiles)) {
+            if (!restoreBackupToTitle(userUid, titleId, backupDir, name)) {
                 logErrorToFile("Failed to restore modified FRLG save to game");
                 return false;
             }

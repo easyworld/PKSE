@@ -21,7 +21,12 @@ namespace Utils {
     std::string backupSaveData(AccountUid userUid, u64 titleId, std::string titleName, bool timestamped = true);
     // Copy a backup's save files onto the real game save. The backup directory IS the edited
     // save -- PKSE writes edits straight into it -- so there is no separate "modified" copy.
-    bool restoreBackupToTitle(AccountUid userUid, u64 titleId, const char* backupDir, std::vector<std::string> saveFiles);
+    // `primaryFile` is the one file a backup must hold; the game's `optionalFiles` beside it are
+    // copied when present and passed over in silence when not, because whether they exist at all
+    // depends on what the player has done in-game.
+    bool restoreBackupToTitle(AccountUid userUid, u64 titleId, const char* backupDir,
+                              const std::string& primaryFile,
+                              const std::vector<std::string>& optionalFiles = {});
     std::string getTimestamp();
     std::vector<std::string> listBackupDirectories(const char* gameDirectory);
 }

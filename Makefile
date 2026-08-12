@@ -44,11 +44,30 @@ DATA		:=	data
 INCLUDES	:=	include nanovg
 APP_TITLE   :=  PKSE
 APP_AUTHOR  :=  Kiasta
-# THE version. Globals.h derives VERSION_STRING from this via -DPKSE_VERSION below, so this is the
-# single source of truth -- the two can no longer drift.
-# NOTE: no trailing comment on the assignment line. Make keeps trailing whitespace in a value, so
+# THE version, in two spellings. Both are set here and nothing downstream needs editing.
+#
+# APP_VERSION is the .nacp one -- the home menu and hbmenu read it. The name is not ours to choose:
+# libnx's switch_rules passes $(APP_VERSION) straight to `nacptool --create`. Its display_version
+# field is 16 bytes and nacptool truncates to fit WITHOUT complaining (exit 0, no warning), so this
+# must stay at 15 characters or fewer -- "1.1.2-pre-release-debug" was silently becoming
+# "1.1.2-pre-relea" in the .nro.
+#
+# APP_VERSION_FULL is the one the app prints about itself: -DPKSE_VERSION below feeds it to
+# Globals.h's VERSION_STRING, which has no length limit. Long pre-release tags belong here.
+#
+# Keep the short one an ABBREVIATION of the long one. The split exists so the .nacp can hold less of
+# the version, not a different version.
+#
+# NOTE: no trailing comment on either assignment line. Make keeps trailing whitespace in a value, so
 # "0.0.3 \t\t# ..." would have baked spaces into the .nacp version and the -D define.
-APP_VERSION :=	1.1.1
+APP_VERSION :=	1.1.2
+APP_VERSION_FULL :=	1.1.2
+
+# Mirrors what switch_rules does for APP_VERSION: an unset long form falls back to the short one
+# rather than compiling in an empty version string.
+ifeq ($(strip $(APP_VERSION_FULL)),)
+APP_VERSION_FULL := $(APP_VERSION)
+endif
 ROMFS		:=	romfs
 ICON		:=  assets/icon.jpg
 
@@ -59,7 +78,7 @@ ARCH	:=	-march=armv8-a+crc+crypto -mtune=cortex-a57 -mtp=soft -fPIE
 
 # NanoVG: disable its stb_image (we feed RGBA buffers via nvgCreateImageRGBA, and SpriteManager
 # already owns the STB_IMAGE_IMPLEMENTATION) — avoids duplicate symbols. Keeps fontstash for text.
-DEFINES	:=	-DNVG_NO_STB -DPKSE_VERSION='"$(APP_VERSION)"'
+DEFINES	:=	-DNVG_NO_STB -DPKSE_VERSION='"$(APP_VERSION_FULL)"'
 
 #---------------------------------------------------------------------------------
 # Production builds:  make clean && make all prod

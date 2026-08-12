@@ -3,16 +3,24 @@
 
 #include <string>
 
-/// Derived from the Makefile's APP_VERSION via -DPKSE_VERSION, so the on-screen version and the
-/// .nacp version cannot drift apart -- they are now the same string, set in one place.
+/// Derived from the Makefile's APP_VERSION_FULL via -DPKSE_VERSION. That is the long spelling; the
+/// .nacp separately carries APP_VERSION, an abbreviation of it, because its display_version field
+/// holds only 15 characters. Both are set side by side in the Makefile, so the two can differ in
+/// how much of the version they show but not in which version it is.
 ///
 /// The fallback is deliberately loud rather than a plausible-looking number. This header is also
 /// parsed by the Visual Studio projects (IntelliSense only, never the real build), which don't pass
 /// the define; a fallback like "0.0.3" would silently look correct while being a guess.
+///
+/// Deliberately `const` and not `constexpr`. A constant-evaluated std::string has to fit inside
+/// libstdc++'s small-string buffer -- 15 characters -- because anything longer heap-allocates, and
+/// an allocation cannot escape constant evaluation into the runtime. Any pre-release tag blows past
+/// that, and the fallback below is already sitting exactly on 15, so `constexpr` here was one
+/// character away from breaking on its own. Nothing evaluates this at compile time anyway.
 #ifndef PKSE_VERSION
 #define PKSE_VERSION "0.0.0-NOVERSION"
 #endif
-inline constexpr std::string VERSION_STRING = PKSE_VERSION;
+inline const std::string VERSION_STRING = PKSE_VERSION;
 
 inline constexpr std::string BASE_SAVE_DIRECTORY = "sdmc:/PKSE";
 

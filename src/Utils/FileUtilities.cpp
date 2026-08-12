@@ -10,6 +10,7 @@
 
 #include <switch.h>
 #include <sys/dirent.h>
+#include <sys/stat.h>
 #include <sys/unistd.h>
 
 #include "Globals.h"
@@ -262,6 +263,13 @@ namespace Utils {
         return "";
     }
 
+    // Tells "the backup never held this file" apart from "the copy failed". Both reach copyFile as
+    // the same failed fopen, but only the second one is an error worth reporting.
+    static bool backupHasFile(const char* path) {
+        struct stat st{};
+        return stat(path, &st) == 0 && S_ISREG(st.st_mode);
+    }
+
     /**
      * Copy a backup's save files onto the real game save.
      *
@@ -270,10 +278,38 @@ namespace Utils {
      * subdirectory and only the inject path ever read them back out -- which meant saving to a
      * backup silently changed nothing the loader would ever see. That directory is gone, so the
      * two paths collapsed into one and the second copy pass with them.
+     *
+     * Only `primaryFile` has to exist. Which companion files sit beside it is a property of the
+     * individual save, not of the game: Sword/Shield's `poke_trade` holds a Surprise Trade result
+     * that has not been collected yet, so a save that never sent one simply has no such file. The
+     * list used to be a flat per-game array of required names, which made that ordinary case fatal
+     * -- the copy loop broke on the missing file and returned before `fsdevCommitDevice`, so the
+     * writes already made to save:/ were dropped on unmount and the user's edit disappeared with a
+     * "failed to copy" error naming a file they were never supposed to have.
+     *
+     * So an absent optional file is skipped and not logged as a failure. A file that IS there and
+     * will not copy still stops the restore, before the commit, leaving the game save untouched.
      */
-    bool restoreBackupToTitle(AccountUid userUid, u64 titleId, const char* backupDir, std::vector<std::string> saveFiles) {
+    bool restoreBackupToTitle(AccountUid userUid, u64 titleId, const char* backupDir,
+                              const std::string& primaryFile,
+                              const std::vector<std::string>& optionalFiles) {
         char buffer[LOG_BUFFER_SIZE];
         logInfoToFile("Restoring backup to game save", backupDir);
+
+        if (primaryFile.empty()) {
+            logErrorToFile("No primary save file specified for restore");
+            return false;
+        }
+
+        // Checked before mounting: if the one required file is missing there is nothing this can
+        // do, and bailing here means never having opened the game's save data at all.
+        char primaryPath[512];
+        snprintf(primaryPath, sizeof(primaryPath), "%s/%s", backupDir, primaryFile.c_str());
+        if (!backupHasFile(primaryPath)) {
+            snprintf(buffer, sizeof(buffer), "Backup has no %s to restore", primaryFile.c_str());
+            logErrorToFile(buffer);
+            return false;
+        }
 
         Result result = fsdevMountSaveData("save", titleId, userUid);
 
@@ -285,23 +321,35 @@ namespace Utils {
 
         logInfoToFile("Successfully mounted save:/ for restore");
 
-        // Copy the named save files only, never subdirectories. The list is per-game:
-        // Sword/Shield has main, backup and poke_trade; most others are a single file.
+        // Copy the named save files only, never subdirectories.
         logInfoToFile("Copying backup save files to save:/", backupDir);
 
+        char srcPath[512];
+        char destPath[512];
         bool copyAllSuccess = true;
 
-        for (size_t i = 0; i < saveFiles.size(); i++) {
-            char srcPath[512];
-            char destPath[512];
-            snprintf(srcPath, sizeof(srcPath), "%s/%s", backupDir, saveFiles[i].c_str());
-            snprintf(destPath, sizeof(destPath), "save:/%s", saveFiles[i].c_str());
+        snprintf(destPath, sizeof(destPath), "save:/%s", primaryFile.c_str());
+        if (!copyFile(primaryPath, destPath)) {
+            snprintf(buffer, sizeof(buffer), "Failed to copy %s", primaryFile.c_str());
+            logErrorToFile(buffer);
+            copyAllSuccess = false;
+        }
 
+        for (size_t i = 0; copyAllSuccess && i < optionalFiles.size(); i++) {
+            snprintf(srcPath, sizeof(srcPath), "%s/%s", backupDir, optionalFiles[i].c_str());
+
+            if (!backupHasFile(srcPath)) {
+                // Ordinary: this save never produced the file. Whatever the game currently has
+                // under that name stays where it is.
+                logInfoToFile("Not in this backup, leaving the game's copy alone", optionalFiles[i].c_str());
+                continue;
+            }
+
+            snprintf(destPath, sizeof(destPath), "save:/%s", optionalFiles[i].c_str());
             if (!copyFile(srcPath, destPath)) {
-                snprintf(buffer, sizeof(buffer), "Failed to copy %s", saveFiles[i].c_str());
+                snprintf(buffer, sizeof(buffer), "Failed to copy %s", optionalFiles[i].c_str());
                 logErrorToFile(buffer);
                 copyAllSuccess = false;
-                break;
             }
         }
 
@@ -311,13 +359,8 @@ namespace Utils {
             return false;
         }
 
-        // No second pass. The loop above already copied the edited primary file, because the
+        // No second pass. The copies above already wrote the edited primary file, because the
         // backup directory holds the edits -- there is no separate "modified" copy to overlay.
-        if (saveFiles.empty()) {
-            logErrorToFile("No save files specified for restore");
-            fsdevUnmountDevice("save");
-            return false;
-        }
 
         // CRITICAL: Commit changes to the save device before unmounting
         // Without this, changes remain in memory buffers and are never written to disk
