@@ -1,12 +1,14 @@
 /**
  * Pokemon3FRLG.cpp - Gen 3 (GBA FRLG) PK3 entity: derived fields, stats, names, PID-based setters.
- * See Pokemon3FRLG.h. Base-stat / species-name / growth-rate tables are reused from the Gen 8/9 data
- * (species constants are stable across generations).
+ * See Pokemon3FRLG.h. Species names and growth rates are shared with the Gen 8/9 data (both are
+ * stable across generations); BASE STATS are not, and come from Gen 3's own personal table.
  */
+#include <algorithm>
+
 #include "Pokemon/Pokemon3FRLG.h"
 
-#include "Pokemon/BaseStatsGen89.h"     // getBaseStatsGen89 / getSpeciesNameGen89
-#include "Pokemon/PersonalInfoTable.h"  // getPersonalInfo (gender ratio + abilities)
+#include "Pokemon/BaseStatsGen89.h"     // getSpeciesNameGen89 (species names are generation-stable)
+#include "Pokemon/PersonalInfoTable.h"  // getPersonalInfo (gender ratio) / getPersonalInfoG3
 #include "Pokemon/Experience.h"         // getLevelFromExp / getExpForLevel / getGrowthRate
 #include "Utils/Gen3Text.h"             // the Gen 3 character set, shared with Trainer3FRLG + Convert
 
@@ -57,7 +59,7 @@ namespace Pokemon {
         // Gen 3's own slot pair -- the modern table disagrees for 101 of the 386 Gen 3
         // species (Sableye is Keen Eye alone here, Keen Eye/Stall there), so reading the
         // bit through the modern table names an ability the game would never show.
-        const PersonalAbilityG3& g3 = getPersonalAbilityG3(speciesID());
+        const PersonalInfoG3& g3 = getPersonalInfoG3(speciesID());
         return ((iv32() >> 31) & 1) ? g3.ability2 : g3.ability1;
     }
 
@@ -115,17 +117,22 @@ namespace Pokemon {
         refreshChecksum();
     }
 
-    uint8_t Pokemon3FRLG::baseHP()  const noexcept { const auto* b = getBaseStatsGen89(speciesID(), form()); return b ? b->hp  : 1; }
-    uint8_t Pokemon3FRLG::baseATK() const noexcept { const auto* b = getBaseStatsGen89(speciesID(), form()); return b ? b->atk : 1; }
-    uint8_t Pokemon3FRLG::baseDEF() const noexcept { const auto* b = getBaseStatsGen89(speciesID(), form()); return b ? b->def : 1; }
-    uint8_t Pokemon3FRLG::baseSPE() const noexcept { const auto* b = getBaseStatsGen89(speciesID(), form()); return b ? b->spe : 1; }
-    uint8_t Pokemon3FRLG::baseSPA() const noexcept { const auto* b = getBaseStatsGen89(speciesID(), form()); return b ? b->spa : 1; }
-    uint8_t Pokemon3FRLG::baseSPD() const noexcept { const auto* b = getBaseStatsGen89(speciesID(), form()); return b ? b->spd : 1; }
+    uint8_t Pokemon3FRLG::baseHP()  const noexcept { return getPersonalInfoG3(speciesID()).hp;  }
+    uint8_t Pokemon3FRLG::baseATK() const noexcept { return getPersonalInfoG3(speciesID()).atk; }
+    uint8_t Pokemon3FRLG::baseDEF() const noexcept { return getPersonalInfoG3(speciesID()).def; }
+    uint8_t Pokemon3FRLG::baseSPE() const noexcept { return getPersonalInfoG3(speciesID()).spe; }
+    uint8_t Pokemon3FRLG::baseSPA() const noexcept { return getPersonalInfoG3(speciesID()).spa; }
+    uint8_t Pokemon3FRLG::baseSPD() const noexcept { return getPersonalInfoG3(speciesID()).spd; }
 
     uint16_t Pokemon3FRLG::computeStat(int idx) const noexcept {
-        const BaseStatsGen89* bs = getBaseStatsGen89(speciesID(), form());
-        if (!bs) return 1;
-        const int base[6] = { bs->hp, bs->atk, bs->def, bs->spe, bs->spa, bs->spd };  // HP,ATK,DEF,SPE,SPA,SPD
+        const PersonalInfoG3& bs = getPersonalInfoG3(speciesID());
+        const int base[6] = { bs.hp, bs.atk, bs.def, bs.spe, bs.spa, bs.spd };  // HP,ATK,DEF,SPE,SPA,SPD
+        // Base HP 0 means "no row for this species" (out of Gen 3's dex, or a blank slot), NOT a
+        // real base stat -- computing from it would invent a stat for a mon we know nothing about.
+        if (base[0] == 0) return 1;
+        // Shedinja: a base HP of 1 is the game's flag for "always 1 HP", not an input to the
+        // formula (PKHeX PKM.GetStats). Without this it would come out of the HP formula at ~76.
+        if (idx == 0 && base[0] == 1) return 1;
         const int iv[6]   = { ivHP(), ivATK(), ivDEF(), ivSPE(), ivSPA(), ivSPD() };
         const int ev[6]   = { evHP(), evATK(), evDEF(), evSPE(), evSPA(), evSPD() };
         const int lv = level();
@@ -140,12 +147,29 @@ namespace Pokemon {
     uint16_t Pokemon3FRLG::statSPE()   const noexcept { return computeStat(3); }
     uint16_t Pokemon3FRLG::statSPA()   const noexcept { return computeStat(4); }
     uint16_t Pokemon3FRLG::statSPD()   const noexcept { return computeStat(5); }
+    uint16_t Pokemon3FRLG::statHPCurrent() const noexcept {
+        if (dataSize < 0x64) return statHPMax();
+        return rd16(0x56);
+    }
+
+    void Pokemon3FRLG::setStatHPCurrent(uint16_t value) noexcept {
+        if (dataSize < 0x64) return;   // box record has no such field
+        wr16(0x56, std::min<uint16_t>(value, statHPMax()));
+        // 0x56 sits past the checksummed region (0x20..0x4F), so no refreshChecksum() is needed.
+    }
+
+    uint16_t Pokemon3FRLG::carryCurrentHP(uint16_t storedCur, uint16_t storedMax,
+                                          uint16_t newMax) noexcept {
+        if (storedMax != newMax) return newMax;   // max moved (or was never set) -> refill
+        return std::min(storedCur, newMax);       // max unchanged -> keep the mon's own HP
+    }
 
     void Pokemon3FRLG::recalculateStats() noexcept {
         if (dataSize < 0x64) return;   // box mon (80 B): battle stats are computed on the fly, none stored
         wr8(0x54, level());
-        const uint16_t hp = computeStat(0);
-        wr16(0x56, hp); wr16(0x58, hp);                       // current + max HP
+        const uint16_t max = computeStat(0);
+        wr16(0x56, carryCurrentHP(rd16(0x56), rd16(0x58), max));
+        wr16(0x58, max);
         wr16(0x5A, computeStat(1)); wr16(0x5C, computeStat(2));  // ATK / DEF
         wr16(0x5E, computeStat(3)); wr16(0x60, computeStat(4));  // SPE / SPA
         wr16(0x62, computeStat(5));                            // SPD
@@ -257,7 +281,7 @@ namespace Pokemon {
         // is NOT in this set -- it has a real Hyper Cutter / Arena Trap choice.
         if (sp == 210 || sp == 329 || sp == 330) return;
 
-        const PersonalAbilityG3& g3 = getPersonalAbilityG3(sp);
+        const PersonalInfoG3& g3 = getPersonalInfoG3(sp);
 
         // Single-ability species: PKHeX only requires the slot bit to be CLEAR for these
         // (AbilityVerifier's IsAbility12Same branch) and asks nothing of the PID, since both slots
@@ -289,7 +313,7 @@ namespace Pokemon {
     void Pokemon3FRLG::setAbility(uint16_t abilityValue) noexcept {
         // A PK3 has no ability id field, so only the species' own two slots are expressible.
         // An id that fills neither is silently ignored rather than written somewhere wrong.
-        const PersonalAbilityG3& g3 = getPersonalAbilityG3(speciesID());
+        const PersonalInfoG3& g3 = getPersonalInfoG3(speciesID());
         if (abilityValue == g3.ability1)      setAbilityNumber(1);
         else if (abilityValue == g3.ability2) setAbilityNumber(2);
     }
@@ -299,7 +323,7 @@ namespace Pokemon {
         // for a single-ability species PKHeX asks nothing of the PID (AbilityVerifier only wants the
         // bit clear), so leaving it unconstrained keeps the search twice as fast -- and keeps an
         // Unown's letter reachable, which an extra pinned bit would make harder.
-        const PersonalAbilityG3& g3 = getPersonalAbilityG3(speciesID());
+        const PersonalInfoG3& g3 = getPersonalInfoG3(speciesID());
         if (g3.ability2 == g3.ability1) return -1;
         return static_cast<int>((iv32() >> 31) & 1);
     }

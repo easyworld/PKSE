@@ -60,8 +60,8 @@ APP_AUTHOR  :=  Kiasta
 #
 # NOTE: no trailing comment on either assignment line. Make keeps trailing whitespace in a value, so
 # "0.0.3 \t\t# ..." would have baked spaces into the .nacp version and the -D define.
-APP_VERSION :=	1.1.2
-APP_VERSION_FULL :=	1.1.2
+APP_VERSION :=	1.1.3
+APP_VERSION_FULL :=	1.1.3
 
 # Mirrors what switch_rules does for APP_VERSION: an unset long form falls back to the short one
 # rather than compiling in an empty version string.
@@ -81,37 +81,14 @@ ARCH	:=	-march=armv8-a+crc+crypto -mtune=cortex-a57 -mtp=soft -fPIE
 DEFINES	:=	-DNVG_NO_STB -DPKSE_VERSION='"$(APP_VERSION_FULL)"'
 
 #---------------------------------------------------------------------------------
-# Production builds:  make clean && make all prod
+# There is ONE build. SD-card logging is a runtime setting -- Settings -> "Enable Debug Logging",
+# default off -- not a compile-time flag, so there is no separate release build to produce and no
+# 'make clean' needed to switch between them. The binary you test is the binary you ship.
 #
-# 'prod' is a MODIFIER, not something that builds -- it is picked out of MAKECMDGOALS so it can
-# flip a flag for whatever else is on the command line, which is what makes 'make all prod' work
-# ('all' does the building, 'prod' only changes how). 'make PROD=1 all' is equivalent.
-#
-# What it does: -DPKSE_PROD, which compiles every SD-card log sink out of src/Utils/Logger.cpp --
-# the dated debug logs under sdmc:/PKSE/logs and the sdmc:/PKSE/test-trace.log trace. A release
-# build should not drop a new log file on the user's card every time they open the app.
-#
-# The export matters. DEFINES is evaluated ABOVE the top-level/build-dir split, so the sub-make
-# that actually compiles re-derives it from this same file -- and that sub-make is invoked with
-# the goal 'all', not 'prod', so the MAKECMDGOALS test below is FALSE there. Exporting PROD puts
-# it in the sub-make's environment, where it is picked up as a make variable and the -D survives.
-# Without the export this silently builds a normal logging binary that merely looks like a
-# release, which is the worst possible failure for a flag whose whole job is what NOT to ship.
-#
-# Objects do not depend on this flag, so switching modes needs a 'make clean' first. The build
-# prints which mode it is in (see the $(BUILD) rule) rather than leaving that to be assumed.
-#---------------------------------------------------------------------------------
-ifneq (,$(filter prod,$(MAKECMDGOALS)))
-export PROD := 1
-endif
-
-ifeq ($(PROD),1)
-DEFINES	+=	-DPKSE_PROD
-BUILD_MODE	:=	production (SD-card logging compiled out)
-else
-BUILD_MODE	:=	debug (logging enabled)
-endif
-
+# (This replaced a `make ... prod` modifier that set -DPKSE_PROD. Do not bring it back: it made the
+# shipped .nro a different binary from the tested one, it needed a clean rebuild to switch because
+# objects did not depend on the define, and it left a user who hit a bug on a release with no way
+# to produce a log at all.)
 #---------------------------------------------------------------------------------
 # SDL2 provides the window, GL context and input ONLY -- rendering is NanoVG on GL,
 # PNG decoding is stb_image and text is NanoVG's own font atlas, so SDL2_image and
@@ -242,15 +219,6 @@ default: $(BUILD)
 # Target when you run 'make all'. Downloads type icons + fonts, THEN build (HD sprites: tools/gen_hdsprites.py)
 all: types fonts $(BUILD)
 
-# 'prod' builds nothing -- it is a modifier that sets -DPKSE_PROD for the rest of the command line
-# (see DEFINES near the top). It exists as a target so 'make all prod' has something to resolve.
-# Combine it: 'make clean && make all prod'. On its own it only prints what it would have changed.
-prod:
-	@printf "production mode: SD-card logging compiled out (-DPKSE_PROD)\n"
-	@printf "  combine with a build target, e.g. 'make clean && make all prod'\n"
-
-.PHONY: prod
-
 #---------------------------------------------------------------------------------
 # Sprite and icon download integration
 #---------------------------------------------------------------------------------
@@ -348,7 +316,6 @@ fonts:
 
 $(BUILD):
 	@[ -d $@ ] || mkdir -p $@
-	@printf "build mode: %s\n" "$(BUILD_MODE)"
 	@$(MAKE) --no-print-directory -C $(BUILD) -f $(CURDIR)/Makefile all
 
 #---------------------------------------------------------------------------------

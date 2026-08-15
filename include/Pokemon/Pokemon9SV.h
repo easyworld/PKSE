@@ -837,6 +837,15 @@ namespace Pokemon {
         uint16_t statSPE() const noexcept override { return readUInt16LittleEndian(reinterpret_cast<const uint8_t*>(data.data() + 0x150)); }
         uint16_t statSPA() const noexcept override { return readUInt16LittleEndian(reinterpret_cast<const uint8_t*>(data.data() + 0x152)); }
         uint16_t statSPD() const noexcept override { return readUInt16LittleEndian(reinterpret_cast<const uint8_t*>(data.data() + 0x154)); }
+        uint16_t statHPCurrent() const noexcept override {
+            return readUInt16LittleEndian(reinterpret_cast<const uint8_t*>(data.data() + 0x8A));
+        }
+        void setStatHPCurrent(uint16_t value) noexcept override {
+            const uint16_t max = statHPMax();
+            if (max != 0 && value > max) value = max;
+            writeUInt16LittleEndian(reinterpret_cast<uint8_t*>(data.data() + 0x8A), value);
+            refreshChecksum();
+        }
 
         // ========================================
         // Stat Calculation

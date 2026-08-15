@@ -81,9 +81,11 @@ namespace Trainer {
             std::memset(buf, 0, sizeof(buf));
             const size_t n = std::min<size_t>(pk.getDataSize(), 100);
             std::memcpy(buf, pk.getData().data(), n);           // canonical header + G/A/E/M (+ stats if party)
+            const uint16_t maxHP = pk.statHPMax();
+            const uint16_t curHP = ::Pokemon::Pokemon3FRLG::carryCurrentHP(readUInt16LittleEndian(buf + 0x56), readUInt16LittleEndian(buf + 0x58), maxHP);
             buf[0x54] = pk.level();
-            writeUInt16LittleEndian(buf + 0x56, pk.statHPMax());  // current HP = max (heal on write)
-            writeUInt16LittleEndian(buf + 0x58, pk.statHPMax());  // max HP
+            writeUInt16LittleEndian(buf + 0x56, curHP);           // current HP (the mon's own, carried over)
+            writeUInt16LittleEndian(buf + 0x58, maxHP);           // max HP
             writeUInt16LittleEndian(buf + 0x5A, pk.statATK());
             writeUInt16LittleEndian(buf + 0x5C, pk.statDEF());
             writeUInt16LittleEndian(buf + 0x5E, pk.statSPE());

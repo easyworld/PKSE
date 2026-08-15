@@ -15,7 +15,23 @@ namespace Utils {
     void cleanupOldLogs();
 
     /**
-     * Append one line to the TEST TRACE at sdmc:/PKSE/test-trace.log.
+     * One user ACTION, recorded in the dated debug log with an `[EVENT]` tag.
+     *
+     * Deliberately the same file as the INFO/ERROR diagnostics rather than a stream of its own: an
+     * action log is only worth having next to the errors it caused. "The save failed" is not a bug
+     * report; "the save failed immediately after a traded Zacian was moved out of the bank into box
+     * 3" is one. Splitting the two into separate files is what makes that correlation impossible to
+     * see, so they interleave here on purpose.
+     *
+     * Format is one line of `KEY=value` pairs, no wrapping, values quoted where they can contain
+     * spaces -- so a whole class of event greps out with `grep 'EVENT.*RELEASE'` and individual
+     * fields are readable without a parser. Build the line with the helpers in `Utils/EventLog.h`
+     * rather than hand-rolling one, so the field names stay consistent between call sites.
+     */
+    void logEventToFile(const std::string& line);
+
+    /**
+     * Append one line to the TEST TRACE at sdmc:/PKSE/trace.log.
      *
      * Deliberately a separate file from the dated diagnostic logs. This one is meant to be copied
      * off the SD card whole and read by someone who wasn't there — so it stays one line per action,

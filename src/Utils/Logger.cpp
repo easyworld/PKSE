@@ -14,52 +14,41 @@
 #include "Globals.h"
 
 //---------------------------------------------------------------------------------------------
-// Production builds compile every SD-card log sink out.
+// SD-card logging is a RUNTIME setting: Settings -> "Enable Debug Logging" (g_debugLogging in
+// Globals.h, persisted to settings.cfg), default OFF. A normal run must not leave a dated debug log
+// on the user's card every time they open the app, nor grow trace.log forever -- that is a
+// diagnostic for development, hardware test passes and bug reports, not something every user wants.
 //
-// PKSE_PROD comes from `make ... prod` (see the Makefile). A release build must not leave a dated
-// debug log on the user's card every time they open the app, nor grow test-trace.log forever --
-// that is a diagnostic for development and hardware test passes, not something to ship.
+// This replaced a compile-time switch (-DPKSE_PROD, from `make ... prod`). The define worked, but a
+// release was then a DIFFERENT BINARY from the one that had been tested, switching modes needed a
+// `make clean` because objects did not depend on the flag, and -- worst -- a user who hit a bug on
+// a release had no way to produce a log at all. One binary with a toggle fixes all three: the thing
+// that ships is the thing that was tested, and "turn on debug logging and reproduce it" is now a
+// two-button instruction instead of "build your own .nro".
 //
-// The whole implementation is replaced rather than each fopen being guarded, so there is exactly
-// one place to check and no way for a new sink to be added below and quietly survive into a
-// release. The DECLARATIONS in Logger.h are deliberately untouched: every call site still compiles
-// unchanged, the host harnesses keep their own stubs, and nothing needs to know which build it is.
+// EVERY sink checks the flag, so there is still exactly one thing to reason about, and a new sink
+// added below without the check is the one way to get this wrong. With the flag off nothing here
+// creates, writes or deletes a file.
 //
-// Call sites still build their argument strings in a prod build -- that work is not eliminated,
-// only the file I/O is. It costs strictly less than the logging build it replaces, so there is no
-// regression; if it ever matters, the no-ops can move into the header to let the optimiser drop
-// the arguments too.
+// Call sites still build their argument strings when logging is off -- only the file I/O is
+// skipped, which is exactly what the old define did too (it never eliminated the arguments either).
+// The DECLARATIONS in Logger.h are unchanged, so all ~200 call sites and the host-harness stubs are
+// unaffected by this change.
 //---------------------------------------------------------------------------------------------
-#ifdef PKSE_PROD
-
-namespace Utils {
-    void logTest(const std::string&)              {}
-    void logTestSession(const std::string&)       {}
-    void logInfoToFile(const char*)               {}
-    void logInfoToFile(std::string)               {}
-    void logErrorToFile(const char*)              {}
-    void logErrorToFile(std::string)              {}
-    void logInfoToFile(const char*, const char*)  {}
-    void logErrorToFile(const char*, const char*) {}
-
-    // Also a no-op: a build that writes no logs has no business deleting files either. Logs left
-    // by an earlier development build stay where they are -- removing them is the user's call.
-    void cleanupOldLogs()                         {}
-}
-
-#else
 
 namespace Utils {
     #define LOG_DIRECTORY "sdmc:/PKSE/logs"
 
     constexpr const char *LOG_TYPE_INFO = "INFO";
     constexpr const char *LOG_TYPE_ERROR = "ERROR";
+    constexpr const char *LOG_TYPE_EVENT = "EVENT";
 
     // One flat file, next to the backups rather than inside logs/, so it is obvious and easy to
     // grab over MTP without digging through dated debug logs.
-    #define TEST_TRACE_PATH "sdmc:/PKSE/test-trace.log"
+    #define TEST_TRACE_PATH "sdmc:/PKSE/trace.log"
 
     void logTest(const std::string& line) {
+        if (!g_debugLogging) return;
         FILE* f = fopen(TEST_TRACE_PATH, "a");
         if (!f) return;   // tracing must never be able to break the app it is observing
         char timeBuffer[16];
@@ -70,6 +59,7 @@ namespace Utils {
     }
 
     void logTestSession(const std::string& details) {
+        if (!g_debugLogging) return;
         FILE* f = fopen(TEST_TRACE_PATH, "a");
         if (!f) return;
         char dateBuffer[32];
@@ -92,9 +82,12 @@ namespace Utils {
 
         return std::string(LOG_DIRECTORY) + "/debug_" + dateBuffer + ".log";
     }
-    // For internal use only
+    // For internal use only. Every logInfoToFile/logErrorToFile overload funnels through here, so
+    // this one check covers all of them -- the wrappers below deliberately do not repeat it.
     void logToFile(const char *type, const char *message, const char *context = NULL) {
-        const bool hasContext = context != NULL && context[0] != '\0';
+        if (!g_debugLogging) return;
+
+        const bool hasContext = (context != NULL && context[0] != '\0');
 
         // Ensure the directory exists
         if (mkdir(LOG_DIRECTORY, 0777) != 0 && errno != EEXIST)
@@ -163,8 +156,19 @@ namespace Utils {
         logToFile(LOG_TYPE_ERROR, message, context);
     }
 
+    void logEventToFile(const std::string& line)
+    {
+        logToFile(LOG_TYPE_EVENT, line.c_str());
+    }
+
     void cleanupOldLogs()
     {
+        // Gated with the sinks, on the same reasoning the old production build used: a run that
+        // writes no logs has no business deleting files either. Turning logging off freezes the log
+        // directory as it stands rather than quietly pruning it out from under the user -- whatever
+        // is on the card was put there deliberately, and removing it is their call.
+        if (!g_debugLogging) return;
+
         DIR* dir = opendir(LOG_DIRECTORY);
         if (!dir) {
             return; // Directory doesn't exist or can't be opened
@@ -198,5 +202,3 @@ namespace Utils {
         closedir(dir);
     }
 }
-
-#endif  // PKSE_PROD

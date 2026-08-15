@@ -82,7 +82,11 @@ namespace Pokemon {
             // so it's valid even for a box mon) -- otherwise statXXX(), which reads that cache, shows 0
             // for a boxed mon (a created mon's stats vanished after a game round-trip). Display-only:
             // the tail is beyond the stored size and the checksum, so it isn't written back to a box.
-            if (raw.size() < static_cast<size_t>(SIZE_PARTY8_LA)) recalculateStats();
+            if (raw.size() < static_cast<size_t>(SIZE_PARTY8_LA)) {
+                const uint16_t keepHP = statHPCurrent();
+                recalculateStats();
+                writeUInt16LittleEndian(reinterpret_cast<uint8_t*>(buffer + 0x92), keepHP);
+            }
         }
 
         /**
@@ -882,6 +886,19 @@ namespace Pokemon {
         uint16_t statSPE() const noexcept override { return readUInt16LittleEndian(reinterpret_cast<const uint8_t*>(data.data() + 0x170)); }
         uint16_t statSPA() const noexcept override { return readUInt16LittleEndian(reinterpret_cast<const uint8_t*>(data.data() + 0x172)); }
         uint16_t statSPD() const noexcept override { return readUInt16LittleEndian(reinterpret_cast<const uint8_t*>(data.data() + 0x174)); }
+        // Current HP -- the one "stat" that is stored rather than derived, because it is the damage
+        // the Pokemon is carrying. Unlike the block above it lives at 0x92, inside the checksummed
+        // stored region, so a box mon carries it too and the setter has to refresh the checksum.
+        // Reported RAW, 0 (fainted) included: nothing here may quietly heal a Pokemon.
+        uint16_t statHPCurrent() const noexcept override {
+            return readUInt16LittleEndian(reinterpret_cast<const uint8_t*>(data.data() + 0x92));
+        }
+        void setStatHPCurrent(uint16_t value) noexcept override {
+            const uint16_t max = statHPMax();
+            if (max != 0 && value > max) value = max;
+            writeUInt16LittleEndian(reinterpret_cast<uint8_t*>(data.data() + 0x92), value);
+            refreshChecksum();
+        }
 
         // ========================================
         // Stat Calculation

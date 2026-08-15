@@ -47,6 +47,17 @@ inline bool g_autoBackupEnabled = true;
 inline bool g_allowIllegalEdits = false;  // Settings toggle: lift the legal EV/AV caps (0-252 / 0-200 -> 0-255) so illegal values can be set (e.g. to test the legality checker).
 inline bool g_moveWarn = true;            // Settings toggle ("Move warning"): confirm before a bank move that loses data. Covers the Let's Go transfer (AV/EV training resets to 0); the Gen 3 down-convert warns regardless, since it rebuilds the PID and cannot be undone.
 
+/// Settings toggle ("Enable Debug Logging"), persisted. Default OFF, and every log sink checks it:
+/// with it off PKSE writes no `sdmc:/PKSE/logs/debug_*.log` and no `sdmc:/PKSE/trace.log`, so a
+/// normal run leaves nothing on the user's card. Turn it on, reproduce the problem, send the log.
+///
+/// Replaces a compile-time switch (`-DPKSE_PROD`, via `make ... prod`), which had three problems a
+/// runtime flag does not: the shipped binary was not the binary that was tested, switching modes
+/// needed a `make clean`, and a user who hit a bug on a release could not produce a log at all
+/// without building their own. Being a normal setting, it is also readable by anything that wants
+/// to know whether logging is on, which the preprocessor define was not.
+inline bool g_debugLogging = false;
+
 /// Number of days to retain debug log files
 inline constexpr uint8_t LOG_RETENTION_DAYS = 30;
 

@@ -501,6 +501,8 @@ namespace Pokemon {
         virtual uint16_t statSPE() const noexcept = 0;
         virtual uint16_t statSPA() const noexcept = 0;
         virtual uint16_t statSPD() const noexcept = 0;
+        virtual uint16_t statHPCurrent() const noexcept { return statHPMax(); }
+        virtual void setStatHPCurrent(uint16_t value) noexcept { (void)value; }
 
         // ========================================
         // Status and Conditions

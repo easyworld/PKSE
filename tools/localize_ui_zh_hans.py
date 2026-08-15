@@ -96,10 +96,13 @@ TRANSLATIONS = {
     "Discard removes it; Back keeps editing.": "放弃将移除它；返回可继续编辑。",
     "Discard": "放弃",
     "Down": "下",
+    "Debug logging off. No new log files will be written.": "调试日志已关闭，不会写入新的日志文件。",
+    "Debug logging on. Logs are written to sdmc:/PKSE/logs.": "调试日志已开启，日志将写入 sdmc:/PKSE/logs。",
     "EXP": "经验值",
     "Edit ": "编辑",
     "Edit Item": "编辑道具",
     "Edit": "编辑",
+    "Enable Debug Logging": "启用调试日志",
     "Egg Date (YYYYMMDD)": "蛋获得日期（YYYYMMDD）",
     "Egg Date": "蛋获得日期",
     "Egg Loc": "蛋获得地点",
@@ -298,6 +301,7 @@ TRANSLATIONS = {
     "Auto-Backup on Load": "载入时自动备份",
     "Allow Illegal Values": "允许非法数值",
     "Bank Storage Move Warning": "银行存储移动警告",
+    "Bank Storage LGPE Move Warning": "银行存储 Let's Go 移动警告",
     "Allow Inject Backups to Game Save": "允许备份写入游戏存档",
     "Name": "名字",
     " in hand (": " 只拿起中（",
@@ -407,6 +411,8 @@ REVISION_PATHS = (
 # their tokens also appear as visible labels, so restore the complete expressions
 # after applying the literal table above.
 TRACE_RESTORATIONS = {
+    'Utils::logField("reason", routed ? "转换失败"':
+        'Utils::logField("reason", routed ? "conversion failed"',
     '" src=" + (this->loadedFromCart ? "CART" : "备份")':
         '" src=" + (this->loadedFromCart ? "CART" : "BACKUP")',
     '(g_injectToGameSave ? "ON" : "关闭")':

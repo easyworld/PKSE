@@ -200,7 +200,9 @@ namespace Pokemon {
             if (v < 1) v = 1; else if (v > 65535) v = 65535;
             writeUInt16LittleEndian(reinterpret_cast<uint8_t*>(data.data() + off), static_cast<uint16_t>(v));
         };
-        put(0xF0, hp); put(0xF2, hp);           // Stat_HPCurrent / Stat_HPMax
+        const uint16_t oldMax = readUInt16LittleEndian(reinterpret_cast<const uint8_t*>(data.data() + 0xF2));
+        put(0xF2, hp);                          // Stat_HPMax
+        if (oldMax != static_cast<uint16_t>(hp)) put(0xF0, hp);   // Stat_HPCurrent
         put(0xF4, atk); put(0xF6, def);         // ATK / DEF
         put(0xF8, spe); put(0xFA, spa);         // SPE / SPA
         put(0xFC, spd);                         // SPD

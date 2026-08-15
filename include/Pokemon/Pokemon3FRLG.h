@@ -79,7 +79,7 @@ namespace Pokemon {
 
         // Ability: Gen3 stores a selector BIT (IV32 bit31), never an ability id -- the game
         // resolves the bit through its own personal table, so the id comes from the Gen 3
-        // table (getPersonalAbilityG3), NOT the modern one. Consequence for editing: the only
+        // table (getPersonalInfoG3), NOT the modern one. Consequence for editing: the only
         // abilities a PK3 can express are the species' own two slots, so "allow illegal edits"
         // cannot widen this list the way it can for every later game.
         uint16_t ability() const noexcept override;
@@ -172,6 +172,12 @@ namespace Pokemon {
         uint16_t statSPE() const noexcept override;
         uint16_t statSPA() const noexcept override;
         uint16_t statSPD() const noexcept override;
+        // Current HP: the raw stored value @0x56, reported verbatim. Only the party record (100 B)
+        // has the field; a box record is 80 B and Gen 3 heals a Pokemon when it leaves the PC, so
+        // full health is the only answer available there.
+        uint16_t statHPCurrent() const noexcept override;
+        void setStatHPCurrent(uint16_t value) noexcept override;
+        static uint16_t carryCurrentHP(uint16_t storedCur, uint16_t storedMax, uint16_t newMax) noexcept;
 
         // ---- checksum ----
         uint16_t checksum() const noexcept override { return rd16(0x1C); }

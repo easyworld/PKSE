@@ -166,7 +166,11 @@ namespace Pokemon {
 
         // Calculate HP (different formula from other stats)
         int hp = ((2 * baseHP() + ivHP() + (evHP() / 4)) * levelValue) / 100 + levelValue + 10;
+        const uint16_t oldMax = readUInt16LittleEndian(
+            reinterpret_cast<const uint8_t*>(data.data() + 0x16A));   // before it is overwritten
         writeUInt16LittleEndian(reinterpret_cast<uint8_t*>(data.data() + 0x16A), static_cast<uint16_t>(hp));
+        if (oldMax != static_cast<uint16_t>(hp))
+            writeUInt16LittleEndian(reinterpret_cast<uint8_t*>(data.data() + 0x92), static_cast<uint16_t>(hp));
 
         // Calculate other stats (ATK, DEF, SPE, SPA, SPD)
         int stats[5];

@@ -26,6 +26,18 @@ using namespace Utils;
 
 namespace UI {
 namespace Panels {
+    const char* pouchDisplayName(GameVersion gameGroup, int category) {
+        const char* name = nullptr;
+        if (gameGroup == GameVersion::ZA)        name = getPouchInfo9LZA(static_cast<PouchType9LZA>(category)).name;
+        else if (gameGroup == GameVersion::SV)   name = getPouchInfo9SV(static_cast<PouchType9SV>(category)).name;
+        else if (gameGroup == GameVersion::PLA)  name = getPouchInfo8LA(static_cast<PouchType8LA>(category)).name;
+        else if (gameGroup == GameVersion::BDSP) name = getPouchInfo8BDSP(static_cast<PouchType8BDSP>(category)).name;
+        else if (gameGroup == GameVersion::GG)   name = getPouchInfo7LGPE(static_cast<PouchType7LGPE>(category)).name;
+        else if (gameGroup == GameVersion::FRLG) name = getPouchInfo3FRLG(static_cast<PouchType3FRLG>(category)).name;
+        else                                     name = getPouchInfo8SWSH(static_cast<PouchType8SWSH>(category)).name;
+        return (name != nullptr && name[0] != '\0') ? name : "?";
+    }
+
     void drawItems(TrainerViewScreen& screen, PKSEFramebuffer& fb, int x, int y, int width, int height) {
         fb.drawFilledRoundedRect(x, y, width, height, 16, Colors::Panel);
         fb.drawRoundedRect(x, y, width, height, 16, Colors::Border, 1);
@@ -35,14 +47,7 @@ namespace Panels {
         fb.drawFilledRoundedRect(x, y, width, hH, 16, Colors::AccentDim);
         fb.drawFilledRect(x, y + hH - 16, width, 16, Colors::AccentDim);
         GameVersion gameGroup = screen.trainer.getGameGroup();
-        const char* pouchName = nullptr;
-        if (gameGroup == GameVersion::ZA)      pouchName = getPouchInfo9LZA(static_cast<PouchType9LZA>(screen.selectedCategory)).name;
-        else if (gameGroup == GameVersion::SV) pouchName = getPouchInfo9SV(static_cast<PouchType9SV>(screen.selectedCategory)).name;
-        else if (gameGroup == GameVersion::PLA) pouchName = getPouchInfo8LA(static_cast<PouchType8LA>(screen.selectedCategory)).name;
-        else if (gameGroup == GameVersion::BDSP) pouchName = getPouchInfo8BDSP(static_cast<PouchType8BDSP>(screen.selectedCategory)).name;
-        else if (gameGroup == GameVersion::GG) pouchName = getPouchInfo7LGPE(static_cast<PouchType7LGPE>(screen.selectedCategory)).name;
-        else if (gameGroup == GameVersion::FRLG) pouchName = getPouchInfo3FRLG(static_cast<PouchType3FRLG>(screen.selectedCategory)).name;
-        else                                   pouchName = getPouchInfo8SWSH(static_cast<PouchType8SWSH>(screen.selectedCategory)).name;
+        const char* pouchName = pouchDisplayName(gameGroup, screen.selectedCategory);
         fb.drawText(x + 22, y + (hH - fb.lineHeight(TextStyle::Heading)) / 2, std::string("道具 - ") + pouchName, Colors::Text, TextStyle::Heading);
 
         screen.touchButtons.clear();

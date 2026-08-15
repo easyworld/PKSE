@@ -28,6 +28,7 @@
 #include "Encryption/Encryption3FRLG.h"
 #include "Names/ItemNames.h"         // itemG3ToModern / itemModernToG3 (Gen 3 <-> modern held item)
 #include "Names/ItemPresence.h"      // isHeldItemPresent -> sanitize the held item to the destination
+#include "Names/MoveInfo.h"          // getMoveMaxPP -> clamp carried-over PP to the destination's max
 #include "Globals.h"                // g_allowIllegalEdits -- lifts the BDSP Spinda/Nincada transfer block
 #include "Utils/Gen3Text.h"          // the Gen 3 character set, shared with Pokemon3FRLG + Trainer3FRLG
 #include "Utils/HelperUtilities.h"   // readUInt32LittleEndian; pulls in Utils::utf8ToUtf16
@@ -740,6 +741,17 @@ namespace Conversion {
                     out->setMove(src, 0); out->setMovePP(src, 0); out->setMovePPUps(src, 0);
                 }
                 ++dst;
+            }
+
+            // Clamp each surviving move's PP to what the DESTINATION game allows. The PP bytes
+            // were copied across verbatim, but base PP is per-generation data: Scarlet/Violet's
+            // Tackle has 35 PP and Legends: Arceus' has 30, so a transfer that kept the 35 lands
+            // a mon showing 35/30. Current PP above max is not a state the games produce.
+            // Only ever lowers -- a mon that arrives with PP to spare keeps it.
+            for (int i = 0; i < 4; ++i) {
+                if (out->move(i) == 0) continue;
+                const uint8_t mx = Names::getMoveMaxPP(out->move(i), out->movePPUps(i), destGroup);
+                if (out->movePP(i) > mx) out->setMovePP(i, mx);
             }
         }
 

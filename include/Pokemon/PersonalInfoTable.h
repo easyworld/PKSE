@@ -57,18 +57,39 @@ namespace Pokemon {
     // Out-of-range species or forms fall back to the species' form-0 (or index 0) entry.
     const PersonalInfo& getPersonalInfo(uint16_t species, uint8_t form);
 
-    // ---- Generation 3 (FireRed/LeafGreen) abilities + types ----
-    // Gen 3's slot pair is NOT the one above: the S/V row disagrees for 101 of these
-    // species and always carries a hidden ability, which Gen 3 has no slot for. A PK3
-    // stores only a selector BIT and the game resolves it through its own table, so
-    // this is the only table that describes what a Gen 3 mon can actually hold.
-    // Forms share a row (PKHeX PersonalTable3.GetFormIndex is the species id).
+    // ---- Generation 3 (FireRed/LeafGreen) base stats + abilities + types ----
+    // Everything a Gen 3 entity needs looked up, from Gen 3's OWN personal table. Every
+    // field here disagrees with the modern table for some species, which is the whole
+    // reason it exists. Forms share a row (PKHeX PersonalTable3.GetFormIndex is the
+    // species id), so there is no form parameter.
     //
-    // Its TYPES disagree with the modern table too, for 18 of the 386 species: Gen 3
-    // predates the Fairy type, so Clefairy is Normal there and Fairy in Scarlet/Violet.
-    // These are the SAME Gen 6+ type ids used above -- only the values differ, not the
-    // encoding -- so a caller switches table without translating.
-    struct PersonalAbilityG3 {
+    // BASE STATS: 42 of the 386 species differ from the modern (S/V) table, nearly all of
+    // them from the Gen 6 stat pass -- Pikachu is 30 Def / 40 SpD here and 40 / 50 in Sword,
+    // Dugtrio's Attack went 80 -> 100. PKSE writes the six computed battle stats into a Gen 3
+    // party record, so a modern base stat does not merely display wrong, it gets saved into
+    // the game.
+    //
+    // ABILITIES: the S/V slot pair disagrees for 101 of these species and always carries a
+    // hidden ability, which Gen 3 has no slot for. A PK3 stores only a selector BIT and the
+    // game resolves it through its own table, so an S/V-only ability writes a bit that
+    // displays as something else.
+    //
+    // TYPES: 18 species differ, because Gen 3 predates the Fairy type -- Clefairy is Normal
+    // here and Fairy in Scarlet/Violet. These are the SAME Gen 6+ type ids used above; only
+    // the values differ, not the encoding, so a caller switches table without translating.
+    //
+    // ONE CAVEAT, Deoxys (#386): its forme is chosen by the GAME and not stored in the
+    // entity, so FireRed and LeafGreen disagree on this row alone. These are FireRed's
+    // (Attack Forme) stats -- a PK3 carries no Deoxys form field for a lookup to key on.
+    struct PersonalInfoG3 {
+        // Declaration order is PKHeX's personal-table order (HP, ATK, DEF, SPE, SPA, SPD),
+        // which is NOT the order BaseStatsGen89 uses. Access by name, never by position.
+        uint8_t hp;
+        uint8_t atk;
+        uint8_t def;
+        uint8_t spe;
+        uint8_t spa;
+        uint8_t spd;
         uint8_t ability1;
         uint8_t ability2;   // == ability1 when the species has only one ability
         uint8_t type1;
@@ -77,11 +98,12 @@ namespace Pokemon {
 
     constexpr uint16_t PERSONAL_G3_MAX_SPECIES = 386;
 
-    extern const PersonalAbilityG3 PERSONAL_ABILITY_G3[PERSONAL_G3_MAX_SPECIES + 1];
+    extern const PersonalInfoG3 PERSONAL_INFO_G3[PERSONAL_G3_MAX_SPECIES + 1];
 
-    // Gen 3 ability slots + types for a species. Out-of-range species return all-zero
-    // abilities and Normal/none, the same shape the modern lookup falls back to.
-    const PersonalAbilityG3& getPersonalAbilityG3(uint16_t species);
+    // Gen 3 base stats + ability slots + types for a species. Out-of-range species return an
+    // all-zero row, the same shape the modern lookup falls back to -- a caller that computes
+    // a stat from it must treat a 0 base as "no data", not as a real base stat.
+    const PersonalInfoG3& getPersonalInfoG3(uint16_t species);
 }
 
 #endif  // PKM_PERSONAL_INFO_TABLE_H

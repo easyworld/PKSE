@@ -7,7 +7,7 @@
  *
  * The slot pair is per-GENERATION, not universal, so this resolves against the right
  * table for the mon's game:
- *   - FireRed/LeafGreen  -> PERSONAL_ABILITY_G3 (two slots, no Hidden). Gen 3 disagrees
+ *   - FireRed/LeafGreen  -> PERSONAL_INFO_G3 (two slots, no Hidden). Gen 3 disagrees
  *     with the modern table for 101 of its 386 species, and a PK3 stores only a BIT
  *     that the game resolves through its OWN table -- so a modern id written to a Gen 3
  *     mon displays as whatever that game's slot holds instead.

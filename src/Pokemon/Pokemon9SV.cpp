@@ -167,11 +167,10 @@ namespace Pokemon {
 
         // Calculate HP (different formula from other stats)
         int hp = ((2 * baseHP() + ivHP() + (evHP() / 4)) * levelValue) / 100 + levelValue + 10;
+        const uint16_t oldMax = readUInt16LittleEndian(reinterpret_cast<const uint8_t*>(data.data() + 0x14A));   // before it is overwritten
         writeUInt16LittleEndian(reinterpret_cast<uint8_t*>(data.data() + 0x14A), static_cast<uint16_t>(hp));
-        // Pin current HP (Stat_HPCurrent @ 0x8A, in checksummed Block B) to max HP: a freshly-created
-        // all-zero mon reads 0 here and the game shows it FAINTED. Keeping it at max heals created +
-        // edited mons (matches PKHeX ResetPartyStats). (#F1F2)
-        writeUInt16LittleEndian(reinterpret_cast<uint8_t*>(data.data() + 0x8A), static_cast<uint16_t>(hp));
+        if (oldMax != static_cast<uint16_t>(hp))
+            writeUInt16LittleEndian(reinterpret_cast<uint8_t*>(data.data() + 0x8A), static_cast<uint16_t>(hp));
 
         // Calculate other stats (ATK, DEF, SPE, SPA, SPD)
         int stats[5];

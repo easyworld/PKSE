@@ -25,7 +25,7 @@ TypePair getPokemonTypes(uint16_t speciesId, uint8_t formId, Enums::GameVersion 
     // Forms share one row there, which is correct: Gen 3's only alternate forms are the
     // Unown letters and Deoxys, and neither retypes.
     if (group == Enums::GameVersion::FRLG) {
-        const PersonalAbilityG3& g3 = getPersonalAbilityG3(speciesId);
+        const PersonalInfoG3& g3 = getPersonalInfoG3(speciesId);
         return { g3.type1, g3.type2 };
     }
     const PersonalInfo& pi = getPersonalInfo(speciesId, formId);

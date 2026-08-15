@@ -43,6 +43,8 @@ namespace Utils {
                 g_moveWarn = (strcmp(val, "0") != 0);
             } else if (strcmp(key, "injectToGame") == 0) {
                 g_injectToGameSave = (strcmp(val, "0") != 0);
+            } else if (strcmp(key, "debugLogging") == 0) {
+                g_debugLogging = (strcmp(val, "0") != 0);
             }
         }
         fclose(f);
@@ -62,6 +64,7 @@ namespace Utils {
         fprintf(f, "allowIllegal=%d\n", g_allowIllegalEdits ? 1 : 0);
         fprintf(f, "moveWarn=%d\n", g_moveWarn ? 1 : 0);
         fprintf(f, "injectToGame=%d\n", g_injectToGameSave ? 1 : 0);
+        fprintf(f, "debugLogging=%d\n", g_debugLogging ? 1 : 0);
         fclose(f);
     }
 }
