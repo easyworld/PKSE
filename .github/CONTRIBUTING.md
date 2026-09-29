@@ -20,7 +20,14 @@ Use **Feature request** for something PKSE can't do at all, and **Enhancement** 
 
 ## Pull requests
 
-- **Open an issue first** for anything bigger than a small fix, so the approach can be agreed before you spend time on it.
+**Every pull request needs an approved issue. A pull request without one will be closed.**
+
+1. **Open an issue first**, using one of the [issue forms](https://github.com/kiasta/PKSE/issues/new/choose), and describe the change you want to make. New issues are labelled `needs triage`.
+2. **Wait for approval before you start.** When the change is agreed, the maintainer comments on the issue and replaces `needs triage` with `approved`. Only an issue labelled `approved` counts.
+3. **Link the approved issue from your pull request's description** with a closing keyword, such as `Closes #123`. A plain `#123` mention does not link it. A pull request that doesn't link an approved issue will be closed without review.
+
+Then:
+
 - **Do your work on a new branch.** Fork the repository, create a branch for the change (for example `fix-bank-transfer`), and open the pull request from that branch. Pull requests opened from a fork's `master` or `version-*` branch won't be accepted.
 - **Target the newest `version-*` branch**, not `master`. `master` holds the latest release and only changes when a new version ships.
 - **The maintainer merges your branch as it is, or makes changes to it first.** A pull request may be adjusted before merging -- to fit the code's conventions, or the rest of the release -- so leave **Allow edits by maintainers** ticked when you open it.
