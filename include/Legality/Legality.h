@@ -1,14 +1,25 @@
 /**
- * Legality.h - PKSE legality checker (Layers 1+2, informational).
+ * analyze() runs three layers against a decrypted Pokemon and returns human-readable
+ * issues:
  *
- * analyze() runs a set of structural (Layer 1) and internal-consistency (Layer 2)
- * checks against a decrypted Pokemon and returns human-readable issues. It is
- * INFORMATIONAL only (no auto-fix) and deliberately conservative: checks that need
- * data PKSE does not have (per-species legal abilities, learnsets, form counts,
- * gender ratios, encounter tables) are NOT performed. A clean report therefore means
- * "no problems found", never a guarantee of full legality.
+ *   Layer 1  structural   -- field ranges: EV/AV caps, nature and ball ids, known
+ *                            species / move / item ids, name lengths, checksum.
+ *   Layer 2  consistency  -- the Pokemon against itself and its species data: level
+ *                            vs EXP, met level vs level, gender vs gender ratio,
+ *                            ability against the species' slots, move learnability,
+ *                            per-game species presence.
+ *   Layer 3  encounter    -- the Pokemon against the game it says it came from: is
+ *                            there a real encounter template that produces it, at
+ *                            that met location and met level, with that shiny state,
+ *                            ball, gender and nature? See EncounterMatch.h.
  *
- * No RTTI / no exceptions: every check calls base Pokemon virtuals; per-gen
+ * It stays INFORMATIONAL (no auto-fix) and deliberately conservative. Layer 3's data
+ * is real but not complete -- event / Mystery Gift distributions are not modelled, and
+ * neither are PID/seed correlations -- so a clean report still means "no problems
+ * found", never a guarantee of full legality. Where a check would need data PKSE does
+ * not have, it says so as an Info note rather than staying silent.
+ *
+ * No RTTI / no exceptions: every check calls base Pokemon virtuals; per-generation
  * differences branch on the game group / capability flags, never on concrete type.
  */
 
@@ -21,33 +32,52 @@
 
 #include "Enums/GameVersion.h"
 
-namespace Pokemon { class Pokemon; }  // fwd decl — no heavy include
+namespace Pokemon
+{
+    class Pokemon;
+} // fwd decl — no heavy include
 
-namespace Legality {
+namespace Legality
+{
 
-    enum class Severity : uint8_t { Info, Warning, Invalid };
+    enum class Severity : uint8_t
+    {
+        Info,
+        Warning,
+        Invalid
+    };
 
-    struct Issue {
+    struct Issue
+    {
         Severity severity;
         std::string text;
     };
 
-    struct Report {
+    struct Report
+    {
         std::vector<Issue> issues;
 
         /// Number of Warning+Invalid issues (Info notes are not counted as problems).
-        int problemCount() const noexcept {
-            int n = 0;
-            for (const auto& i : issues) if (i.severity != Severity::Info) ++n;
-            return n;
+        int problemCount() const noexcept
+        {
+            int count = 0;
+            for (const auto &i : issues)
+                if (i.severity != Severity::Info)
+                    ++count;
+            return count;
         }
         bool ok() const noexcept { return problemCount() == 0; }
+
+        /// Is there anything at all to show? A Pokemon with no problems can still have
+        /// Info notes worth reading -- which encounter it matched, or that a check could
+        /// not run -- so the UI opens its issue list on this, not on ok().
+        bool empty() const noexcept { return issues.empty(); }
     };
 
     /// Analyze a decrypted Pokemon and return its legality issues (informational).
     /// originGroup = the save's format group (Trainer::getGameGroup()). Returns an
     /// empty report for an empty slot (species 0).
-    Report analyze(const Pokemon::Pokemon& pk, Enums::GameVersion originGroup);
+    Report analyze(const Pokemon::Pokemon &pokemon, Enums::GameVersion originGroup);
 }
 
 #endif

@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Question or help
+    url: https://github.com/kiasta/PKSE/discussions/categories/q-a
+    about: Ask how to do something, or get help getting PKSE running.
+  - name: Report a security vulnerability
+    url: https://github.com/kiasta/PKSE/security/advisories/new
+    about: Please report security problems privately, not in a public issue.

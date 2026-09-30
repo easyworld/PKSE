@@ -5,21 +5,26 @@
 #include <memory>
 #include <cstdint>
 
-// Forward declarations
-namespace UI {
+namespace UI
+{
     class PKSEFramebuffer;
 }
-namespace Pokemon {
+namespace Pokemon
+{
     class Pokemon;
 }
-namespace Trainer {
+namespace Trainer
+{
     class Trainer;
 }
 
-namespace UI {
-namespace Panels {
-    void drawPartyPokemon(UI::PKSEFramebuffer& fb, const Trainer::Trainer& trainer, int x, int y, int width, int height, int selectedIndex = -1);
-}
+namespace UI
+{
+    namespace Panels
+    {
+        void drawPartyPokemon(UI::PKSEFramebuffer &framebuffer, const Trainer::Trainer &trainer, int partyPokemonX,
+                              int partyPokemonY, int partyPokemonWidth, int partyPokemonHeight, int selectedIndex = -1);
+    }
 }
 
 #endif

@@ -1,6 +1,4 @@
 /**
- * MD5.cpp - RFC 1321 MD5 message-digest implementation.
- *
  * Standard, self-contained MD5. See MD5.h for usage and known-answer vectors.
  * Used by BDSP save writing (whole-file MD5 validation); must be byte-exact.
  */
@@ -9,15 +7,20 @@
 
 #include <cstring>
 
-namespace Utils {
-    namespace {
+namespace Utils
+{
+    namespace
+    {
+        // NOTE ON NAMING. The variables below keep the names the STANDARD gives them --
+        // A, B, C, D, F, g, M, S and K -- rather than being spelled out. These files exist to be checked line by
+        // line against RFC 1321, and a reader doing that check needs the two to read the same.
+        // This is the one place in PKSE where a single-letter name is the clearer choice.
         // Per-round left-rotate amounts (RFC 1321, section 3.4).
         constexpr uint32_t S[64] = {
-            7, 12, 17, 22,  7, 12, 17, 22,  7, 12, 17, 22,  7, 12, 17, 22,
-            5,  9, 14, 20,  5,  9, 14, 20,  5,  9, 14, 20,  5,  9, 14, 20,
-            4, 11, 16, 23,  4, 11, 16, 23,  4, 11, 16, 23,  4, 11, 16, 23,
-            6, 10, 15, 21,  6, 10, 15, 21,  6, 10, 15, 21,  6, 10, 15, 21
-        };
+            7, 12, 17, 22, 7, 12, 17, 22, 7, 12, 17, 22, 7, 12, 17, 22,
+            5, 9, 14, 20, 5, 9, 14, 20, 5, 9, 14, 20, 5, 9, 14, 20,
+            4, 11, 16, 23, 4, 11, 16, 23, 4, 11, 16, 23, 4, 11, 16, 23,
+            6, 10, 15, 21, 6, 10, 15, 21, 6, 10, 15, 21, 6, 10, 15, 21};
 
         // Precomputed constants K[i] = floor(abs(sin(i + 1)) * 2^32).
         constexpr uint32_t K[64] = {
@@ -36,24 +39,24 @@ namespace Utils {
             0xf4292244, 0x432aff97, 0xab9423a7, 0xfc93a039,
             0x655b59c3, 0x8f0ccc92, 0xffeff47d, 0x85845dd1,
             0x6fa87e4f, 0xfe2ce6e0, 0xa3014314, 0x4e0811a1,
-            0xf7537e82, 0xbd3af235, 0x2ad7d2bb, 0xeb86d391
-        };
+            0xf7537e82, 0xbd3af235, 0x2ad7d2bb, 0xeb86d391};
 
-        inline uint32_t leftRotate(uint32_t x, uint32_t c) noexcept
+        inline uint32_t leftRotate(uint32_t value, uint32_t bits) noexcept
         {
-            return (x << c) | (x >> (32 - c));
+            return (value << bits) | (value >> (32 - bits));
         }
 
         // Processes exactly one 64-byte block, updating the four state words.
-        void md5Block(const uint8_t* block, uint32_t state[4]) noexcept
+        void md5Block(const uint8_t *block, uint32_t state[4]) noexcept
         {
             // Decode the block into sixteen little-endian 32-bit words.
             uint32_t M[16];
-            for (int i = 0; i < 16; i++) {
-                M[i] = static_cast<uint32_t>(block[i * 4])
-                     | (static_cast<uint32_t>(block[i * 4 + 1]) << 8)
-                     | (static_cast<uint32_t>(block[i * 4 + 2]) << 16)
-                     | (static_cast<uint32_t>(block[i * 4 + 3]) << 24);
+            for (int index = 0; index < 16; index++)
+            {
+                M[index] = static_cast<uint32_t>(block[index * 4]) |
+                           (static_cast<uint32_t>(block[index * 4 + 1]) << 8) |
+                           (static_cast<uint32_t>(block[index * 4 + 2]) << 16) |
+                           (static_cast<uint32_t>(block[index * 4 + 3]) << 24);
             }
 
             uint32_t A = state[0];
@@ -61,29 +64,37 @@ namespace Utils {
             uint32_t C = state[2];
             uint32_t D = state[3];
 
-            for (int i = 0; i < 64; i++) {
+            for (int moveIndex = 0; moveIndex < 64; moveIndex++)
+            {
                 uint32_t F;
                 int g;
 
-                if (i < 16) {
+                if (moveIndex < 16)
+                {
                     F = (B & C) | (~B & D);
-                    g = i;
-                } else if (i < 32) {
+                    g = moveIndex;
+                }
+                else if (moveIndex < 32)
+                {
                     F = (D & B) | (~D & C);
-                    g = (5 * i + 1) & 15;
-                } else if (i < 48) {
+                    g = (5 * moveIndex + 1) & 15;
+                }
+                else if (moveIndex < 48)
+                {
                     F = B ^ C ^ D;
-                    g = (3 * i + 5) & 15;
-                } else {
+                    g = (3 * moveIndex + 5) & 15;
+                }
+                else
+                {
                     F = C ^ (B | ~D);
-                    g = (7 * i) & 15;
+                    g = (7 * moveIndex) & 15;
                 }
 
-                F = F + A + K[i] + M[g];
+                F = F + A + K[moveIndex] + M[g];
                 A = D;
                 D = C;
                 C = B;
-                B = B + leftRotate(F, S[i]);
+                B = B + leftRotate(F, S[moveIndex]);
             }
 
             state[0] += A;
@@ -93,29 +104,30 @@ namespace Utils {
         }
     } // anonymous namespace
 
-    void md5(const uint8_t* data, size_t len, uint8_t out[16])
+    void md5(const uint8_t *data, size_t length, uint8_t out[16])
     {
         // Standard MD5 initialization vector.
         uint32_t state[4] = {
             0x67452301u,
             0xefcdab89u,
             0x98badcfeu,
-            0x10325476u
-        };
+            0x10325476u};
 
         // Process every complete 64-byte block straight from the input.
-        const size_t fullBlocks = len / 64;
-        for (size_t i = 0; i < fullBlocks; i++) {
-            md5Block(data + i * 64, state);
+        const size_t fullBlocks = length / 64;
+        for (size_t index = 0; index < fullBlocks; index++)
+        {
+            md5Block(data + index * 64, state);
         }
 
         // Assemble the final padded block(s): the leftover bytes, a single 0x80
         // terminator, zero padding, then the original length in bits (64-bit LE).
-        const size_t remaining = len % 64; // bytes not yet processed (0..63)
+        const size_t remaining = length % 64; // bytes not yet processed (0..63)
 
         uint8_t buffer[128];
         std::memset(buffer, 0, sizeof(buffer));
-        if (remaining > 0) {
+        if (remaining > 0)
+        {
             std::memcpy(buffer, data + fullBlocks * 64, remaining);
         }
         buffer[remaining] = 0x80;
@@ -124,22 +136,25 @@ namespace Utils {
         // suffices (remaining <= 55); otherwise the length spills into a second block.
         const size_t paddedSize = (remaining <= 55) ? 64 : 128;
 
-        const uint64_t bitLen = static_cast<uint64_t>(len) * 8;
-        for (int i = 0; i < 8; i++) {
-            buffer[paddedSize - 8 + i] = static_cast<uint8_t>((bitLen >> (8 * i)) & 0xFF);
+        const uint64_t bitLen = static_cast<uint64_t>(length) * 8;
+        for (int index = 0; index < 8; index++)
+        {
+            buffer[paddedSize - 8 + index] = static_cast<uint8_t>((bitLen >> (8 * index)) & 0xFF);
         }
 
         md5Block(buffer, state);
-        if (paddedSize == 128) {
+        if (paddedSize == 128)
+        {
             md5Block(buffer + 64, state);
         }
 
         // Emit each state word in little-endian order (conventional MD5 output).
-        for (int i = 0; i < 4; i++) {
-            out[i * 4]     = static_cast<uint8_t>(state[i] & 0xFF);
-            out[i * 4 + 1] = static_cast<uint8_t>((state[i] >> 8) & 0xFF);
-            out[i * 4 + 2] = static_cast<uint8_t>((state[i] >> 16) & 0xFF);
-            out[i * 4 + 3] = static_cast<uint8_t>((state[i] >> 24) & 0xFF);
+        for (int moveIndex = 0; moveIndex < 4; moveIndex++)
+        {
+            out[moveIndex * 4] = static_cast<uint8_t>(state[moveIndex] & 0xFF);
+            out[moveIndex * 4 + 1] = static_cast<uint8_t>((state[moveIndex] >> 8) & 0xFF);
+            out[moveIndex * 4 + 2] = static_cast<uint8_t>((state[moveIndex] >> 16) & 0xFF);
+            out[moveIndex * 4 + 3] = static_cast<uint8_t>((state[moveIndex] >> 24) & 0xFF);
         }
     }
 }

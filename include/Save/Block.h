@@ -8,16 +8,18 @@
 
 using namespace Enums;
 
-namespace Save {
+namespace Save
+{
 
-    struct Block {
+    struct Block
+    {
         uint32_t key;
         SCTypeCode type;
         SCTypeCode sub_type = SCTypeCode::None; // Only for Array
-        std::vector<uint8_t> data; // Empty for Bool types
+        std::vector<uint8_t> data;              // Empty for Bool types
     };
 
-    bool tryReadBlock(const uint8_t* data, size_t data_size, uint32_t key, size_t& offset, Block& result);
+    bool tryReadBlock(const uint8_t *data, size_t data_size, uint32_t key, size_t &offset, Block &result);
     /**
      * Parse every SCBlock in `data`.
      *
@@ -29,11 +31,11 @@ namespace Save {
      * `outConsumed` reports how many bytes were covered by successfully parsed blocks. Compare it
      * against data_size to find out whether the parse actually reached the end.
      */
-    std::vector<Block> parseAllBlocks(const uint8_t* data, size_t data_size, size_t* outConsumed = nullptr);
+    std::vector<Block> parseAllBlocks(const uint8_t *data, size_t data_size, size_t *outConsumed = nullptr);
 
     // Serialization functions
-    size_t writeBlock(const Block& block, std::vector<uint8_t>& output);
-    std::vector<uint8_t> serializeAllBlocks(const std::vector<Block>& blocks);
+    size_t writeBlock(const Block &block, std::vector<uint8_t> &output);
+    std::vector<uint8_t> serializeAllBlocks(const std::vector<Block> &blocks);
 }
 
 #endif

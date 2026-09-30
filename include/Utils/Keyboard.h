@@ -21,23 +21,10 @@ namespace Utils {
      *    blank whatever the user was editing, which is the opposite of what they asked for.
      */
     struct KeyboardResult {
-        bool accepted = false;   ///< false = cancelled or the applet failed; `text` is then empty
-        std::string text;        ///< UTF-8, as typed (NOT yet validated against a game's encoding)
+        bool accepted = false;   // false = cancelled or the applet failed; `text` is then empty
+        std::string text;        // UTF-8, as typed (NOT yet validated against a game's encoding)
     };
 
-    /**
-     * Show the text keyboard, seeded with `initial`.
-     *
-     * @param header    Title line shown above the field (e.g. "Rename Box").
-     * @param guide     Greyed-out hint shown in the empty field (e.g. "Box name").
-     * @param initial   Text the field starts with, so editing beats retyping.
-     * @param maxChars  Character limit, which is what the games specify -- the UTF-8 byte buffer is
-     *                  sized from it internally, since one character can take up to 4 bytes.
-     *
-     * The returned text is whatever the user typed. It is NOT checked against the destination
-     * game's character set -- Gen 3 in particular can represent only a subset -- so the caller must
-     * still encode it and handle the characters that don't map.
-     */
     KeyboardResult promptText(const std::string& header, const std::string& guide,
                               const std::string& initial, int maxChars);
 

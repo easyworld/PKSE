@@ -1,6 +1,4 @@
 /**
- * FormInfo.h - Which forms are permanent, and which only exist during battle
- *
  * The personal table's formCount counts every form entry the game defines, including Mega
  * Evolution and the forms that exist only mid-battle (or, for the box legends, while being
  * ridden). Those are fine to *display* -- FormNames names them and FormSpriteMapping draws them,
@@ -8,11 +6,13 @@
  * discards on load.
  */
 
-#pragma once
+#ifndef POKEMON_FORMINFO_H
+#define POKEMON_FORMINFO_H
 
 #include <cstdint>
 
-namespace Pokemon {
+namespace Pokemon
+{
 
     /**
      * True when (species, form) is a TEMPORARY form -- one the game creates during battle or
@@ -25,7 +25,7 @@ namespace Pokemon {
      * permissiveness, not a statement that they persist -- PKHeX's own tables class every mega
      * as battle-only. PKSE follows the tables, not the dropdown.)
      *
-     * A mon's current form is still shown by the picker even when this returns true, so an
+     * A pokemon's current form is still shown by the picker even when this returns true, so an
      * already-temporary form stays visible and reversible.
      */
     bool isBattleOnlyForm(uint16_t species, uint8_t form);
@@ -59,7 +59,7 @@ namespace Pokemon {
      * it bars these from breeding, and its Legends: Arceus verifier marks a noble-flagged entity
      * invalid outright.
      *
-     * As with the other filters, a mon already IN one of these forms still shows it, so an existing
+     * As with the other filters, a pokemon already IN one of these forms still shows it, so an existing
      * one stays visible and reversible; it just can never be applied to anything else.
      */
     bool isLordForm(uint16_t species, uint8_t form);
@@ -96,6 +96,23 @@ namespace Pokemon {
     uint8_t genderLinkedForm(uint16_t species, uint8_t currentForm, uint8_t gender);
 
     /**
+     * True when the species can freely change form AFTER it was caught -- a held plate, a
+     * memory disc, a barber's trim, the season, a form-change item. Ported from PKHeX
+     * `FormInfo.IsFormChangeable`'s `FormChange` list.
+     *
+     * Layer 3 needs it because an encounter template records the form that SPAWNED, and for
+     * these species that says nothing about the form now stored. A Rotom caught in its base
+     * form and later put in a washing machine is still that encounter; comparing the form
+     * would report a mismatch that is not one.
+     *
+     * PKHeX's own version takes the old and new form plus both contexts, because Zygarde and
+     * Deerling changed rules between generations. Every game PKSE supports is Gen 8 or later
+     * (or Gen 3, which has none of these species bar Deoxys), and in that era both are freely
+     * changeable, so the extra arguments would only ever narrow to `true`.
+     */
+    bool isFormChangeable(uint16_t species);
+
+    /**
      * An EncryptionConstant that satisfies the species' **form correlation**, given the form it is
      * being put into. Returns `ec` unchanged for every species that has no such correlation, and for
      * one that already satisfies it.
@@ -120,6 +137,8 @@ namespace Pokemon {
      * PKHeX does: an EC that must become non-zero mod 100 takes a value derived from the EC itself
      * rather than a random one, so the result is reproducible and re-applying is a no-op.
      */
-    uint32_t correctEncryptionConstantForForm(uint16_t species, uint8_t form, uint32_t ec);
+    uint32_t correctEncryptionConstantForForm(uint16_t species, uint8_t form, uint32_t encryptionConstant);
 
 }
+
+#endif  // POKEMON_FORMINFO_H

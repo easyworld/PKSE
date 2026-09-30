@@ -13,11 +13,10 @@ namespace Utils {
 
         static uint32_t GetInitialState(uint32_t state)
         {
-            // std::popcount (C++20) rather than __builtin_popcount: the builtin is GCC/Clang-only,
-            // and the old comment ("for MSVC use _popcnt") shows the portability gap was known but
-            // never closed. Same codegen, no compiler dependence.
+            // std::popcount (C++20) rather than __builtin_popcount: the builtin is GCC/Clang-only. Same
+            // codegen, no compiler dependence.
             const int pop_count = std::popcount(state);
-            for (int i = 0; i < pop_count; ++i)
+            for (int index = 0; index < pop_count; ++index)
             {
                 state = XorshiftAdvance(state);
             }
@@ -37,9 +36,9 @@ namespace Utils {
 
         uint8_t Next()
         {
-            int c = counter;
-            uint8_t result = static_cast<uint8_t>(state >> (c * 8));
-            if (c == 3)
+            int shiftCount = counter;
+            uint8_t result = static_cast<uint8_t>(state >> (shiftCount * 8));
+            if (shiftCount == 3)
             {
                 state = XorshiftAdvance(state);
                 counter = 0;

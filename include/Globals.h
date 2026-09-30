@@ -1,6 +1,7 @@
 #ifndef GLOBALS_H
 #define GLOBALS_H
 
+#include <cstdint>
 #include <string>
 
 /// Derived from the Makefile's APP_VERSION_FULL via -DPKSE_VERSION. That is the long spelling; the
@@ -44,8 +45,30 @@ inline bool g_injectToGameSave = false;
 /// never auto-pruned; deleting them is the user's decision). When false, it reuses a single
 /// "Working" copy so backups don't pile up.
 inline bool g_autoBackupEnabled = true;
-inline bool g_allowIllegalEdits = false;  // Settings toggle: lift the legal EV/AV caps (0-252 / 0-200 -> 0-255) so illegal values can be set (e.g. to test the legality checker).
-inline bool g_moveWarn = true;            // Settings toggle ("Move warning"): confirm before a bank move that loses data. Covers the Let's Go transfer (AV/EV training resets to 0); the Gen 3 down-convert warns regardless, since it rebuilds the PID and cannot be undone.
+inline bool g_allowIllegalEdits = false; // Settings toggle: lift the legal EV/AV caps (0-252 / 0-200 -> 0-255) so
+                                         // illegal values can be set (e.g. to test the legality checker).
+
+// Settings toggle: when a transfer has NO officially supported route (Gen 1/2 -> Gen 3, say),
+// rebuild the Pokemon as a legal native of the destination -- derive its met location from a real
+// encounter there, walk the pre-evolution chain, stamp the version that can actually produce it,
+// fall back to "hatched from an egg" for a species the game never has, and drop moves that
+// encounter could not have taught. OFF by default, because it REWRITES a Pokemon the user may
+// prefer to fix by hand; off, PKSE only does the plain lookup and leaves an obvious placeholder.
+//
+// It never alters a Pokemon's LEVEL, and it never touches an officially supported transfer --
+// Ruby/Sapphire/Emerald and FireRed/LeafGreen trade with each other on real hardware, so PKSE
+// does there exactly what the cartridges do and leaves the record alone.
+inline bool g_autoLegalizeTransfers = false;
+/// Settings toggle ("Bank Storage Move Warning"): confirm before a bank move that loses data. It
+/// covers EVERY bank transfer warning, in every generation -- the Gen 3 down-convert (rebuilds the
+/// PID), the Poke Transporter run out of Gen 1/2 (rewrites IVs, PID, EXP and ability) and the Let's
+/// Go transfer (resets AV/EV training to 0).
+///
+/// One switch over all three. Exempting the destructive ones would make the setting quietly
+/// narrower than its label -- a user who had turned warnings off would still be stopped on every
+/// FireRed drop, with nothing on the settings screen to say why. How destructive a transfer is
+/// decides what each DIALOG says, not whether a dialog appears.
+inline bool g_moveWarn = true;
 
 /// Settings toggle ("Enable Debug Logging"), persisted. Default OFF, and every log sink checks it:
 /// with it off PKSE writes no `sdmc:/PKSE/logs/debug_*.log` and no `sdmc:/PKSE/trace.log`, so a

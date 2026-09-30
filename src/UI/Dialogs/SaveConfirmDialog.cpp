@@ -1,125 +1,147 @@
 #include "UI/Dialogs/SaveConfirmDialog.h"
 #include "UI/Dialogs/DialogFrame.h"
-#include "UI/Dialogs/EditControls.h"   // drawEditChoiceButton -- on-button controller glyphs
+#include "UI/Dialogs/EditControls.h" // drawEditChoiceButton -- on-button controller glyphs
 #include "UI/TrainerViewScreen.h"
 #include "UI/Common.h"
 #include "UI/PKSEFramebuffer.h"
 #include "Globals.h"
 
-namespace UI {
-namespace Dialogs {
-    namespace {
-        // Leaf folder name of a backup path -- that IS the backup's name in the picker list, the
-        // same way it is in the backup selection screen.
-        std::string leafOf(const std::string& path) {
-            const size_t slash = path.find_last_of('/');
-            return (slash == std::string::npos) ? path : path.substr(slash + 1);
+namespace UI
+{
+    namespace Dialogs
+    {
+        namespace
+        {
+            // Leaf folder name of a backup path -- that IS the backup's name in the picker list, the
+            // same way it is in the backup selection screen.
+            std::string leafOf(const std::string &path)
+            {
+                const size_t slash = path.find_last_of('/');
+                return (slash == std::string::npos) ? path : path.substr(slash + 1);
+            }
         }
-    }
 
-    void drawSaveConfirmDialog(TrainerViewScreen& screen, PKSEFramebuffer& fb) {
-        constexpr int w = 560;
+        void drawSaveConfirmDialog(TrainerViewScreen &screen, PKSEFramebuffer &framebuffer)
+        {
+            constexpr int dialogWidth = 560;
 
-        // Exiting with unsaved changes is a different question ("要放弃这些更改吗？"), not a
-        // destination choice, so it keeps the plain two-button form.
-        if (screen.exitingWithUnsavedChanges) {
-            constexpr int h = 248;
-            const int x = (fb.getWidth() - w) / 2, y = (fb.getHeight() - h) / 2;
-            int cy = drawDialogFrame(fb, x, y, w, h, "未保存的更改", Colors::Warning);
-            fb.drawText(x + 24, cy,      "你有尚未保存的更改。", Colors::Text);
-            fb.drawText(x + 24, cy + 28, "继续操作将丢失这些更改。", Colors::TextDim);
+            // Exiting with unsaved changes is a different question ("要放弃这些更改吗？"), not a
+            // destination choice, so it keeps the plain two-button form.
+            if (screen.exitingWithUnsavedChanges)
+            {
+                constexpr int dialogHeight = 248;
+                const int dialogX = (framebuffer.getWidth() - dialogWidth) / 2,
+                          y = (framebuffer.getHeight() - dialogHeight) / 2;
+                int centerY = drawDialogFrame(framebuffer, dialogX, y, dialogWidth, dialogHeight, "未保存的更改",
+                                              Colors::Warning);
+                framebuffer.drawText(dialogX + 24, centerY, "你有尚未保存的更改。", Colors::Text);
+                framebuffer.drawText(dialogX + 24, centerY + 28, "继续操作将丢失这些更改。",
+                                     Colors::TextDim);
 
-            // Buttons carry their glyph (id 0 = Cancel/B, id 1 = Discard & Exit/A), no guide line.
+                // Buttons carry their glyph (id 0 = Cancel/B, id 1 = Discard & Exit/A), no guide line.
+                screen.touchButtons.clear();
+                const int choiceButtonHeight = TouchTargetMin, cby = y + dialogHeight - choiceButtonHeight - 16;
+                const int choiceButtonWidth = (dialogWidth - 48 - 16) / 2;
+                drawEditChoiceButton(screen, framebuffer, dialogX + 24, cby, choiceButtonWidth, choiceButtonHeight, "B",
+                                     "取消", 0);
+                drawEditChoiceButton(screen, framebuffer, dialogX + dialogWidth - 24 - choiceButtonWidth, cby,
+                                     choiceButtonWidth, choiceButtonHeight, "A", "放弃并退出", 1);
+                return;
+            }
+
+            const int rows = screen.saveDestinationCount();
+            constexpr int rowH = 58, rowGap = 8;
+            // The notice is a LINE here, not an extra dialog. This dialog is already a confirm/cancel,
+            // so folding a warning in tells the user without adding a step.
+            const int warnH = (screen.illegalDataWritten ? 26 : 0);
+            // 126 rather than 168: the card has no hint strip of its own, which would sit directly above
+            // the screen's nav bar and list the same three keys a second time.
+            const int dialogHeight = 126 + warnH + rows * (rowH + rowGap);
+            const int dialogX = (framebuffer.getWidth() - dialogWidth) / 2,
+                      y = (framebuffer.getHeight() - dialogHeight) / 2;
+
+            int centerY =
+                drawDialogFrame(framebuffer, dialogX, y, dialogWidth, dialogHeight, "保存更改", Colors::Text);
+            framebuffer.drawText(dialogX + 24, centerY,
+                        screen.hasUnsavedChanges ? "要写入到哪里？"
+                                                 : "没有任何更改，仍要写入吗？",
+                        screen.hasUnsavedChanges ? Colors::Text : Colors::TextDim);
+            if (screen.illegalDataWritten)
+            {
+                framebuffer.drawText(dialogX + 24, centerY + 24,
+                            "包含游戏判定为非法的数值。",
+                            Color(235, 120, 120), TextStyle::Caption);
+                centerY += 26;
+            }
+            // There is deliberately no "this save contains DLC content" warning. Owning a DLC gates the
+            // AREAS, not the Pokemon -- the patch ships the data to every copy, so a player without the
+            // Expansion Pass can hold a Crown Tundra species traded to them and it works normally.
+
+            const std::string backupName = leafOf(screen.backupDir);
+            const char *titles[4] = {"当前备份", "新备份……", "游戏存档", "存档文件"};
+            const std::string subs[4] = {
+                backupName,
+                "使用键盘命名",
+                // Same destination, very different act depending on where this session came from.
+                screen.loadedFromCart ? "写回" + screen.titleName
+                                      : "用此备份替换当前游戏存档",
+                // A loose file: name it, and say that the original is copied aside first, because the
+                // user is about to overwrite a file PKSE did not create and may not have another of.
+                "写回" + leafOf(screen.backupDir) + "（会先保留一份副本）",
+            };
+
             screen.touchButtons.clear();
-            const int cbh = TouchTargetMin, cby = y + h - cbh - 16;
-            const int cbw = (w - 48 - 16) / 2;
-            drawEditChoiceButton(screen, fb, x + 24,           cby, cbw, cbh, "B", "取消",         0);
-            drawEditChoiceButton(screen, fb, x + w - 24 - cbw, cby, cbw, cbh, "A", "放弃并退出", 1);
-            return;
+            const int rowX = dialogX + 20, rw = dialogWidth - 40;
+            int rectY = centerY + 34;
+            for (int rowIndex = 0; rowIndex < rows; ++rowIndex)
+            {
+                // A row is not its destination: a title session shows Game save / New backup, so the
+                // row index has to be mapped rather than used to index the arrays directly.
+                const int destinationId = static_cast<int>(screen.saveDestinationAt(rowIndex));
+                const bool selectedIndex = (screen.saveDestinationIndex == rowIndex);
+                if (selectedIndex)
+                    framebuffer.drawSelectionHighlight(rowX, rectY, rw, rowH);
+                else
+                    framebuffer.drawFilledRoundedRect(rowX, rectY, rw, rowH, 10, Colors::PanelAlt);
+
+                // Red only when writing to the game would DESTROY something: a backup-sourced session
+                // overwriting live progress. Saving a cart session back to its own cart is routine and
+                // shouldn't be dressed up as a hazard.
+                const bool danger = (destinationId == TrainerViewScreen::DestinationGameSave) && !screen.loadedFromCart;
+                framebuffer.drawText(rowX + 18, rectY + 7, titles[destinationId],
+                            danger ? Color(235, 120, 120) : Colors::Text, TextStyle::Body);
+                framebuffer.drawText(rowX + 18, rectY + 32, subs[destinationId], Colors::TextDim, TextStyle::Caption);
+
+                screen.touchButtons.push_back({rowIndex, rowX, rectY, rw, rowH});
+                rectY += rowH + rowGap;
+            }
+
         }
 
-        // --- Destination picker ---------------------------------------------------------
-        const int rows = screen.saveDestCount();
-        constexpr int rowH = 58, rowGap = 8;
-        // The notice is a LINE here, not an extra dialog. This dialog is already a confirm/cancel,
-        // so folding a warning in tells the user without adding a step.
-        const int warnH = (screen.illegalDataWritten ? 26 : 0);
-        const int h = 168 + warnH + rows * (rowH + rowGap);
-        const int x = (fb.getWidth() - w) / 2, y = (fb.getHeight() - h) / 2;
+        void drawSaveInjectConfirm(TrainerViewScreen &screen, PKSEFramebuffer &framebuffer)
+        {
+            constexpr int dialogWidth = 620, h = 268;
+            const int dialogX = (framebuffer.getWidth() - dialogWidth) / 2, y = (framebuffer.getHeight() - h) / 2;
 
-        int cy = drawDialogFrame(fb, x, y, w, h, "保存更改", Colors::Text);
-        fb.drawText(x + 24, cy,
-                    screen.hasUnsavedChanges ? "要写入到哪里？"
-                                             : "没有任何更改，仍要写入吗？",
-                    screen.hasUnsavedChanges ? Colors::Text : Colors::TextDim);
-        if (screen.illegalDataWritten) {
-            fb.drawText(x + 24, cy + 24,
-                        "包含游戏判定为非法的数值。",
-                        Color(235, 120, 120), TextStyle::Caption);
-            cy += 26;
+            int centerY = drawDialogFrame(framebuffer, dialogX, y, dialogWidth, h, "写入游戏存档吗？",
+                                          Color(235, 120, 120));
+            framebuffer.drawText(dialogX + 24, centerY,
+                        "这将替换" + screen.titleName + "的存档数据", Colors::Text);
+            framebuffer.drawText(dialogX + 24, centerY + 26,
+                        "使用备份“" + leafOf(screen.backupDir) + "\"”及你的修改。", Colors::Text);
+            // Say plainly what is at risk. The user may have loaded a backup from weeks ago, in which
+            // case this rolls their game back -- and the dialog is the only place that can warn them.
+            framebuffer.drawText(dialogX + 24, centerY + 60,
+                        "该备份之后的所有游戏进度都将丢失。", Color(235, 120, 120));
+            framebuffer.drawText(dialogX + 24, centerY + 86,
+                        "无论如何都会写入备份本身。", Colors::TextDim, TextStyle::Caption);
+
+            screen.touchButtons.clear();
+            const int boxWidth = (dialogWidth - 60) / 2, bh = 52, by = y + h - 48 - bh - 8;
+            // Glyph ON each button (B: Cancel, A: Write to game); the destructive action stays red.
+            drawEditChoiceButton(screen, framebuffer, dialogX + 20, by, boxWidth, bh, "B", "取消", 0);
+            drawEditChoiceButton(screen, framebuffer, dialogX + 40 + boxWidth, by, boxWidth, bh, "A", "写入游戏",
+                                 1, Color(160, 60, 60), Colors::White);
         }
-        // There is deliberately no "this save contains DLC content" warning. Owning a DLC gates the
-        // AREAS, not the Pokemon -- the patch ships the data to every copy, so a player without the
-        // Expansion Pass can hold a Crown Tundra species traded to them and it works normally.
-
-        const std::string backupName = leafOf(screen.backupDir);
-        const char* titles[3] = { "当前备份", "新备份……", "游戏存档" };
-        const std::string subs[3] = {
-            backupName,
-            "使用键盘命名",
-            // Same destination, very different act depending on where this session came from.
-            screen.loadedFromCart ? "写回" + screen.titleName
-                                  : "用此备份覆盖游戏中的实时存档",
-        };
-
-        screen.touchButtons.clear();
-        const int rx = x + 20, rw = w - 40;
-        int ry = cy + 34;
-        for (int i = 0; i < rows; ++i) {
-            // A row is not its destination: a title session shows Game save / New backup, so the
-            // row index has to be mapped rather than used to index the arrays directly.
-            const int d = static_cast<int>(screen.saveDestAt(i));
-            const bool sel = (screen.saveDestIndex == i);
-            if (sel) fb.drawSelectionHighlight(rx, ry, rw, rowH);
-            else     fb.drawFilledRoundedRect(rx, ry, rw, rowH, 10, Colors::PanelAlt);
-
-            // Red only when writing to the game would DESTROY something: a backup-sourced session
-            // overwriting live progress. Saving a cart session back to its own cart is routine and
-            // shouldn't be dressed up as a hazard.
-            const bool danger = (d == TrainerViewScreen::DestGameSave) && !screen.loadedFromCart;
-            fb.drawText(rx + 18, ry + 7, titles[d],
-                        danger ? Color(235, 120, 120) : Colors::Text, TextStyle::Body);
-            fb.drawText(rx + 18, ry + 32, subs[d], Colors::TextDim, TextStyle::Caption);
-
-            screen.touchButtons.push_back({ i, rx, ry, rw, rowH });
-            ry += rowH + rowGap;
-        }
-
-        drawDialogFooter(fb, x, y, w, h, "上/下：选择  |  A：保存  |  B：取消");
     }
-
-    void drawSaveInjectConfirm(TrainerViewScreen& screen, PKSEFramebuffer& fb) {
-        constexpr int w = 620, h = 268;
-        const int x = (fb.getWidth() - w) / 2, y = (fb.getHeight() - h) / 2;
-
-        int cy = drawDialogFrame(fb, x, y, w, h, "写入游戏存档吗？", Color(235, 120, 120));
-        fb.drawText(x + 24, cy,
-                    "这将替换" + screen.titleName + "的存档数据", Colors::Text);
-        fb.drawText(x + 24, cy + 26,
-                    "内容来自备份“" + leafOf(screen.backupDir) + "”及当前编辑。", Colors::Text);
-        // Say plainly what is at risk. The user may have loaded a backup from weeks ago, in which
-        // case this rolls their game back -- and the dialog is the only place that can warn them.
-        fb.drawText(x + 24, cy + 60,
-                    "该备份之后的所有游戏进度都将丢失。", Color(235, 120, 120));
-        fb.drawText(x + 24, cy + 86,
-                    "无论如何都会写入备份本身。", Colors::TextDim, TextStyle::Caption);
-
-        screen.touchButtons.clear();
-        const int bw = (w - 60) / 2, bh = 52, by = y + h - 48 - bh - 8;
-        // Glyph ON each button (B: Cancel, A: Write to game); the destructive action stays red.
-        drawEditChoiceButton(screen, fb, x + 20,      by, bw, bh, "B", "取消",        0);
-        drawEditChoiceButton(screen, fb, x + 40 + bw, by, bw, bh, "A", "写入游戏", 1,
-                             Color(160, 60, 60), Colors::White);
-    }
-}
 }

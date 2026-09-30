@@ -39,9 +39,9 @@ include $(DEVKITPRO)/libnx/switch_rules
 #---------------------------------------------------------------------------------
 TARGET		:=	PKSE
 BUILD		:=	build
-SOURCES		:=	src src/Pokemon src/Encryption src/Enums src/UI src/UI/Panels src/UI/Dialogs src/UI/Modals src/Trainer src/Names src/Utils src/Save src/Legality src/Conversion nanovg
+SOURCES		:=	src src/Pokemon src/Encryption src/Enums src/UI src/UI/Panels src/UI/Dialogs src/UI/Modals src/Trainer src/Names src/Utils src/Save src/Legality src/Conversion nanovg memecrypto
 DATA		:=	data
-INCLUDES	:=	include nanovg
+INCLUDES	:=	include nanovg memecrypto
 APP_TITLE   :=  PKSE
 APP_AUTHOR  :=  Kiasta
 # THE version, in two spellings. Both are set here and nothing downstream needs editing.
@@ -49,8 +49,7 @@ APP_AUTHOR  :=  Kiasta
 # APP_VERSION is the .nacp one -- the home menu and hbmenu read it. The name is not ours to choose:
 # libnx's switch_rules passes $(APP_VERSION) straight to `nacptool --create`. Its display_version
 # field is 16 bytes and nacptool truncates to fit WITHOUT complaining (exit 0, no warning), so this
-# must stay at 15 characters or fewer -- "1.1.2-pre-release-debug" was silently becoming
-# "1.1.2-pre-relea" in the .nro.
+# must stay at 15 characters or fewer.
 #
 # APP_VERSION_FULL is the one the app prints about itself: -DPKSE_VERSION below feeds it to
 # Globals.h's VERSION_STRING, which has no length limit. Long pre-release tags belong here.
@@ -60,8 +59,8 @@ APP_AUTHOR  :=  Kiasta
 #
 # NOTE: no trailing comment on either assignment line. Make keeps trailing whitespace in a value, so
 # "0.0.3 \t\t# ..." would have baked spaces into the .nacp version and the -D define.
-APP_VERSION :=	1.1.3
-APP_VERSION_FULL :=	1.1.3
+APP_VERSION :=	1.2.0
+APP_VERSION_FULL :=	1.2.0
 
 # Mirrors what switch_rules does for APP_VERSION: an unset long form falls back to the short one
 # rather than compiling in an empty version string.
@@ -216,105 +215,51 @@ endif
 # Default target when you just run 'make'. Only builds.
 default: $(BUILD)
 
-# Target when you run 'make all'. Downloads type icons + fonts, THEN build (HD sprites: tools/gen_hdsprites.py)
-all: types fonts $(BUILD)
+# 'make all' is the same thing. It used to fetch the romfs assets first; it does not any more.
+all: $(BUILD)
 
 #---------------------------------------------------------------------------------
-# Sprite and icon download integration
+# romfs assets: REQUIRED, and NOT fetched here
+#
+# NOTHING IN THIS MAKEFILE DOWNLOADS ANYTHING. Fetching is four scripts under tools/, run by hand
+# once per checkout -- romfs/ is gitignored, so a fresh one has none of it:
+#
+#     python tools/gen_fonts.py         the three SIL OFL UI fonts
+#     python tools/gen_typeicons.py     the 19 type icons (18 + Stellar, which is Tera-only)
+#     python tools/gen_marks.py         the origin markings
+#     python tools/gen_hdsprites.py     the 3260 Pokemon sprites (needs Pillow, ~148 MB)
+#
+# A BUILD HAS NO BUSINESS REACHING THE NETWORK. It makes the toolchain depend on GitHub being up,
+# it can half-succeed and leave a partial file behind, and it hides which upstream snapshot the
+# .nro was actually built from.
+#
+# So the build REFUSES TO START instead of quietly fetching (`check-assets`, below -- named
+# so it cannot collide with the assets/ DIRECTORY, which would let Make call it up to date). All four are mandatory: without the
+# fonts nothing on screen has text at all, and the rest are blank art with nothing anywhere saying
+# why -- a missing asset otherwise links into a perfectly healthy .nro. One representative file
+# per group is enough, because each script verifies its own set and is safe to re-run.
 #---------------------------------------------------------------------------------
-TYPE_DIR     := romfs/sprites/types
-TYPE_BASE_URL ?= https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/types/generation-ix/scarlet-violet
-MAX_JOBS     := 20        # increase the value if you want it to run faster
-DOWNLOAD_RETRIES ?= 5
-DOWNLOAD_RETRY_DELAY ?= 2
-DOWNLOAD_CONNECT_TIMEOUT ?= 15
-DOWNLOAD_MAX_TIME ?= 60
+ASSET_FONTS   := romfs/fonts/Nunito.ttf
+ASSET_TYPES   := romfs/sprites/types/0.png
+ASSET_MARKS   := romfs/sprites/marks/vc.png
+ASSET_SPRITES := romfs/sprites/pokemon_hd/1.png
 
-export DOWNLOAD_RETRIES DOWNLOAD_RETRY_DELAY DOWNLOAD_CONNECT_TIMEOUT DOWNLOAD_MAX_TIME
-
-#---------------------------------------------------------------------------------
-# Type sprite download (generation-ix scarlet-violet style)
-# PokeAPI type IDs: 1=Normal, 2=Fighting, ... 18=Fairy
-# We save as 0-17 to match our internal MoveType enum
-#---------------------------------------------------------------------------------
-types:
-	@printf "Checking and downloading missing type sprites...\n"
-	@mkdir -p "$(TYPE_DIR)"
-	@missing_list=""; \
-	for i in $$(seq 1 18); do \
-		local_id=$$((i - 1)); \
-		[ -s "$(TYPE_DIR)/$$local_id.png" ] || missing_list="$$missing_list $$i"; \
-	done; \
-	if [ -z "$$missing_list" ]; then \
-		printf "All type sprites already present — nothing to download.\n"; \
-		exit 0; \
-	fi; \
-	count=0; \
-	for i in $$missing_list; do count=$$((count + 1)); done; \
-	printf "Downloading %d missing type sprite(s) in parallel...\n" $$count; \
-	\
-	printf "$$missing_list" | tr ' ' '\n' | \
-	xargs -P $(MAX_JOBS) -I{} sh -c '\
-		api_id="{}"; \
-		local_id=$$((api_id - 1)); \
-		dir="$(TYPE_DIR)"; \
-		outfile="$$dir/$$local_id.png"; \
-		printf "Downloading type sprite #%d (saving as %d)...\n" "$$api_id" "$$local_id"; \
-		sh tools/download_with_retry.sh "$(TYPE_BASE_URL)/$$api_id.png" "$$outfile" \
-			|| { printf "Failed type #%s after retries\n" "$$api_id"; exit 1; }'; \
-	ret=$$?; \
-	if [ $$ret -ne 0 ]; then exit $$ret; fi
-
-.PHONY: types
-
-#---------------------------------------------------------------------------------
-# UI font download (Nunito, SIL Open Font License — free to bundle/redistribute)
-#---------------------------------------------------------------------------------
-FONT_DIR         := romfs/fonts
-FONT_FILE        := $(FONT_DIR)/Nunito.ttf
-FONT_URL         := https://github.com/google/fonts/raw/main/ofl/nunito/Nunito%5Bwght%5D.ttf
-# Fallback fonts for glyphs Nunito lacks. Noto Sans SC covers Simplified Chinese,
-# Symbols covers gender ♂/♀ + star ★, and Symbols2 covers the card-suit heart ♥.
-CJK_FONT_FILE     := $(FONT_DIR)/NotoSansSC.ttf
-CJK_FONT_URL      := https://github.com/google/fonts/raw/main/ofl/notosanssc/NotoSansSC%5Bwght%5D.ttf
-SYMBOL_FONT_FILE  := $(FONT_DIR)/NotoSansSymbols.ttf
-SYMBOL_FONT_URL   := https://github.com/google/fonts/raw/main/ofl/notosanssymbols/NotoSansSymbols%5Bwght%5D.ttf
-SYMBOL2_FONT_FILE := $(FONT_DIR)/NotoSansSymbols2.ttf
-SYMBOL2_FONT_URL  := https://github.com/google/fonts/raw/main/ofl/notosanssymbols2/NotoSansSymbols2-Regular.ttf
-
-# Download $(2) to $(1) if missing. $(3) = human label.
-define fetch_font
-	@if [ -f "$(1)" ] && [ -s "$(1)" ]; then \
-		printf "%s already present.\n" "$(3)"; \
-	else \
-		printf "Downloading %s (SIL OFL)...\n" "$(3)"; \
-		if command -v curl >/dev/null 2>&1; then \
-			curl -fsSL -g "$(2)" -o "$(1)"; \
-		else \
-			wget -q "$(2)" -O "$(1)"; \
-		fi || { printf "Failed to download %s\n" "$(3)"; exit 1; }; \
+check-assets:
+	@missing=""; \
+	[ -s "$(CURDIR)/$(ASSET_FONTS)" ]   || missing="$$missing\n  UI fonts .......... python tools/gen_fonts.py"; \
+	[ -s "$(CURDIR)/$(ASSET_TYPES)" ]   || missing="$$missing\n  type icons ........ python tools/gen_typeicons.py"; \
+	[ -s "$(CURDIR)/$(ASSET_MARKS)" ]   || missing="$$missing\n  origin markings ... python tools/gen_marks.py"; \
+	[ -s "$(CURDIR)/$(ASSET_SPRITES)" ] || missing="$$missing\n  Pokemon sprites ... python tools/gen_hdsprites.py"; \
+	if [ -n "$$missing" ]; then \
+		printf 'error: romfs is missing assets the .nro must contain, and this build does not\n'; \
+		printf '       download anything. Fetch them once, then build again:%b\n' "$$missing"; \
+		exit 1; \
 	fi
-endef
-
-fonts:
-	@printf "Checking UI fonts...\n"
-	@mkdir -p "$(FONT_DIR)"
-	$(call fetch_font,$(FONT_FILE),$(FONT_URL),Nunito)
-	$(call fetch_font,$(CJK_FONT_FILE),$(CJK_FONT_URL),Noto Sans SC)
-	$(call fetch_font,$(SYMBOL_FONT_FILE),$(SYMBOL_FONT_URL),Noto Sans Symbols)
-	$(call fetch_font,$(SYMBOL2_FONT_FILE),$(SYMBOL2_FONT_URL),Noto Sans Symbols 2)
-
-.PHONY: fonts
-
-# HD Pokemon sprites are NOT downloaded here -- fetch + downscale them from PokeAPI HOME
-# renders with 'python tools/gen_hdsprites.py' (needs Pillow) into romfs/sprites/pokemon_hd/.
-# Run it once, and after bumping its pinned PokeAPI ref; make / make all assume the sprites
-# are already present (like the font).
 
 #---------------------------------------------------------------------------------
-.PHONY: $(BUILD) clean all
+.PHONY: $(BUILD) clean all check-assets
 
-$(BUILD):
+$(BUILD): check-assets
 	@[ -d $@ ] || mkdir -p $@
 	@$(MAKE) --no-print-directory -C $(BUILD) -f $(CURDIR)/Makefile all
 

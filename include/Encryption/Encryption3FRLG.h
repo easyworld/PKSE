@@ -1,6 +1,4 @@
 /**
- * Encryption3FRLG.h - Generation 3 (GBA / FireRed-LeafGreen) Pokemon encryption.
- *
  * PK3 layout: a 32-byte unencrypted header (0x00-0x1F) + a 48-byte encrypted data block
  * (0x20-0x4F, four 12-byte substructures Growth/Attacks/EVs/Misc) + party-only stats (0x50-0x63).
  *
@@ -14,7 +12,7 @@
  * The checksum (header 0x1C) is a 16-bit word-sum over the 48 canonical (decrypted) bytes.
  *
  * The layout is identical for all five GBA games (R/S/E/FR/LG); this file is named for FRLG because
- * that is the game PKSE targets. Offsets + tables: docs/ROADMAP_TO_V1.md App. A (PKHeX PK3.cs / PokeCrypto.cs).
+ * that is the game PKSE targets.
  */
 #ifndef ENCRYPTION_ENCRYPTION3_FRLG_H
 #define ENCRYPTION_ENCRYPTION3_FRLG_H

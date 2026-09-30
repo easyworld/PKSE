@@ -1,14 +1,3 @@
-/**
- * Trainer.h - Base Trainer/Save File Data Management
- *
- * This file defines the abstract base Trainer class and related structures for
- * managing Pokemon save file data. This base class provides a unified interface for accessing trainer data
- * across all generations.
- *
- * Derived classes (Trainer7LGPE, Trainer8SWSH, etc.) implement generation-specific data
- * formats, encryption, and Pokemon storage.
- */
-
 #ifndef TRAINER_TRAINER_H
 #define TRAINER_TRAINER_H
 
@@ -26,65 +15,32 @@
 #include "Trainer/Inventory.h"
 #include "Pokemon/Pokemon.h"
 #include "Enums/GameVersion.h"
+#include "Enums/LanguageID.h"
 
 using namespace Save;
 using namespace Utils;
 using namespace Enums;
 
-namespace Trainer {
+namespace Trainer
+{
 
     // Pokemon storage constants (common across generations)
-    constexpr size_t MAX_PARTY_SLOTS = 6;  // Maximum Pokemon in party
-    constexpr size_t BOX_SLOTS = 30;       // Pokemon per box (6x5 grid)
+    constexpr size_t MAX_PARTY_SLOTS = 6; // Maximum Pokemon in party
+    constexpr size_t BOX_SLOTS = 30;      // Pokemon per box (6x5 grid)
 
-    // ========================================
-    // Name Lookup Functions
-    // ========================================
+    const char *getSpeciesName(uint16_t speciesId);
 
-    /// Converts a Species ID to its name string
-    const char* getSpeciesName(uint16_t speciesId);
+    const char *getItemName(uint16_t itemId);
 
-    /// Converts an Item ID to its name string
-    const char* getItemName(uint16_t itemId);
-
-    /// Gets total number of items
     size_t getItemCount();
 
-    /// Converts a Nature ID to its name string
-    const char* getNatureName(uint8_t natureId);
+    const char *getNatureName(uint8_t natureId);
 
-    /// Converts an Ability ID to its name string
-    const char* getAbilityName(uint16_t abilityId);
+    const char *getAbilityName(uint16_t abilityId);
 }
 
-namespace Trainer {
-    /**
-     * Trainer - Abstract base class for save file data
-     *
-     * This class provides the foundation for all generation-specific Trainer classes.
-     * It defines the common interface that all save file formats must implement,
-     * while allowing each generation to handle its own data layout, encryption, and
-     * Pokemon storage.
-     *
-     * Common Data (stored in base class):
-     * - Trainer information (ID, name, money)
-     * - Item inventory
-     * - Box names
-     * - Save file blocks
-     *
-     * Generation-Specific Data (implemented in derived classes):
-     * - Party Pokemon storage (Pokemon7LGPE vs Pokemon8SWSH vs Pokemon9LZA)
-     * - Box Pokemon storage
-     * - Block key constants
-     * - Encryption methods
-     *
-     * Usage Pattern:
-     * 1. Derived class receives save file blocks
-     * 2. Constructor parses blocks and populates data
-     * 3. User modifies Pokemon, items, or trainer info
-     * 4. Update methods serialize changes back to blocks
-     * 5. Blocks are re-encrypted and saved to file
-     */
+namespace Trainer
+{
     class Trainer
     {
     protected:
@@ -95,9 +51,6 @@ namespace Trainer {
         std::vector<Block> blocks;
 
     public:
-        // ========================================
-        // Common Trainer Data
-        // ========================================
 
         /// Trainer name (UTF-8 string)
         std::string trainerName;
@@ -108,7 +61,7 @@ namespace Trainer {
         /// Trainer ID (32-bit format: SID16 << 16 | TID16)
         uint32_t ID32;
 
-        /// Trainer gender (0 = Male, 1 = Female), read from the save. Stamped as a created mon's OT
+        /// Trainer gender (0 = Male, 1 = Female), read from the save. Stamped as a created pokemon's OT
         /// gender so it matches the current trainer -- Gen 3 flags a mismatch as "Apparently met".
         uint8_t trainerGender = 0;
 
@@ -119,6 +72,11 @@ namespace Trainer {
         uint16_t SID16;
 
         /// Display Trainer ID (Gen 7+)
+        ///
+        /// NOTE ON NAMING. TID/SID (and TID16/SID16/ID32 above) keep PKHeX's spellings, which are
+        /// also what the games' own documentation and the community use. Spelling out only two of
+        /// the five would leave the set less uniform than it is now, not more, and every offset in
+        /// this layer is cross-checked against PKHeX by name.
         uint32_t TID;
 
         /// Display Secret ID (Gen 7+)
@@ -128,7 +86,7 @@ namespace Trainer {
         /// 0 = Base game, higher values indicate DLC/updates
         int saveRevision = 0;
 
-        /// NOTE: owning a DLC is NOT a precondition for holding its content. The games gate the
+        /// Owning a DLC is NOT a precondition for holding its content. The games gate the
         /// DLC *areas*, not the Pokemon -- a player without the Expansion Pass can be traded an
         /// Isle of Armor or Crown Tundra species (or one sent from HOME) and use it normally,
         /// because the patch ships the data to everyone. PKHeX agrees: nothing under
@@ -157,39 +115,23 @@ namespace Trainer {
         uint8_t getCurrentBox() const noexcept { return currentBox; }
         void setCurrentBox(uint8_t box) noexcept { currentBox = box; }
 
-        /// Party Pokemon (1-6 Pokemon) - stored polymorphically
         std::vector<std::unique_ptr<::Pokemon::Pokemon>> party;
 
         /// Box Pokemon storage [box_index][slot_index] - stored polymorphically
         /// nullptr = empty slot
         std::vector<std::array<std::unique_ptr<::Pokemon::Pokemon>, BOX_SLOTS>> boxes;
 
-        // ========================================
-        // Constructors and Destructor
-        // ========================================
-
-        /**
-         * Constructs a Trainer object from save file blocks.
-         * Derived classes call this constructor to initialize common data.
-         *
-         * @param blocks Save file blocks parsed from the save file
-         */
         explicit Trainer(std::vector<Block> blocks) : blocks(std::move(blocks)) {}
 
         /// Virtual destructor to ensure proper cleanup in derived classes
         virtual ~Trainer() = default;
 
-        // Delete copy operations to prevent accidental copies of save data
-        Trainer(const Trainer&) = delete;
-        Trainer& operator=(const Trainer&) = delete;
+        Trainer(const Trainer &) = delete;
+        Trainer &operator=(const Trainer &) = delete;
 
         // Allow move operations for efficient transfers
-        Trainer(Trainer&&) noexcept = default;
-        Trainer& operator=(Trainer&&) noexcept = default;
-
-        // ========================================
-        // Pure Virtual Methods (Must Implement)
-        // ========================================
+        Trainer(Trainer &&) noexcept = default;
+        Trainer &operator=(Trainer &&) noexcept = default;
 
         /**
          * Updates the party block with modified Pokemon data.
@@ -227,114 +169,76 @@ namespace Trainer {
          */
         virtual bool itemsAreIdIndexed() const { return false; }
 
-        /**
-         * Creates a blank, game-accepted Pokemon entity in this trainer's generation format.
-         *
-         * Synthesizes a zeroed *decrypted* buffer of the generation's box/party slot size,
-         * encrypts it with seed/EC 0, then constructs the generation's Pokemon entity from those
-         * encrypted bytes (the ctor decrypts them straight back to zeros). The result is a
-         * species-0, Sanity-0, checksum-valid entity — the clean starting point the creator fills
-         * in (species, PID/EC, level, ...). Mirrors each generation's own empty-box-slot encrypted
-         * blank in updateBoxBlock(); raw zeros must never be handed to a ctor (they decrypt to a
-         * Bad Egg). Dispatch is by trainer subclass, so no RTTI is needed.
-         *
-         * @return A generation-correct blank entity behind the base unique_ptr contract.
-         */
+        /// A species-0, sanity-0, checksum-valid entity in this trainer's format: zeros encrypted
+        /// with seed 0, which the generation's ctor decrypts straight back. Raw zeros must never
+        /// reach a ctor -- they decrypt to a Bad Egg.
         virtual std::unique_ptr<::Pokemon::Pokemon> createBlankPokemon() const = 0;
 
-        /**
-         * Gets the number of boxes available in this generation.
-         * @return Number of boxes (e.g., 32 for Sword/Shield, 40 for Let's Go)
-         */
         virtual size_t getBoxCount() const noexcept = 0;
 
-        /**
-         * Gets the number of slots per box in this generation.
-         * @return Slots per box (e.g., 30 for Sword/Shield, 25 for Let's Go)
-         */
         virtual size_t getSlotsPerBox() const noexcept = 0;
 
-        /**
-         * Gets the number of Pokemon currently in the party.
-         * @return Party size (0-6)
-         */
         virtual size_t getPartySize() const noexcept = 0;
 
-        /**
-         * Gets the game group for this trainer type.
-         * Used for type dispatch without RTTI (required for Nintendo Switch builds).
-         * @return GameVersion group (GG, SWSH, etc.)
-         */
         virtual GameVersion getGameGroup() const noexcept = 0;
 
-        /**
-         * Checks if a Pokemon at the given storage location is the Partner/Starter Pokemon.
-         * Only applicable to Let's Go games where the Partner Pikachu/Eevee has special status.
-         * @param boxIndex Box index (0-based)
-         * @param slotIndex Slot index within the box (0-based)
-         * @return true if this Pokemon is the Partner/Starter Pokemon
-         */
-        virtual bool isStarterPokemon(size_t boxIndex, size_t slotIndex) const noexcept {
-            (void)boxIndex;
-            (void)slotIndex;
-            return false;  // Default: no starter tracking for most games
-        }
+        virtual GameVersion getGameVersion() const noexcept = 0;
 
         /**
-         * Gets the party position of a Pokemon at the given storage location.
-         * For games like Let's Go that use index-based party systems.
-         * @param boxIndex Box index (0-based)
-         * @param slotIndex Slot index within the box (0-based)
-         * @return Party position (1-6) if in party, 0 if not in party
+         * The language the SAVE is written in, as an Enums::LanguageID byte.
+         *
+         * This is a different question from what language the person holding the console reads in,
+         * and it is asked for exactly one reason: a Pokemon created here is stamped with it, so the
+         * trainer name copied into its OT field can actually be stored. On a Japanese Gen 3 save
+         * that matters, because the language decides which character table the name is written
+         * through and the Japanese one is the only place its alphabet exists.
+         *
+         * English by default. Only the two Gen 3 groups override it -- Gen 3 is the last
+         * generation whose text is a per-language font
+         * map, so from Gen 4 on the save's language cannot make a name unstorable and there is
+         * nothing here for a newer format to answer. Gen 3 cannot tell its five international
+         * languages apart either (no save byte says which), so an override answers Japanese or
+         * English and nothing finer; PKHeX's SAV3 stops in the same place.
          */
-        virtual int getPartyPosition(size_t boxIndex, size_t slotIndex) const noexcept {
-            (void)boxIndex;
-            (void)slotIndex;
-            return 0;  // Default: no index-based party tracking for most games
+        virtual uint8_t language() const noexcept
+        {
+            return static_cast<uint8_t>(Enums::LanguageID::English);
         }
 
-        /**
-         * Checks if a party Pokemon at the given index is the Partner/Starter Pokemon.
-         * Only applicable to Let's Go games where the Partner Pikachu/Eevee has special status.
-         * @param partyIndex Party index (0-based, 0-5)
-         * @return true if this Pokemon is the Partner/Starter Pokemon
-         */
-        virtual bool isPartyPokemonStarter(size_t partyIndex) const noexcept {
+        /// Let's Go only -- the Partner Pikachu/Eevee. No other format has such a slot.
+        virtual bool isStarterPokemon(size_t boxIndex, size_t slotIndex) const noexcept
+        {
+            (void)boxIndex;
+            (void)slotIndex;
+            return false; // Default: no starter tracking for most games
+        }
+
+        virtual int getPartyPosition(size_t boxIndex, size_t slotIndex) const noexcept
+        {
+            (void)boxIndex;
+            (void)slotIndex;
+            return 0; // Default: no index-based party tracking for most games
+        }
+
+        virtual bool isPartyPokemonStarter(size_t partyIndex) const noexcept
+        {
             (void)partyIndex;
-            return false;  // Default: no starter tracking for most games
+            return false; // Default: no starter tracking for most games
         }
 
-        /**
-         * Mirrors an edited party member's two representations so neither clobbers the other on save.
-         * Let's Go stores each party member as BOTH a box/storage slot and an independent party copy,
-         * and updateBoxBlock() overlays the party copy onto the box slot ("party wins"). Without this,
-         * an edit made to a party member's box slot is silently lost on save. No-op for gens where the
-         * party and boxes are separate save regions (SWSH/LZA).
-         * @param boxIndex Box of the edited slot
-         * @param slotIndex Slot within the box
-         */
-        virtual void mirrorPartyMemberFromBox(size_t boxIndex, size_t slotIndex) {
-            (void)boxIndex; (void)slotIndex;
+        virtual void mirrorPartyMemberFromBox(size_t boxIndex, size_t slotIndex)
+        {
+            (void)boxIndex;
+            (void)slotIndex;
         }
 
-        /**
-         * Mirrors an edited party copy back into its box/storage slot (the display copy) so the two
-         * representations stay identical. No-op where party and boxes are separate regions.
-         * @param partyIndex Party slot (0-based)
-         */
-        virtual void mirrorPartyMemberFromParty(size_t partyIndex) {
+        virtual void mirrorPartyMemberFromParty(size_t partyIndex)
+        {
             (void)partyIndex;
         }
 
-        // ========================================
-        // Common Methods
-        // ========================================
-
-        /**
-         * Gets the blocks for serialization back to save file.
-         * @return Const reference to blocks vector
-         */
-        const std::vector<Block>& getBlocks() const {
+        const std::vector<Block> &getBlocks() const
+        {
             return blocks;
         }
 
@@ -343,32 +247,15 @@ namespace Trainer {
          * update generation-specific bookkeeping (e.g. LGPE party/starter storage pointers
          * that reference slots by index).
          */
-        virtual void swapBoxSlots(size_t b1, size_t s1, size_t b2, size_t s2) {
-            if (b1 >= boxes.size() || b2 >= boxes.size()) return;
-            if (s1 >= BOX_SLOTS || s2 >= BOX_SLOTS) return;
-            std::swap(boxes[b1][s1], boxes[b2][s2]);
+        virtual void swapBoxSlots(size_t firstBox, size_t firstSlot, size_t secondBox, size_t childStatus)
+        {
+            if (firstBox >= boxes.size() || secondBox >= boxes.size())
+                return;
+            if (firstSlot >= BOX_SLOTS || childStatus >= BOX_SLOTS)
+                return;
+            std::swap(boxes[firstBox][firstSlot], boxes[secondBox][childStatus]);
         }
 
-        /**
-         * Re-pack storage after a slot is vacated, for games that store boxes as a GAPLESS list.
-         *
-         * Only Let's Go needs this: its 1000 storage slots are one packed list, and the party and
-         * partner are INDICES into it, so a hole isn't a state the game can represent.
-         * `updateBoxBlock()` already compacts on write — doing it in memory too keeps what the
-         * editor shows equal to what will actually be saved, instead of showing a gap that
-         * silently closes on reload.
-         *
-         * Every other game stores boxes POSITIONALLY and writes an explicit blank for an empty
-         * slot, so for them a vacated slot staying put is already correct. **This default must stay
-         * a no-op** — re-packing a positional game would shuffle Pokemon the player arranged on
-         * purpose. (The roadmap used to list Legends: Arceus here too; that was wrong. PA8 writes
-         * box slots at `(box*slots + slot) * stride` with a blank record for empties, exactly like
-         * Sword/Shield. "Packed" in the LA code means a byte STRIDE with no padding between
-         * records, which is a different thing from a gapless occupancy list.)
-         *
-         * @return true if any Pokemon actually changed slot, so the caller can drop cursor state
-         *         (e.g. a multi-selection) that referenced slots by index.
-         */
         virtual bool compactStorage() { return false; }
 
         /**
@@ -425,15 +312,19 @@ namespace Trainer {
          * `updateBoxNameBlock()` writes ONLY these, and that restriction is load-bearing. Every
          * game's box-name parser substitutes a display default ("Box 3") when the save holds an
          * empty name, so `boxNames` is a mix of real names and placeholders. Writing the whole
-         * array back persists placeholders the player never typed — the round-trip harness caught
-         * exactly that, 215 bytes of invented names on an untouched Z-A save.
+         * array back persists placeholders the player never typed — writing an untouched Z-A save
+         * back that way drifted 215 bytes of invented names.
          */
         std::vector<bool> boxNameDirty;
-        void markBoxNameDirty(size_t box) {
-            if (boxNameDirty.size() < boxNames.size()) boxNameDirty.resize(boxNames.size(), false);
-            if (box < boxNameDirty.size()) boxNameDirty[box] = true;
+        void markBoxNameDirty(size_t box)
+        {
+            if (boxNameDirty.size() < boxNames.size())
+                boxNameDirty.resize(boxNames.size(), false);
+            if (box < boxNameDirty.size())
+                boxNameDirty[box] = true;
         }
-        bool isBoxNameDirty(size_t box) const noexcept {
+        bool isBoxNameDirty(size_t box) const noexcept
+        {
             return box < boxNameDirty.size() && boxNameDirty[box];
         }
 
@@ -445,11 +336,11 @@ namespace Trainer {
          * name can be unstorable there. The UI must ask BEFORE accepting, rather than let the write
          * path silently drop characters and hand back a mangled name.
          */
-        virtual bool canStoreBoxName(const std::string& name) const { (void)name; return true; }
-
-        // ========================================
-        // Editable Trainer Info
-        // ========================================
+        virtual bool canStoreBoxName(const std::string &name) const
+        {
+            (void)name;
+            return true;
+        }
 
         /**
          * Serialize the editable trainer-identity fields (money, OT name) back into this
@@ -481,7 +372,7 @@ namespace Trainer {
         /**
          * How many DIGITS a trainer name may contain -- a separate cap from the length, and one the
          * games enforce at name entry. PKHeX TrainerNameVerifier.GetMaxNumberCount: no limit before
-         * gen 4, four in gens 4-5, five from gen 6 on. Every Switch title is gen 6+, so 5; Gen 3
+         * generation 4, four in gens 4-5, five from generation 6 on. Every Switch title is generation 6+, so 5; Gen 3
          * overrides to "no limit". Negative means unlimited.
          *
          * A name no longer than the cap is exempt, so "12345" is accepted on a cap of five while

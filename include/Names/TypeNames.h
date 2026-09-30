@@ -1,8 +1,7 @@
 /**
- * TypeNames.h - Pokemon Type Name Lookup
- *
- * Provides type name lookup by type ID.
- * Type IDs match the MoveType enum (0-17).
+ * Type IDs match the MoveType enum. There are NINETEEN names and only EIGHTEEN types a species
+ * can be, because index 18 is Stellar -- a TERA type, which no species and no move has. The two
+ * counts below answer different questions and must not be merged; see each one.
  */
 
 #ifndef NAMES_TYPE_NAMES_H
@@ -10,19 +9,13 @@
 
 #include <cstdint>
 
-namespace Names {
-    /**
-     * Gets the name of a Pokemon type by ID.
-     * @param typeId Type ID (0-17)
-     * @return Type name string (e.g., "Normal", "Fire", "Water")
-     */
-    const char* getTypeName(uint8_t typeId);
+namespace Names
+{
+    const char *getTypeName(uint8_t typeId);
 
-    /**
-     * Gets the total number of types.
-     * @return Number of types (18)
-     */
     constexpr uint8_t getTypeCount() { return 18; }
+
+    constexpr uint8_t getTypeNameCount() { return 19; }
 }
 
 #endif

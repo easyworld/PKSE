@@ -26,7 +26,6 @@ namespace Encryption {
         0xA4, 0x48, 0xB3, 0x50, 0x9E, 0x14, 0xA0, 0x52, 0xDE, 0x7E, 0x10, 0x2B, 0x1B, 0x77, 0x6E, 0, // aligned to 0x80
     };
 
-    // Hash salt bytes from
     static const uint8_t IntroHashBytes[] = {
         0x9E, 0xC9, 0x9C, 0xD7, 0x0E, 0xD3, 0x3C, 0x44, 0xFB, 0x93, 0x03, 0xDC, 0xEB, 0x39, 0xB4, 0x2A,
         0x19, 0x47, 0xE9, 0x63, 0x4B, 0xA2, 0x33, 0x44, 0x16, 0xBF, 0x82, 0xA2, 0xBA, 0x63, 0x55, 0xB6,
@@ -46,31 +45,17 @@ namespace Encryption {
     std::vector<uint8_t> encrypt(const std::vector<Save::Block>& blocks);
     void computeHash(const uint8_t* data, size_t dataLength, uint8_t* hash);
 
-    /**
-     * Block position table for shuffling/unshuffling Pokemon data blocks.
-     *
-     * The shuffle value is derived from bits 13-17 of the personality value:
-     *   shuffleValue = (personalityValue >> 13) & 31
-     *
-     * This table maps shuffle values to block orders. Each group of 4 values
-     * represents the positions of blocks A, B, C, D for a given shuffle value.
-     *
-     * For example, shuffle value 0 = [0,1,2,3] (no shuffle)
-     *              shuffle value 1 = [0,1,3,2] (blocks C and D swapped)
-     *
-     * The table includes duplicates (entries 24-31) to eliminate modulus operations.
-     */
+    /** Block order for shuffle value `(personalityValue >> 13) & 31`, four entries per value. */
     static const std::uint8_t blockPosition[128] = {
-        // Shuffle values 0-23
-        0, 1, 2, 3,  // shuffleValue 0: ABCD (no shuffle)
-        0, 1, 3, 2,  // shuffleValue 1: ABDC
-        0, 2, 1, 3,  // shuffleValue 2: ACBD
-        0, 3, 1, 2,  // shuffleValue 3: ACDB
-        0, 2, 3, 1,  // shuffleValue 4: ADBC
-        0, 3, 2, 1,  // shuffleValue 5: ADCB
-        1, 0, 2, 3,  // shuffleValue 6: BACD
-        1, 0, 3, 2,  // shuffleValue 7: BADC
-        2, 0, 1, 3,  // shuffleValue 8: BCAD (continued...)
+        0, 1, 2, 3,
+        0, 1, 3, 2,
+        0, 2, 1, 3,
+        0, 3, 1, 2,
+        0, 2, 3, 1,
+        0, 3, 2, 1,
+        1, 0, 2, 3,
+        1, 0, 3, 2,
+        2, 0, 1, 3,
         3, 0, 1, 2,
         2, 0, 3, 1,
         3, 0, 2, 1,
@@ -85,9 +70,9 @@ namespace Encryption {
         2, 1, 3, 0,
         3, 1, 2, 0,
         2, 3, 1, 0,
-        3, 2, 1, 0,  // shuffleValue 23
+        3, 2, 1, 0,
 
-        // Duplicates of 0-7 to eliminate modulus (shuffleValue 24-31)
+        // duplicates of 0-7, so the index needs no modulus
         0, 1, 2, 3,
         0, 1, 3, 2,
         0, 2, 1, 3,
@@ -98,47 +83,31 @@ namespace Encryption {
         1, 0, 3, 2,
     };
 
-    /**
-     * Inverse block position table for unshuffling.
-     *
-     * This table is used during decryption to restore blocks to their original order.
-     * Given a shuffle value, it provides the inverse permutation.
-     */
     static const std::uint8_t blockPositionInvert[32] {
         0, 1, 2, 4, 3, 5, 6, 7, 12, 18, 13, 19, 8, 10, 14, 20, 16, 22, 9, 11, 15, 21, 17, 23,
         0, 1, 2, 4, 3, 5, 6, 7, // Duplicates of 0-7 to eliminate modulus
     };
 
 
-    /**
-     * XOR encryption/decryption using Linear Congruential Generator (LCG).
-     *
-     * The LCG formula is: seed = (multiplier * seed) + increment
-     * Multiplier: 0x41C64E6D
-     * Increment:  0x00006073
-     *
-     * This is the same LCG used in many Pokemon games for random number generation.
-     *
-     * Process:
-     * 1. Advance the LCG state
-     * 2. Extract upper 16 bits as XOR mask
-     * 3. XOR the mask with current 16-bit data chunk
-     * 4. Repeat for all 16-bit chunks in the data
-     */
     void cryptArray(std::span<std::byte> data, uint32_t seed);
 
 
-    /**
-     * Decrypts/encrypts a Pokemon's data blocks and party stats.
-     *
-     * Pokemon data structure:
-     * - Bytes 0-7:   Header (Encryption Constant + Checksum) - NOT encrypted
-     * - Bytes 8-327: Four 80-byte blocks (Growth, Attacks, EVs, Misc) - ENCRYPTED
-     * - Bytes 328+:  Party stats (if present) - ENCRYPTED
-     *
-     * This function decrypts both the data blocks and party stats sections.
-     */
     void cryptPokemon(std::span<std::byte> data, uint32_t partyValue, size_t blockSize, size_t blockCount);
+
+    /**
+     * Reorders the four data blocks, in either direction.
+     *
+     * Shared rather than copied per generation because the algorithm genuinely is one algorithm:
+     * every format from Gen 3 on shuffles four equal blocks by `(PID >> 13) & 31`, and only the
+     * BLOCK SIZE differs (Gen 4/5 use 32, Gen 6/7 use 56, Gen 8 uses 80, PA8 uses 88). The bytes
+     * before `start` and after the blocks are copied through untouched.
+     *
+     * `invert` picks the direction. Decrypting reads from shuffled positions and writes to natural
+     * ones; encrypting does the reverse. Getting this backwards round-trips correctly inside PKSE
+     * -- both directions are permutations -- and diverges only from what the game reads.
+     */
+    void shuffleBlocks(std::span<const std::byte> data, std::span<std::byte> result, uint32_t shuffleValue,
+                       size_t blockSize, bool invert);
 }
 
 #endif

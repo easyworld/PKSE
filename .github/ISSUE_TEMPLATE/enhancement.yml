@@ -1,0 +1,64 @@
+name: Enhancement
+description: Something PKSE already does that could work better.
+title: "[ENHANCEMENT] "
+labels: ["enhancement", "needs triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        For something PKSE can't do at all, use **Feature request** instead. Please [search the existing issues](https://github.com/kiasta/PKSE/issues?q=is%3Aissue) first.
+
+  - type: textarea
+    id: current
+    attributes:
+      label: What does PKSE do now?
+      description: The screen or feature, and what about it gets in your way.
+    validations:
+      required: true
+
+  - type: textarea
+    id: desired
+    attributes:
+      label: What should it do instead?
+    validations:
+      required: true
+
+  - type: dropdown
+    id: games
+    attributes:
+      label: Game(s)
+      multiple: true
+      options:
+        - All games
+        - FireRed / LeafGreen (Switch)
+        - "Let's Go, Pikachu! / Eevee!"
+        - Sword / Shield
+        - Brilliant Diamond / Shining Pearl
+        - "Legends: Arceus"
+        - Scarlet / Violet
+        - "Legends: Z-A"
+        - Red / Blue / Yellow (save file)
+        - Gold / Silver / Crystal (save file)
+        - Ruby / Sapphire / Emerald (save file)
+        - Diamond / Pearl / Platinum (save file)
+        - HeartGold / SoulSilver (save file)
+        - Black / White / Black 2 / White 2 (save file)
+        - X / Y / Omega Ruby / Alpha Sapphire (save file)
+        - Sun / Moon / Ultra Sun / Ultra Moon (save file)
+        - PKSM bank import
+    validations:
+      required: true
+
+  - type: textarea
+    id: extra
+    attributes:
+      label: Anything else
+      description: Screenshots, mockups or links.
+
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Before submitting
+      options:
+        - label: I searched the existing issues and this hasn't been requested yet.
+          required: true

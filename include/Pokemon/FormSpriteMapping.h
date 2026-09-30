@@ -1,6 +1,4 @@
 /**
- * FormSpriteMapping.h - Pokemon Form to Sprite ID Mapping
- *
  * Maps (species ID, form ID) pairs to PokeAPI sprite IDs.
  * PokeAPI uses sprite IDs 10001+ for alternate forms.
  */
@@ -10,30 +8,17 @@
 
 #include <cstdint>
 
-namespace Pokemon {
-    /**
-     * Gets the PokeAPI sprite ID for a Pokemon form.
-     * @param speciesId Pokemon species ID (1-1025)
-     * @param formId Form ID (0 = base form)
-     * @return Sprite ID (speciesId for base forms, 10000+ for alternate forms)
-     *         Returns speciesId if no specific form sprite exists.
-     */
+namespace Pokemon
+{
+    /// The species id itself for a base form or one with no dedicated art; 10000+ otherwise.
     uint32_t getFormSpriteId(uint16_t speciesId, uint8_t formId);
 
-    /**
-     * Gets the NAME-keyed sprite stem for a Pokemon form, e.g. "666-meadow".
-     *
-     * Most PokeAPI HOME renders are keyed by a numeric id, but ~200 of them are keyed by name
-     * instead -- the families whose forms are a set of peers rather than a base plus variants
-     * (Unown letters, Arceus/Silvally types, Vivillon patterns, Alcremie creams, Furfrou trims,
-     * flower colours, seasons, seas). Those have no numeric id at all, so getFormSpriteId cannot
-     * reach them; this is the only way to address that art.
-     *
-     * @return The stem WITHOUT extension or shiny suffix, or "" when this form is numeric-keyed
-     *         (or has no dedicated art). Callers should try this first and fall back to
-     *         getFormSpriteId when it returns empty.
-     */
-    const char* getFormSpriteName(uint16_t speciesId, uint8_t formId);
+    /// The stem without extension or shiny suffix, e.g. "666-meadow", or "" when this form is
+    /// numeric-keyed. PokeAPI keys ~200 renders by name -- the families whose forms are a set of
+    /// peers rather than a base plus variants (Unown letters, Arceus/Silvally types, Vivillon
+    /// patterns, Alcremie creams, Furfrou trims, flower colours, seasons, seas). Those have no
+    /// numeric id at all, so getFormSpriteId cannot reach them; try this first.
+    const char *getFormSpriteName(uint16_t speciesId, uint8_t formId);
 }
 
 #endif

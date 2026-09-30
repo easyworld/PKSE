@@ -8,10 +8,12 @@
 #ifndef NAMES_FORM_NAMES_H
 #define NAMES_FORM_NAMES_H
 
+#include <cstddef>
 #include <cstdint>
 #include <string>
 
-namespace Names {
+namespace Names
+{
     /**
      * Gets the form name for a given Pokemon species and form ID.
      *
@@ -24,7 +26,18 @@ namespace Names {
      * - getFormName(479, 1) = "Heat" (Heat Rotom)
      * - getFormName(25, 0) = "" (base Pikachu)
      */
-    const char* getFormName(uint16_t speciesId, uint8_t formId);
+    const char *getFormName(uint16_t speciesId, uint8_t formId);
+
+    /**
+     * The form name in one specific language, or nullptr when this table has none for it.
+     *
+     * Generated from PKHeX's own FormConverter (tools/gen_formnames.py). It carries the EIGHT
+     * NON-ENGLISH languages only: PKSE's English names are hand-curated in FormNames.cpp and are
+     * closer to the games than PKHeX's terse dropdown labels ("Alolan" rather than "Alola",
+     * "Plant Cloak" rather than "Plant"), so English is never taken from here. getFormName()
+     * applies this; call it directly only when you need a language other than the active one.
+     */
+    const char *getFormNameLocalized(uint16_t speciesId, uint8_t formId, size_t languageIndex);
 
     /**
      * Composes the user-facing display name: the variant label prefixed to the base species name,
@@ -34,10 +47,10 @@ namespace Names {
      * base species.
      *
      * @param speciesId species id (for the form lookup)
-     * @param formId    the mon's form index (Pokemon::form())
+     * @param formId    the pokemon's form index (Pokemon::form())
      * @param baseName  the game-appropriate base species string (e.g. Pokemon::species())
      */
-    std::string getDisplayName(uint16_t speciesId, uint8_t formId, const std::string& baseName);
+    std::string getDisplayName(uint16_t speciesId, uint8_t formId, const std::string &baseName);
 }
 
 #endif

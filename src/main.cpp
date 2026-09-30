@@ -34,54 +34,82 @@ int main()
 
     Utils::cleanupOldLogs();
 
-    // Initialize the ns service
     Result nsServiceInitializeResult = nsInitialize();
-    if (R_FAILED(nsServiceInitializeResult)) {
+    if (R_FAILED(nsServiceInitializeResult))
+    {
         logErrorToFile("Failed to initialize ns service");
         return -1;
     }
 
-    // Initialize account service
     Result accountServiceInitializeResult = accountInitialize(AccountServiceType_Application);
-    if (R_FAILED(accountServiceInitializeResult)) {
+    if (R_FAILED(accountServiceInitializeResult))
+    {
         logErrorToFile("Failed to initialize account service");
         nsExit();
         return -1;
     }
 
-    // Initialize ROMFS for accessing bundled sprites
     Utils::logInfoToFile("Initializing ROMFS...");
     Result romfsInitResult = romfsInit();
     bool romfsInitialized = false;
-    if (R_FAILED(romfsInitResult)) {
+    if (R_FAILED(romfsInitResult))
+    {
         logErrorToFile("Failed to initialize ROMFS - sprites will not be available");
         // Don't exit, app can still run without sprites
-    } else {
+    }
+    else
+    {
         Utils::logInfoToFile("ROMFS initialized successfully");
         romfsInitialized = true;
     }
+
+    // The console's own shared fonts, for Japanese, Korean and Chinese text.
+    //
+    // PKSE bundles Nunito plus two Noto Symbols faces, and between them they cover Latin-1 and the
+    // gender/star glyphs completely -- French, German, Italian and Spanish names have always
+    // rendered. What none of the three carries is a single CJK glyph, so a Japanese Pokemon's
+    // nickname decoded correctly and then drew as nothing at all.
+    //
+    // These are preferred over bundling Noto CJK because they are THE SAME FACES the console and
+    // the games themselves render Pokemon names with, so a Japanese nickname looks in PKSE exactly
+    // as it does in the game it came from -- which a separately-sourced font would not guarantee.
+    // They also cannot drift: there is no fetch step to go stale and no version skew between the
+    // glyphs PKSE draws and the ones the system draws. (This is NOT a size decision. PKSE is run
+    // under title override for the memory headroom, so the .nro's size is not a constraint; if
+    // self-containment were ever wanted, bundling Noto CJK alongside these is a free addition.)
+    //
+    // Failure is non-fatal and deliberately so: without it every Latin script still renders exactly
+    // as before, which is a far better outcome than refusing to start.
+    Result sharedFontInitResult = plInitialize(PlServiceType_User);
+    bool sharedFontsInitialized = R_SUCCEEDED(sharedFontInitResult);
+    if (!sharedFontsInitialized)
+        logErrorToFile("plInitialize failed - CJK text will render as blanks");
 
     // Initialize SDL for the window, GL context and input only -- rendering is NanoVG on GL.
     // SDL_image and SDL_ttf are deliberately NOT initialised: PNGs are decoded by stb_image in
     // SpriteManager and text is drawn by NanoVG's own font atlas, so neither library is used.
     Utils::logInfoToFile("Initializing SDL...");
     SDL_SetMainReady();
-    if (SDL_Init(SDL_INIT_VIDEO) != 0) {
+    if (SDL_Init(SDL_INIT_VIDEO) != 0)
+    {
         logErrorToFile("SDL_Init(VIDEO) failed");
         logErrorToFile(SDL_GetError());
     }
 
-    // Initialize sprite manager for Pokemon images
     Utils::logInfoToFile("Initializing Sprite Manager...");
     UI::SpriteManager::init();
 
     Utils::logInfoToFile("Testing sprite loading...");
-    UI::Sprite* testSprite = UI::SpriteManager::getSprite(25, false); // Pikachu
-    if (testSprite && testSprite->data) {
+    UI::Sprite *testSprite = UI::SpriteManager::getSprite(25, false); // Pikachu
+    if (testSprite && testSprite->data)
+    {
         logInfoToFile(("SUCCESS: Test sprite loaded! (" +
-            std::to_string(testSprite->width) + "x" +
-            std::to_string(testSprite->height) + ")").c_str());
-    } else {
+                       std::to_string(testSprite->width) + "x" +
+                       std::to_string(testSprite->height) + ")")
+                          .c_str());
+    }
+    else
+    {
         Utils::logInfoToFile("WARNING: Test sprite failed to load - sprites may not be available");
     }
 
@@ -90,7 +118,7 @@ int main()
     {
         UI::UIManager uiManager;
         uiManager.run();
-    }  // UIManager (and its SDL-backed framebuffer) destroyed here, before SDL_Quit
+    } // UIManager (and its SDL-backed framebuffer) destroyed here, before SDL_Quit
 
     // Cleanup
     Utils::logInfoToFile("Cleaning up Sprite Manager...");
@@ -99,10 +127,16 @@ int main()
 
     SDL_Quit();
 
-    if (romfsInitialized) {
+    if (romfsInitialized)
+    {
         Utils::logInfoToFile("Cleaning up ROMFS...");
         romfsExit();
     }
+
+    // After SDL_Quit and the NanoVG context it owned: the shared-font buffers live in memory the
+    // pl service maps, and fontstash holds pointers into them for as long as the context exists.
+    if (sharedFontsInitialized)
+        plExit();
 
     accountExit();
     nsExit();

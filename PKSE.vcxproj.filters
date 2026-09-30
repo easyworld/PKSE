@@ -4,6 +4,9 @@
     <Filter Include="include">
       <UniqueIdentifier>{9ced977d-7ea5-4838-954f-f0e468e3b03b}</UniqueIdentifier>
     </Filter>
+    <Filter Include="memecrypto">
+      <UniqueIdentifier>{9f3c1a20-7b64-4d18-9a55-2e6c8b31d4f7}</UniqueIdentifier>
+    </Filter>
     <Filter Include="include\Conversion">
       <UniqueIdentifier>{b382108d-a7b6-43a2-8509-2f9de918001b}</UniqueIdentifier>
     </Filter>
@@ -195,6 +198,12 @@
     <ClCompile Include="src\Pokemon\PersonalInfoTable.cpp">
       <Filter>src\Pokemon</Filter>
     </ClCompile>
+    <ClCompile Include="src\Pokemon\Gen1Tables.cpp">
+      <Filter>src\Pokemon</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Pokemon\Pokemon1RBY.cpp">
+      <Filter>src\Pokemon</Filter>
+    </ClCompile>
     <ClCompile Include="src\Pokemon\Pokemon3FRLG.cpp">
       <Filter>src\Pokemon</Filter>
     </ClCompile>
@@ -228,8 +237,107 @@
     <ClCompile Include="src\Trainer\Bank.cpp">
       <Filter>src\Trainer</Filter>
     </ClCompile>
+    <ClCompile Include="src\Trainer\PKSMBank.cpp">
+      <Filter>src\Trainer</Filter>
+    </ClCompile>
     <ClCompile Include="src\Trainer\Trainer.cpp">
       <Filter>src\Trainer</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Trainer\Trainer1RBY.cpp">
+      <Filter>src\Trainer</Filter>
+    </ClCompile>
+    <ClCompile Include="memecrypto\mini-gmp.c">
+      <Filter>memecrypto</Filter>
+    </ClCompile>
+    <ClCompile Include="memecrypto\rsa.c">
+      <Filter>memecrypto</Filter>
+    </ClCompile>
+    <ClCompile Include="memecrypto\sha1.c">
+      <Filter>memecrypto</Filter>
+    </ClCompile>
+    <ClCompile Include="memecrypto\aes.c">
+      <Filter>memecrypto</Filter>
+    </ClCompile>
+    <ClCompile Include="memecrypto\memecrypto.c">
+      <Filter>memecrypto</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Encryption\Encryption6XY.cpp">
+      <Filter></Filter>
+    </ClCompile>
+    <ClCompile Include="src\Encryption\Encryption6ORAS.cpp">
+      <Filter></Filter>
+    </ClCompile>
+    <ClCompile Include="src\Encryption\Encryption7SM.cpp">
+      <Filter></Filter>
+    </ClCompile>
+    <ClCompile Include="src\Encryption\Encryption7USUM.cpp">
+      <Filter></Filter>
+    </ClCompile>
+    <ClCompile Include="src\Encryption\Encryption4DP.cpp">
+      <Filter></Filter>
+    </ClCompile>
+    <ClCompile Include="src\Encryption\Encryption4PT.cpp">
+      <Filter></Filter>
+    </ClCompile>
+    <ClCompile Include="src\Encryption\Encryption4HGSS.cpp">
+      <Filter></Filter>
+    </ClCompile>
+    <ClCompile Include="src\Encryption\Encryption5BW.cpp">
+      <Filter></Filter>
+    </ClCompile>
+    <ClCompile Include="src\Encryption\Encryption5B2W2.cpp">
+      <Filter></Filter>
+    </ClCompile>
+    <ClCompile Include="src\Pokemon\OldGenTables.cpp">
+      <Filter></Filter>
+    </ClCompile>
+    <ClCompile Include="src\Pokemon\Pokemon6XY.cpp">
+      <Filter></Filter>
+    </ClCompile>
+    <ClCompile Include="src\Pokemon\Pokemon5BW.cpp">
+      <Filter></Filter>
+    </ClCompile>
+    <ClCompile Include="src\Pokemon\Pokemon4DP.cpp">
+      <Filter></Filter>
+    </ClCompile>
+    <ClCompile Include="src\Pokemon\Pokemon4PT.cpp">
+      <Filter></Filter>
+    </ClCompile>
+    <ClCompile Include="src\Pokemon\Pokemon4HGSS.cpp">
+      <Filter></Filter>
+    </ClCompile>
+    <ClCompile Include="src\Pokemon\Pokemon2GSC.cpp">
+      <Filter></Filter>
+    </ClCompile>
+    <ClCompile Include="src\Trainer\Trainer6XY.cpp">
+      <Filter></Filter>
+    </ClCompile>
+    <ClCompile Include="src\Trainer\Trainer6ORAS.cpp">
+      <Filter></Filter>
+    </ClCompile>
+    <ClCompile Include="src\Trainer\Trainer7SM.cpp">
+      <Filter></Filter>
+    </ClCompile>
+    <ClCompile Include="src\Trainer\Trainer7USUM.cpp">
+      <Filter></Filter>
+    </ClCompile>
+    <ClCompile Include="src\Trainer\Trainer5BW.cpp">
+      <Filter></Filter>
+    </ClCompile>
+    <ClCompile Include="src\Trainer\Trainer5B2W2.cpp">
+      <Filter></Filter>
+    </ClCompile>
+    <ClCompile Include="src\Trainer\Trainer4DP.cpp">
+      <Filter></Filter>
+    </ClCompile>
+    <ClCompile Include="src\Trainer\Trainer4PT.cpp">
+      <Filter></Filter>
+    </ClCompile>
+    <ClCompile Include="src\Trainer\Trainer4HGSS.cpp">
+      <Filter></Filter>
+    </ClCompile>
+    <ClCompile Include="src\Trainer\Trainer2GSC.cpp">
+      <Filter></Filter>
     </ClCompile>
     <ClCompile Include="src\Trainer\Trainer3FRLG.cpp">
       <Filter>src\Trainer</Filter>
@@ -258,7 +366,13 @@
     <ClCompile Include="src\UI\Dialogs\ItemEditDialog.cpp">
       <Filter>src\UI\Dialogs</Filter>
     </ClCompile>
+    <ClCompile Include="src\UI\Dialogs\PKSMImportDialog.cpp">
+      <Filter>src\UI\Dialogs</Filter>
+    </ClCompile>
     <ClCompile Include="src\UI\Dialogs\PickerDialog.cpp">
+      <Filter>src\UI\Dialogs</Filter>
+    </ClCompile>
+    <ClCompile Include="src\UI\Dialogs\FileBrowserDialog.cpp">
       <Filter>src\UI\Dialogs</Filter>
     </ClCompile>
     <ClCompile Include="src\UI\Dialogs\SaveConfirmDialog.cpp">
@@ -434,6 +548,15 @@
     <ClInclude Include="include\Pokemon\Pokemon.h">
       <Filter>include\Pokemon</Filter>
     </ClInclude>
+    <ClInclude Include="include\Pokemon\Gen1Tables.h">
+      <Filter>include\Pokemon</Filter>
+    </ClInclude>
+    <ClInclude Include="include\Pokemon\Pokemon1RBY.h">
+      <Filter>include\Pokemon</Filter>
+    </ClInclude>
+    <ClInclude Include="include\Utils\Gen1Text.h">
+      <Filter>include\Utils</Filter>
+    </ClInclude>
     <ClInclude Include="include\Pokemon\Pokemon3FRLG.h">
       <Filter>include\Pokemon</Filter>
     </ClInclude>
@@ -467,6 +590,9 @@
     <ClInclude Include="include\Trainer\Bank.h">
       <Filter>include\Trainer</Filter>
     </ClInclude>
+    <ClInclude Include="include\Trainer\PKSMBank.h">
+      <Filter>include\Trainer</Filter>
+    </ClInclude>
     <ClInclude Include="include\Trainer\Inventory.h">
       <Filter>include\Trainer</Filter>
     </ClInclude>
@@ -493,6 +619,150 @@
     </ClInclude>
     <ClInclude Include="include\Trainer\Trainer.h">
       <Filter>include\Trainer</Filter>
+    </ClInclude>
+    <ClInclude Include="include\Trainer\Trainer1RBY.h">
+      <Filter>include\Trainer</Filter>
+    </ClInclude>
+    <ClInclude Include="memecrypto\mini-gmp.h">
+      <Filter>memecrypto</Filter>
+    </ClInclude>
+    <ClInclude Include="memecrypto\rsa.h">
+      <Filter>memecrypto</Filter>
+    </ClInclude>
+    <ClInclude Include="memecrypto\sha1.h">
+      <Filter>memecrypto</Filter>
+    </ClInclude>
+    <ClInclude Include="memecrypto\aes.h">
+      <Filter>memecrypto</Filter>
+    </ClInclude>
+    <ClInclude Include="memecrypto\memecrypto.h">
+      <Filter>memecrypto</Filter>
+    </ClInclude>
+    <ClInclude Include="include\Utils\CRC16.h">
+      <Filter></Filter>
+    </ClInclude>
+    <ClInclude Include="include\Utils\Utf16Text.h">
+      <Filter></Filter>
+    </ClInclude>
+    <ClInclude Include="include\Utils\Gen4Text.h">
+      <Filter></Filter>
+    </ClInclude>
+    <ClInclude Include="include\Utils\Gen2Text.h">
+      <Filter></Filter>
+    </ClInclude>
+    <ClInclude Include="include\Encryption\Encryption6XY.h">
+      <Filter></Filter>
+    </ClInclude>
+    <ClInclude Include="include\Encryption\Encryption6ORAS.h">
+      <Filter></Filter>
+    </ClInclude>
+    <ClInclude Include="include\Encryption\Encryption7SM.h">
+      <Filter></Filter>
+    </ClInclude>
+    <ClInclude Include="include\Encryption\Encryption7USUM.h">
+      <Filter></Filter>
+    </ClInclude>
+    <ClInclude Include="include\Encryption\Encryption4DP.h">
+      <Filter></Filter>
+    </ClInclude>
+    <ClInclude Include="include\Encryption\Encryption4PT.h">
+      <Filter></Filter>
+    </ClInclude>
+    <ClInclude Include="include\Encryption\Encryption4HGSS.h">
+      <Filter></Filter>
+    </ClInclude>
+    <ClInclude Include="include\Encryption\Encryption5BW.h">
+      <Filter></Filter>
+    </ClInclude>
+    <ClInclude Include="include\Encryption\Encryption5B2W2.h">
+      <Filter></Filter>
+    </ClInclude>
+    <ClInclude Include="include\Pokemon\OldGenTables.h">
+      <Filter></Filter>
+    </ClInclude>
+    <ClInclude Include="include\Pokemon\Pokemon7SM.h">
+      <Filter></Filter>
+    </ClInclude>
+    <ClInclude Include="include\Pokemon\Pokemon6XY.h">
+      <Filter></Filter>
+    </ClInclude>
+    <ClInclude Include="include\Pokemon\Pokemon5BW.h">
+      <Filter></Filter>
+    </ClInclude>
+    <ClInclude Include="include\Pokemon\Pokemon4DP.h">
+      <Filter></Filter>
+    </ClInclude>
+    <ClInclude Include="include\Pokemon\Pokemon4PT.h">
+      <Filter></Filter>
+    </ClInclude>
+    <ClInclude Include="include\Pokemon\Pokemon4HGSS.h">
+      <Filter></Filter>
+    </ClInclude>
+    <ClInclude Include="include\Pokemon\Pokemon2GSC.h">
+      <Filter></Filter>
+    </ClInclude>
+    <ClInclude Include="include\Trainer\Inventory6XY.h">
+      <Filter></Filter>
+    </ClInclude>
+    <ClInclude Include="include\Trainer\Inventory6ORAS.h">
+      <Filter></Filter>
+    </ClInclude>
+    <ClInclude Include="include\Trainer\Inventory7SM.h">
+      <Filter></Filter>
+    </ClInclude>
+    <ClInclude Include="include\Trainer\Inventory7USUM.h">
+      <Filter></Filter>
+    </ClInclude>
+    <ClInclude Include="include\Trainer\Inventory5BW.h">
+      <Filter></Filter>
+    </ClInclude>
+    <ClInclude Include="include\Trainer\Inventory5B2W2.h">
+      <Filter></Filter>
+    </ClInclude>
+    <ClInclude Include="include\Trainer\Inventory4DP.h">
+      <Filter></Filter>
+    </ClInclude>
+    <ClInclude Include="include\Trainer\Inventory4PT.h">
+      <Filter></Filter>
+    </ClInclude>
+    <ClInclude Include="include\Trainer\Inventory4HGSS.h">
+      <Filter></Filter>
+    </ClInclude>
+    <ClInclude Include="include\Trainer\Gen67Blocks.h">
+      <Filter></Filter>
+    </ClInclude>
+    <ClInclude Include="include\Trainer\Gen5Blocks.h">
+      <Filter></Filter>
+    </ClInclude>
+    <ClInclude Include="include\Trainer\Trainer6XY.h">
+      <Filter></Filter>
+    </ClInclude>
+    <ClInclude Include="include\Trainer\Trainer6ORAS.h">
+      <Filter></Filter>
+    </ClInclude>
+    <ClInclude Include="include\Trainer\Trainer7SM.h">
+      <Filter></Filter>
+    </ClInclude>
+    <ClInclude Include="include\Trainer\Trainer7USUM.h">
+      <Filter></Filter>
+    </ClInclude>
+    <ClInclude Include="include\Trainer\Trainer5BW.h">
+      <Filter></Filter>
+    </ClInclude>
+    <ClInclude Include="include\Trainer\Trainer5B2W2.h">
+      <Filter></Filter>
+    </ClInclude>
+    <ClInclude Include="include\Trainer\Trainer4DP.h">
+      <Filter></Filter>
+    </ClInclude>
+    <ClInclude Include="include\Trainer\Trainer4PT.h">
+      <Filter></Filter>
+    </ClInclude>
+    <ClInclude Include="include\Trainer\Trainer4HGSS.h">
+      <Filter></Filter>
+    </ClInclude>
+    <ClInclude Include="include\Trainer\Trainer2GSC.h">
+      <Filter></Filter>
     </ClInclude>
     <ClInclude Include="include\Trainer\Trainer3FRLG.h">
       <Filter>include\Trainer</Filter>
@@ -524,6 +794,9 @@
     <ClInclude Include="include\UI\Dialogs\DialogFrame.h">
       <Filter>include\UI\Dialogs</Filter>
     </ClInclude>
+    <ClInclude Include="include\UI\Dialogs\PKSMImportDialog.h">
+      <Filter>include\UI\Dialogs</Filter>
+    </ClInclude>
     <ClInclude Include="include\UI\Dialogs\EditControls.h">
       <Filter>include\UI\Dialogs</Filter>
     </ClInclude>
@@ -531,6 +804,9 @@
       <Filter>include\UI\Dialogs</Filter>
     </ClInclude>
     <ClInclude Include="include\UI\Dialogs\PickerDialog.h">
+      <Filter>include\UI\Dialogs</Filter>
+    </ClInclude>
+    <ClInclude Include="include\UI\Dialogs\FileBrowserDialog.h">
       <Filter>include\UI\Dialogs</Filter>
     </ClInclude>
     <ClInclude Include="include\UI\Dialogs\SaveConfirmDialog.h">

@@ -7,15 +7,17 @@
 </p>
 
 # **PKSE - Pokemon Save Editor**
-PKSE is a homebrew application for conveniently editing Pokemon save files on the Nintendo Switch, without having to transfer save files to your PC.
+PKSE is a homebrew application for conveniently editing Pokemon save files on the Nintendo Switch, without having to transfer save files to your PC. It edits the Switch games' own saves, and save files from every earlier generation — Red and Blue through Ultra Sun and Ultra Moon — copied onto the SD card.
 
 ## **Features**
 - Backup and restore save files, directly on the console.
 - Edit party and box Pokemon: species, level, stats, IVs/EVs (AVs in Let's Go), nature, ability, moves, held item, ball, OT/met/origin, shininess and gender.
 - Edit trainer info and item pouches.
+- **Older generations** — open a save file from an emulator, a cartridge dump or a 3DS save manager and edit it the same way. Boxes, party, items, trainer details, the creator, the legality checker and the bank all work as they do for the Switch games.
 - **Pokemon creator** — build a Pokemon from scratch in any supported game's format, with legal options highlighted.
-- **Legality checker** — flags illegal values as you edit (informational; it never blocks or auto-changes anything).
-- **Cross-game bank** — PKSE-native persistent storage that every supported game shares. Deposit from one game and withdraw into another and the Pokemon is converted into the destination's format on the way out, preserving its origin (OT, IDs, met data, IVs/nature/PID). Moves the destination can't legally know are cleared, since an impossible move corrupts the Pokemon in some games.
+- **Legality checker** — flags illegal values as you edit, and checks whether a real encounter in the Pokemon's origin game could have produced it (informational; it never blocks or auto-changes anything).
+- **Cross-game bank** — PKSE-native persistent storage that every supported game shares, 200 boxes deep. Deposit from one game and withdraw into another and the Pokemon is converted into the destination's format on the way out, preserving its origin (OT, IDs, met data, IVs/nature/PID). Moves the destination can't legally know are cleared, since an impossible move corrupts the Pokemon in some games. Red/Blue/Yellow and Gold/Silver/Crystal Pokemon travel forward through Poke Transporter, exactly as the Virtual Console games did, and never back.
+- **PKSM bank import** — read a PKSM `.bnk` file straight off the SD card (Minus in the Storage view opens a file browser) and pull its Pokemon into PKSE's bank, keeping your box layout and box names. Every generation a PKSM bank can hold is covered — Gens 1 through 9 — and the preview reports exactly what it found before anything is written.
 
 ## **Screenshots**
 
@@ -56,70 +58,134 @@ All seven mainline Switch titles are implemented, and all of them interconnect t
 | 9 | Scarlet / Violet | Implemented — hardware validated |
 | 9 | Legends: Z-A | Implemented — hardware validated |
 
+FireRed and LeafGreen ship as a separate Switch title per language; all twelve are recognised.
+
+### Earlier generations
+
+Every main-series game before the Switch is implemented too — 26 titles. Their saves are files rather than installed games, so they are opened from the SD card: see [Opening an older game's save](#opening-an-older-games-save).
+
+| Generation | Titles |
+|---|---|
+| 1 | Red / Blue / Yellow |
+| 2 | Gold / Silver / Crystal |
+| 3 | Ruby / Sapphire / Emerald |
+| 4 | Diamond / Pearl / Platinum, HeartGold / SoulSilver |
+| 5 | Black / White, Black 2 / White 2 |
+| 6 | X / Y, Omega Ruby / Alpha Sapphire |
+| 7 | Sun / Moon, Ultra Sun / Ultra Moon |
 
 ### Known gaps
-- Transferring *into* Gen 3 rebuilds the Pokemon's PID. Gen 3 derives nature, gender, shininess and ability slot from the PID, so PKSE searches for a PID that reproduces all four — those traits are preserved (the original PID is kept in the rare case no match is found). The trade-off is that the PID itself changes, and the resulting PID/IV pair won't correspond to a real Gen 3 RNG frame; PKSE warns you before the conversion. Custom nicknames also fall back to the species name.
-- Ribbons are counted but not individually displayed or editable.
+- Transferring *into* Gen 3 rebuilds the Pokemon's PID. Gen 3 derives nature, gender, shininess and ability slot from the PID, so PKSE searches for a PID that reproduces all four — those traits are preserved (the original PID is kept in the rare case no match is found). The trade-off is that the PID itself changes, and the resulting PID/IV pair won't correspond to a real Gen 3 RNG frame; PKSE warns you before the conversion. A nickname Gen 3's character set can't spell falls back to the species name, and an original trainer name it can't spell is left blank rather than replaced.
+- Pokemon from Generations 4, 5 and 6 can be stored in the bank, but PKSE doesn't convert them into another game's format yet.
+- Ribbons and marks are listed on the details page but can't be edited.
+- Korean Gold/Silver saves aren't supported. They use a different character table and checksum, so PKSE refuses them rather than half-opening one.
+- Red/Blue, Gold/Silver, Ruby/Sapphire, Diamond/Pearl and HeartGold/SoulSilver each write an identical save with no version byte, so PKSE can only name the pair.
 
 ---
 
-## **Prerequisites**
+## **Using PKSE**
 
-### 1. Install Required Tools
-Ensure the following tools and dependencies are installed:
+Copy `PKSE.nro` to `/switch/` on your SD card and start it from the Homebrew Menu. Open the Homebrew Menu through title override — hold **R** while starting any game — rather than from the Album, because applet mode leaves homebrew much less memory.
 
-#### **1.1. devkitPro**
-- Download and install [devkitPro](https://devkitpro.org/wiki/Getting_Started).
-- Ensure `Switch Development` is selected during installation.
+Pick a user, a game, then a backup to work on (or create a new one). Backups live in `sdmc:/PKSE/`, one folder per title, named after the game and its title ID. When you save, PKSE asks where to write: the backup you are editing, a new backup, or the game's own save.
 
-#### **1.2. zlib installation** (Optional, will implement compressed logic in future versions)
-- In the MSys2 shell, run ```pacman -S switch-zlib``` to install the zlib for compression support.
+### Opening an older game's save
+
+An older game's save is a file, not an installed game. Copy it onto your SD card, press **Y — Open Save File** on the save picker and browse to it. The browser lists `.sav`, `.srm`, `.dat` and `.sgm` files and 3DS saves named `main`; **X** shows every file. PKSE identifies the game from the file's contents, and before it writes to a file you opened this way it copies the original to `sdmc:/PKSE/FileBackups`.
+
+### Logs
+
+Settings → **Enable Debug Logging** (off by default) writes a log to `sdmc:/PKSE/logs/`. If you hit a bug, turn it on, reproduce the problem and attach the log to your report.
 
 ---
 
-### 2. Set Up Environmental Variables
-Set the `DEVKITPRO` environment variable to the installation path of devkitPro.
+## **Building PKSE**
 
-#### On Windows:
+### 1. Install devkitPro and the packages PKSE links
+
+Install [devkitPro](https://devkitpro.org/wiki/Getting_Started). On Windows its installer sets up an MSys2 shell to build from — select *Switch Development* when it asks. Then install the packages:
+
 ```bash
-setx DEVKITPRO "C:\devkitPro"
+pacman -S switch-dev switch-sdl2 switch-glad switch-lz4
 ```
-#### On macOS/Linux:
-Add the following line to your shell configuration file (~/.bashrc or ~/.zshrc):
+
+On Windows, run that in the devkitPro MSys2 shell. On Arch-family Linux, add devkitPro's repositories to `/etc/pacman.conf` and use the system `sudo pacman`; on other Linux distributions and on macOS, devkitPro's package manager is `dkp-pacman` (see their Getting Started guide for your platform).
+
+That is everything the build needs: `switch-dev` is the toolchain (devkitA64, libnx, `pkg-config` and the Switch tools), `switch-sdl2` provides the window, GL context and input (pulling in Mesa/EGL), `switch-glad` is the OpenGL loader NanoVG draws through, and the Makefile links `switch-lz4`. `switch-sdl2_image`, `switch-sdl2_ttf` and `switch-zlib` are **not** needed.
+
+You also need **Python 3** for the asset scripts in step 3, plus [Pillow](https://pypi.org/project/Pillow/) (`pip install pillow`) for the sprite script.
+
+### 2. Check that `DEVKITPRO` is set
+
+The Makefile needs `DEVKITPRO` to point at the devkitPro install, and stops with *"Please set DEVKITPRO in your environment"* if it doesn't. The Windows installer sets it, and on Linux `switch-dev` installs `/etc/profile.d/devkit-env.sh`, which sets it for login shells — so open a new shell after installing and check:
+
+```bash
+echo $DEVKITPRO        # /opt/devkitpro
+```
+
+If it prints nothing (a shell that doesn't read `/etc/profile.d`, for example), set it yourself:
+
 ```bash
 export DEVKITPRO=/opt/devkitpro
 ```
 
-Restart your terminal or run the command to apply the changes.
+### 3. Fetch the romfs assets (once per checkout)
 
----
+The fonts and art PKSE bundles into the `.nro` are not in the repository — `romfs/` is gitignored — and **the build downloads nothing**. Fetch them once with the four scripts in `tools/`:
 
-### 3. Configure Visual Studio Code
+```bash
+python tools/gen_fonts.py        # the UI fonts: Nunito, Noto Sans Symbols and Symbols 2 (SIL OFL)
+python tools/gen_typeicons.py    # the 19 type icons: 18 types plus Stellar
+python tools/gen_marks.py        # the origin marks, from PKHeX
+python tools/gen_hdsprites.py    # every Pokemon HOME render, downscaled to 256px (needs Pillow)
+```
 
-To configure IntelliSense in VS Code:
+The first three take seconds. `gen_hdsprites.py` is the long one: it mirrors PokeAPI's whole HOME sprite tree — 3,260 files, about 148 MB, with shiny and female variants — into `romfs/sprites/pokemon_hd/`.
 
-#### **3.1. Install Extensions**
-- C/C++ by Microsoft
-- DevkitPro Tools (if available)
+Each script fetches only what is missing, so re-running one is cheap and safe; `--force` re-fetches everything, and `gen_hdsprites.py --only 778 10091` repairs individual sprites. The sprites and type icons are pinned to one PokeAPI commit. The fonts follow Google Fonts' `main` branch and the marks follow PKHeX's `master`, but nothing already on disk is fetched again unless you pass `--force`.
 
-#### **3.2. Create a c_cpp_properties.json File**
-Create or update the file in .vscode/c_cpp_properties.json with the following content:
+If any of this is missing, `make` stops before compiling anything and names the script to run, rather than building an `.nro` with blank art or no text.
+
+### 4. Build
+
+From the repository root, in a POSIX shell — the devkitPro MSys2 shell on Windows (not PowerShell or cmd), or any shell on Linux or macOS:
+
+```bash
+make                   # or: make -j$(nproc)
+```
+
+This produces **`PKSE.nro`** in the repository root; copy it to `/switch/` on your SD card. `make clean` removes the build output, and `make all` is an alias for `make`.
+
+There is no separate production build. SD-card logging is a **runtime** setting — Settings → *Enable Debug Logging*, off by default — so the `.nro` you test is the one you ship, and a user who hits a bug can always produce a log.
+
+To check that the code compiles without a full build, `python tools/syntax_check.py` runs the real cross compiler over every source file in a few seconds, with no linking and no MSys2 shell needed. `--warnings` does a full optimizing pass instead and fails on any warning — the build is kept warning-free.
+
+### 5. Editor setup (optional)
+
+The build doesn't need an IDE. For IntelliSense in VS Code, install the C/C++ extension and create `.vscode/c_cpp_properties.json` along these lines:
+
 ```json
 {
   "configurations": [
     {
-      "name": "Switch",
-      "includePath": [
-        "${workspaceFolder}/include/**",
-        "${workspaceFolder}/src/**",
-        "${env:DEVKITPRO}/libnx/include",
-        "${env:DEVKITPRO}/portlibs/switch/include", // We should include optional libraries here
-        "${env:DEVKITPRO}/devkitA64/aarch64-none-elf/include"
+      "name": "Switch (devkitA64)",
+      "compilerPath": "/opt/devkitpro/devkitA64/bin/aarch64-none-elf-g++",
+      "compilerArgs": [
+        "-march=armv8-a+crc+crypto", "-mtune=cortex-a57", "-mtp=soft", "-fPIE",
+        "-fno-rtti", "-fno-exceptions", "-ftls-model=local-exec"
       ],
-      "defines": [],
-      "compilerPath": "${env:DEVKITPRO}/devkitA64/bin/aarch64-none-elf-g++.exe",
-      "cStandard": "c11",
-      "cppStandard": "c++20", // This version is necessary
+      "includePath": [
+        "${workspaceFolder}/include",
+        "${workspaceFolder}/nanovg",
+        "${workspaceFolder}/memecrypto",
+        "${workspaceFolder}/build",
+        "/opt/devkitpro/libnx/include",
+        "/opt/devkitpro/portlibs/switch/include",
+        "/opt/devkitpro/portlibs/switch/include/SDL2"
+      ],
+      "defines": ["__SWITCH__", "_REENTRANT", "NVG_NO_STB"],
+      "cStandard": "gnu17",
+      "cppStandard": "c++20",
       "intelliSenseMode": "linux-gcc-arm64"
     }
   ],
@@ -127,80 +193,77 @@ Create or update the file in .vscode/c_cpp_properties.json with the following co
 }
 ```
 
----
+On Windows, replace `/opt/devkitpro` with the real path — normally `C:/devkitPro` — and add `.exe` to the compiler path. Don't use `${env:DEVKITPRO}`: on Windows it holds the MSys2 path `/opt/devkitpro`, which VS Code can't resolve, so every libnx include silently fails.
 
-## **4. Build the Project**
-
-#### **4.1. Fetch the Pokemon sprites** (one time)
-
-The HD Pokemon sprites are **not** downloaded by `make`. Fetch them once from the [PokeAPI HOME renders](https://github.com/PokeAPI/sprites) and downscale them into `romfs/` with the bundled script — it needs Python 3 and [Pillow](https://pypi.org/project/Pillow/) (`pip install pillow`):
-
-```bash
-python tools/gen_hdsprites.py
-```
-
-This writes 256px PNGs into `romfs/sprites/pokemon_hd/` (every base species plus alternate forms, normal + shiny). You only need to re-run it after bumping the script's pinned PokeAPI ref or adding a new generation; pass `--force` to re-fetch everything.
-
-#### **4.2. Build**
-
-Open MSys2 (should have been included with the devkitPro toolset), navigate to the root directory and run:
-
-```bash
-make clean && make all
-```
-
-`make all` downloads the type icons and UI font (if they're missing), then generates the `.nro` in the build directory, which you can deploy to your Nintendo Switch. If the type icons, font and sprites are already present, skip the downloads with:
-
-```bash
-make clean && make
-```
-or
-
-```bash
-make clean && make all prod
-```
-
-`prod` argument ensures no debug or trace logs are being written clogging up space on the sdcard.
+In Visual Studio, use **File → Open → Folder**, which reads the committed `CppProperties.json`; point its devkitPro paths at your install. `python tools/syntax_check.py --print-flags` prints the exact flags the build uses.
 
 ---
 
 ## **Regenerating the data tables**
 
-Most of the game data PKSE relies on — species / move / ability / item names, learnsets, per-species info (abilities, gender ratios, forms), item-pouch contents, met-location names, move PP and Pokedex entry placement — lives in **generated** source files under `src/Names/` and `src/Pokemon/`. These are **committed to the repo**, so a normal build never regenerates them: `make` just compiles them, and you do **not** need any of the tools below to build PKSE.
+Most of the game data PKSE relies on — names in nine languages, per-game species data, learnsets, evolutions, the legality checker's encounter tables, item pouches, move PP, Pokedex layouts and the fixed save-block tables — lives in **generated** source files under `src/` and `include/`. These are **committed to the repo**, so a normal build never regenerates them: `make` just compiles them, and you do **not** need any of this to build PKSE.
 
-You only need to regenerate a table when its upstream data changes — a new game, a DLC that adds Pokemon / moves / items, or a correction in [PKHeX](https://github.com/kwsch/PKHeX). The generators live in `tools/` and are run **by hand, one at a time**.
+You only need to regenerate when upstream data changes — a new game, a DLC that adds Pokemon / moves / items, or a correction in [PKHeX](https://github.com/kwsch/PKHeX). The generators live in `tools/` and are **not** part of the build.
 
-### PKHeX-derived tables (Python 3)
-
-These read their inputs **straight from GitHub** — only Python 3 and an internet connection are needed, no local PKHeX checkout:
+### Everything at once
 
 ```bash
-python tools/gen_personal.py       # abilities / gender / friendship / forms / per-game presence
-python tools/gen_learnsets.py      # per-game learnable-move bitsets
-python tools/gen_locations.py      # met-location names
-python tools/gen_moveinfo.py       # base PP per move
-python tools/gen_movenames.py      # move display names
-python tools/gen_movepresence.py   # which moves exist in each game
-python tools/gen_itempresence.py   # which items a Pokemon may legally hold, per game
-python tools/gen_itempouches.py    # which items belong in each bag pocket
-python tools/gen_speciesnames.py   # species display names
-python tools/gen_swshdex.py        # which of Sword/Shield's three Pokedexes a species is in
-python tools/gen_svdex.py          # which Scarlet/Violet regional Pokedex a species+FORM is in
-python tools/gen_pladex.py         # Legends: Arceus Pokedex statistics-entry lookup
+python tools/regenerate.py                  # every generator, then the list of committed files that changed
+python tools/regenerate.py --list           # show what would run, and run nothing
+python tools/regenerate.py --tables         # the data tables only
+python tools/regenerate.py --assets         # the four romfs asset scripts only (--force re-fetches)
+python tools/regenerate.py --ref <commit>   # pin PKHeX to one commit for this run
 ```
 
-Each fetches its PKHeX files via `tools/pkhex_source.py` and caches them under `tools/.pkhex_cache/` (gitignored) so re-runs are offline. By default they use a **pinned PKHeX commit** — the one the committed tables were built from — so regenerating reproduces the existing tables exactly. Two overrides:
+It finds every `tools/gen_*.py` by itself. By default it **also regenerates any sibling directory that is itself a PKSE checkout**; `--repo .` limits it to this one, and `--list` shows which checkouts it found.
 
-- **Adopt newer PKHeX data** — set `PKHEX_REF` to a newer commit, tag, or `master`, then review the regenerated diff before committing:
+### One generator at a time
+
+| Script | Generates |
+|---|---|
+| `gen_speciesnames.py` | species names |
+| `gen_movenames.py` | move names |
+| `gen_simplenames.py` | ability, nature and type names |
+| `gen_itemnames.py` | item names |
+| `gen_locations.py` | met-location names |
+| `gen_formnames.py` | form names in the eight languages besides English (needs the .NET SDK, see below) |
+| `gen_ribbonnames.py` | ribbon names in the eight languages besides English |
+| `gen_personaltables.py` | per-game species data — stats, types, abilities, gender ratio, growth rate, forms — one file per save format |
+| `gen_personal.py` | the cross-game species table: per-game presence and form counts |
+| `gen_gen1.py` | Red/Blue/Yellow's own tables: species index, base stats, types and move PP |
+| `gen_learnsets.py` | per-game learnable-move sets |
+| `gen_moveinfo.py` | per-game base PP |
+| `gen_movepresence.py` | which moves exist in each game |
+| `gen_itempouches.py` | which items belong in each bag pocket |
+| `gen_itempresence.py` | which items a Pokemon may legally hold, per game |
+| `gen_evolutions.py` | the legality checker's evolution tables |
+| `gen_encounters.py` | the legality checker's encounter tables — wild, static, gift, trade, raid and Mystery Gift |
+| `gen_blocktables.py` | the fixed save-block tables for Gens 5–7 |
+| `gen_dexformtables.py` | Pokedex form-index tables for X/Y, Omega Ruby/Alpha Sapphire, Sun/Moon, Ultra Sun/Ultra Moon and Let's Go |
+| `gen_dextable8swsh.py` | which of Sword/Shield's three Pokedexes a species is in |
+| `gen_dextable8la.py` | Legends: Arceus's research-log lookup |
+| `gen_dextable9sv.py` | which Scarlet/Violet regional Pokedex a species and form is in |
+| `gen_gen2text.py` | the Gen 2 character tables |
+| `gen_gen4text.py` | the Gen 4 character tables |
+
+### Where the data comes from
+
+The generators read PKHeX's source and resources **straight from GitHub** through `tools/pkhex_source.py` — only Python 3 and an internet connection are needed, no local PKHeX checkout — and cache them under `tools/.pkhex_cache/` (gitignored), so re-runs are offline.
+
+By default they follow **PKHeX's `master` branch**, resolved to one commit per run, so regenerating adopts upstream corrections — which makes the regenerated diff the review gate. Two overrides:
+
+- **Reproduce a table exactly** — pin `PKHEX_REF` to the commit (or tag, or branch) it was built from. `src/Names/FormNamesLocalized.cpp` records the commit it was generated from.
   ```bash
-  PKHEX_REF=master python tools/gen_personal.py
+  PKHEX_REF=<commit> python tools/gen_personaltables.py
   ```
-- **Read from a local PKHeX checkout** instead of the network — point `PKHEX_LOCAL` at its `PKHeX.Core` directory:
+- **Use a PKHeX checkout you already have** instead of downloading — point `PKHEX_LOCAL` at it, either the repository root or its `PKHeX.Core` folder:
   ```bash
-  PKHEX_LOCAL=/path/to/PKHeX/PKHeX.Core python tools/gen_learnsets.py
+  PKHEX_LOCAL=/path/to/PKHeX python tools/gen_learnsets.py
   ```
 
 (From PowerShell, set the variable first, e.g. `$env:PKHEX_REF = "master"`.)
+
+`gen_formnames.py` needs more than Python: it compiles PKHeX.Core to call PKHeX's own form converter, so it needs the [.NET 10 SDK](https://dotnet.microsoft.com/download), and it also reads localized form names from PokeAPI (cached under `tools/.pokeapi_cache/`).
 
 After regenerating, review the diff to the affected file(s) and commit it.
 
@@ -210,14 +273,23 @@ After regenerating, review the diff to the affected file(s) and commit it.
 
 ### Common Issues
 
-- **`make` not found**:  
-  Ensure `make` is installed and in your `PATH`.
+- **`error: romfs is missing assets the .nro must contain`**:  
+  A fresh checkout has no fonts or art. Run the script the message names ([step 3](#3-fetch-the-romfs-assets-once-per-checkout)), then build again.
 
-- **Undefined references**:  
-  Verify that your `includePath` is correctly configured in `c_cpp_properties.json`.
+- **`Please set DEVKITPRO in your environment`**:  
+  See [step 2](#2-check-that-devkitpro-is-set).
+
+- **`make` not found**:  
+  On Windows, build from the devkitPro MSys2 shell, not PowerShell or cmd — the Makefile uses POSIX `sh`. On Linux, install your distribution's `make`.
+
+- **Undefined references when linking**:  
+  A package from [step 1](#1-install-devkitpro-and-the-packages-pkse-links) is missing — check `switch-sdl2`, `switch-glad` and `switch-lz4`. If *every* SDL and EGL symbol is undefined, `pkg-config` didn't find SDL2: `$DEVKITPRO/portlibs/switch/bin/aarch64-none-elf-pkg-config --libs sdl2` should print linker flags.
+
+- **The editor shows errors but `make` succeeds**:  
+  IntelliSense only approximates the cross compiler ([step 5](#5-editor-setup-optional)). `python tools/syntax_check.py` is the authority on whether the code compiles.
 
 - **libnx-related errors**:  
-  Ensure `libnx` is properly installed and that `DEVKITPRO` is set correctly.
+  Ensure `libnx` is properly installed (it comes with `switch-dev`) and that `DEVKITPRO` is set correctly.
 
 - **Permission issues on Windows**:  
   Run VS Code or your terminal as Administrator if file access errors occur.
@@ -226,9 +298,13 @@ After regenerating, review the diff to the affected file(s) and commit it.
 
 ## **Credits**
 
-- PKHeX Team: core save editing logic are derived from the PKHeX project. Visit their official repository: https://github.com/kwsch/PKHeX.
-- PokeAPI Team: for their work on sprites: https://github.com/PokeAPI/sprites
+- PKHeX Team: core save editing logic, the game data tables and the origin marks are derived from the PKHeX project. Visit their official repository: https://github.com/kwsch/PKHeX.
+- PKSM Team: for their work on the 3DS and their bank system. Visit their official repository: https://github.com/FlagBrew/PKSM.
+- PokeAPI Team: for their work on sprites and type icons: https://github.com/PokeAPI/sprites
 - libnx and devkitPro communities for Switch homebrew development tools. Visit their official website: https://devkitpro.org/wiki/Getting_Started.
+- SciresM, for [memecrypto](https://github.com/FlagBrew/memecrypto), which signs Sun/Moon and Ultra Sun/Ultra Moon saves (vendored in `memecrypto/`, GPLv3).
+- Mikko Mononen, for [NanoVG](https://github.com/memononen/nanovg), which draws the UI, and Sean Barrett, for [stb_image](https://github.com/nothings/stb), which decodes the sprites.
+- The UI fonts, [Nunito](https://fonts.google.com/specimen/Nunito) and [Noto Sans Symbols](https://fonts.google.com/noto/specimen/Noto+Sans+Symbols), under the SIL Open Font License.
 
 ## **License**
 

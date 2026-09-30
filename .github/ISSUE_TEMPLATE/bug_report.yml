@@ -1,0 +1,130 @@
+name: Bug report
+description: Something in PKSE is broken, wrong, or crashes.
+title: "[BUG] "
+labels: ["bug", "needs triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to report this. Please [search the existing issues](https://github.com/kiasta/PKSE/issues?q=is%3Aissue) first — if yours is already there, add your details and log to it instead.
+
+        **A debug log is the most useful thing you can attach.** In PKSE, open **Settings**, turn on **Enable Debug Logging**, reproduce the problem, then attach the newest file from `sdmc:/PKSE/logs/`.
+
+        A file that makes PKSE crash or corrupt data *on purpose* is a security problem — please [report it privately](https://github.com/kiasta/PKSE/security/advisories/new) instead.
+
+  - type: input
+    id: version
+    attributes:
+      label: PKSE version
+      description: Shown in the title bar of PKSE's save picker, and in the Homebrew Menu.
+      placeholder: "1.2.0"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: games
+    attributes:
+      label: Game(s)
+      description: Which save(s) were open? For a bank transfer, pick both ends.
+      multiple: true
+      options:
+        - FireRed / LeafGreen (Switch)
+        - "Let's Go, Pikachu! / Eevee!"
+        - Sword / Shield
+        - Brilliant Diamond / Shining Pearl
+        - "Legends: Arceus"
+        - Scarlet / Violet
+        - "Legends: Z-A"
+        - Red / Blue / Yellow (save file)
+        - Gold / Silver / Crystal (save file)
+        - Ruby / Sapphire / Emerald (save file)
+        - Diamond / Pearl / Platinum (save file)
+        - HeartGold / SoulSilver (save file)
+        - Black / White / Black 2 / White 2 (save file)
+        - X / Y / Omega Ruby / Alpha Sapphire (save file)
+        - Sun / Moon / Ultra Sun / Ultra Moon (save file)
+        - PKSM bank import
+        - Not specific to a game
+    validations:
+      required: true
+
+  - type: dropdown
+    id: severity
+    attributes:
+      label: How bad is it?
+      options:
+        - Save data lost or corrupted
+        - Crash or freeze
+        - Wrong value or wrong behaviour
+        - Cosmetic (layout, text, art)
+    validations:
+      required: true
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: Where in PKSE?
+      multiple: true
+      options:
+        - Save picker / opening a save
+        - Backups / saving
+        - Party or boxes
+        - Pokemon details / editing
+        - Pokemon creator
+        - Items
+        - Trainer info
+        - Bank / Storage transfers
+        - Legality checker
+        - Settings
+        - Somewhere else
+
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: What you did, what you expected, and what happened instead.
+      placeholder: |
+        1. Opened my Scarlet save
+        2. Moved a Pokemon from the bank into box 3
+        3. ...
+
+        Expected: ...
+        Actual: ...
+    validations:
+      required: true
+
+  - type: textarea
+    id: log
+    attributes:
+      label: Debug log
+      description: Drag the newest file from `sdmc:/PKSE/logs/` into this box. Strongly recommended — without one, most bugs can't be tracked down.
+
+  - type: dropdown
+    id: launch
+    attributes:
+      label: How did you start PKSE?
+      options:
+        - Title override (holding R while starting a game)
+        - From the Album (applet mode)
+        - Not sure
+
+  - type: input
+    id: firmware
+    attributes:
+      label: Console firmware and Atmosphère version
+      placeholder: "e.g. firmware 20.x, Atmosphère 1.x"
+
+  - type: textarea
+    id: extra
+    attributes:
+      label: Screenshots or anything else
+      description: Screenshots help a lot. If the problem needs your save file to reproduce, say so here — a save holds your trainer name and ID, so only attach one you're happy to share publicly.
+
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Before submitting
+      options:
+        - label: I searched the existing issues and this hasn't been reported yet.
+          required: true
+        - label: I'm using the latest PKSE release.

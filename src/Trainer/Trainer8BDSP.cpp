@@ -1,6 +1,4 @@
 /**
- * Trainer8BDSP.cpp - Brilliant Diamond / Shining Pearl (BDSP) trainer implementation.
- *
  * Unlike the SwishCrypto games, BDSP is a FLAT fixed-offset save (SAV8BDSP): a plaintext
  * little-endian blob guarded by one whole-file MD5. Entities (PB8) are the same 0x158
  * Gen-8 format as Sword/Shield, held encrypted at fixed offsets. Trainer8BDSP keeps the raw
@@ -18,7 +16,8 @@
 
 using namespace Utils;
 
-namespace Trainer {
+namespace Trainer
+{
 
     Trainer8BDSP::Trainer8BDSP(std::vector<uint8_t> data)
         : Trainer(std::vector<Block>{}), saveData(std::move(data))
@@ -32,20 +31,21 @@ namespace Trainer {
 
     void Trainer8BDSP::parseMyStatus()
     {
-        if (saveData.size() < BDSP_ROMCODE + 1) {
+        if (saveData.size() < BDSP_ROMCODE + 1)
+        {
             logErrorToFile("BDSP save too small for MyStatus block");
             return;
         }
-        this->ID32  = readUInt32LittleEndian(&saveData[BDSP_ID32]);
+        this->ID32 = readUInt32LittleEndian(&saveData[BDSP_ID32]);
         this->TID16 = readUInt16LittleEndian(&saveData[BDSP_ID32]);
         this->SID16 = readUInt16LittleEndian(&saveData[BDSP_ID32 + 2]);
-        this->TID   = this->ID32 % 1000000;
-        this->SID   = this->ID32 / 1000000;
+        this->TID = this->ID32 % 1000000;
+        this->SID = this->ID32 / 1000000;
         this->money = readUInt32LittleEndian(&saveData[BDSP_MONEY]);
 
         // OT name: UTF-16LE, 0x1A bytes (13 chars) at BDSP_MYSTATUS.
         this->trainerName = utf16ToUtf8(getString(&saveData[BDSP_MYSTATUS], 0x1A));
-        this->trainerGender = (saveData[BDSP_MYSTATUS + 0x24] == 1) ? 0 : 1;   // 0x24: Male flag (1=M -> gender 0)
+        this->trainerGender = (saveData[BDSP_MYSTATUS + 0x24] == 1) ? 0 : 1; // 0x24: Male flag (1=M -> gender 0)
         logInfoToFile("Parsed BDSP Trainer Name", this->trainerName.c_str());
     }
 
@@ -53,14 +53,18 @@ namespace Trainer {
     {
         party.clear();
         uint8_t count = saveData[BDSP_PARTY_COUNT];
-        if (count > MAX_PARTY_SLOTS) count = MAX_PARTY_SLOTS;
-        for (uint8_t i = 0; i < count; ++i) {
-            const size_t off = BDSP_PARTY_OFFSET + static_cast<size_t>(i) * SIZE_PARTY8_BDSP;
-            if (off + SIZE_PARTY8_BDSP > saveData.size()) break;
+        if (count > MAX_PARTY_SLOTS)
+            count = MAX_PARTY_SLOTS;
+        for (uint8_t index = 0; index < count; ++index)
+        {
+            const size_t offset = BDSP_PARTY_OFFSET + static_cast<size_t>(index) * SIZE_PARTY8_BDSP;
+            if (offset + SIZE_PARTY8_BDSP > saveData.size())
+                break;
             std::span<const std::byte> slot(
-                reinterpret_cast<const std::byte*>(&saveData[off]), SIZE_PARTY8_BDSP);
-            auto mon = std::make_unique<Pokemon8BDSP>(slot);
-            if (mon->speciesID() != 0) party.push_back(std::move(mon));
+                reinterpret_cast<const std::byte *>(&saveData[offset]), SIZE_PARTY8_BDSP);
+            auto pokemon = std::make_unique<Pokemon8BDSP>(slot);
+            if (pokemon->speciesID() != 0)
+                party.push_back(std::move(pokemon));
         }
     }
 
@@ -68,18 +72,24 @@ namespace Trainer {
     {
         boxes.clear();
         boxes.resize(BDSP_BOX_COUNT);
-        for (size_t b = 0; b < BDSP_BOX_COUNT; ++b) {
-            for (size_t s = 0; s < BOX_SLOTS; ++s) {
-                const size_t off = BDSP_BOX_OFFSET + (b * BOX_SLOTS + s) * SIZE_PARTY8_BDSP;
-                if (off + SIZE_PARTY8_BDSP > saveData.size()) return;
+        for (size_t bDSP_BOXIndex = 0; bDSP_BOXIndex < BDSP_BOX_COUNT; ++bDSP_BOXIndex)
+        {
+            for (size_t slotIndex = 0; slotIndex < BOX_SLOTS; ++slotIndex)
+            {
+                const size_t offset = BDSP_BOX_OFFSET + (bDSP_BOXIndex * BOX_SLOTS + slotIndex) * SIZE_PARTY8_BDSP;
+                if (offset + SIZE_PARTY8_BDSP > saveData.size())
+                    return;
                 std::span<const std::byte> slot(
-                    reinterpret_cast<const std::byte*>(&saveData[off]), SIZE_PARTY8_BDSP);
-                auto mon = std::make_unique<Pokemon8BDSP>(slot);
-                if (mon->speciesID() != 0) {
-                    boxes[b][s] = std::move(mon);
-                } else if (m_boxBlank.empty()) {
+                    reinterpret_cast<const std::byte *>(&saveData[offset]), SIZE_PARTY8_BDSP);
+                auto pokemon = std::make_unique<Pokemon8BDSP>(slot);
+                if (pokemon->speciesID() != 0)
+                {
+                    boxes[bDSP_BOXIndex][slotIndex] = std::move(pokemon);
+                }
+                else if (boxBlank.empty())
+                {
                     // Capture the game's encrypted blank (an empty slot) once, for empty-slot writes.
-                    m_boxBlank.assign(&saveData[off], &saveData[off] + SIZE_PARTY8_BDSP);
+                    boxBlank.assign(&saveData[offset], &saveData[offset] + SIZE_PARTY8_BDSP);
                 }
                 // occupied stored above; empty slots stay nullptr
             }
@@ -91,11 +101,14 @@ namespace Trainer {
         // Inverse of parseBoxNames. BDSP is a flat MD5-guarded blob rather than SCBlocks, so this
         // writes straight into saveData -- and must run BEFORE recomputeHash(), since the whole-file
         // MD5 covers this region.
-        for (size_t b = 0; b < BDSP_BOX_COUNT && b < boxNames.size(); ++b) {
-            if (!isBoxNameDirty(b)) continue;   // never persist a display default
-            const size_t off = BDSP_BOXNAME_OFFSET + b * BDSP_BOXNAME_LENGTH;
-            if (off + BDSP_BOXNAME_LENGTH > saveData.size()) break;
-            setString(&saveData[off], BDSP_BOXNAME_LENGTH, utf8ToUtf16(boxNames[b]),
+        for (size_t boxNameIndex = 0; boxNameIndex < BDSP_BOX_COUNT && boxNameIndex < boxNames.size(); ++boxNameIndex)
+        {
+            // never persist a display default
+            if (!isBoxNameDirty(boxNameIndex)) continue;
+            const size_t offset = BDSP_BOXNAME_OFFSET + boxNameIndex * BDSP_BOXNAME_LENGTH;
+            if (offset + BDSP_BOXNAME_LENGTH > saveData.size())
+                break;
+            setString(&saveData[offset], BDSP_BOXNAME_LENGTH, utf8ToUtf16(boxNames[boxNameIndex]),
                       BDSP_BOXNAME_LENGTH / 2 - 1);
         }
     }
@@ -111,13 +124,14 @@ namespace Trainer {
     void Trainer8BDSP::parseBoxNames()
     {
         boxNames.clear();
-        for (size_t b = 0; b < BDSP_BOX_COUNT; ++b) {
-            const size_t off = BDSP_BOXNAME_OFFSET + b * 0x22;
+        for (size_t bDSP_BOXIndex = 0; bDSP_BOXIndex < BDSP_BOX_COUNT; ++bDSP_BOXIndex)
+        {
+            const size_t offset = BDSP_BOXNAME_OFFSET + bDSP_BOXIndex * 0x22;
             std::string name;
-            if (off + 0x22 <= saveData.size())
-                name = utf16ToUtf8(getString(&saveData[off], 0x22));
+            if (offset + 0x22 <= saveData.size())
+                name = utf16ToUtf8(getString(&saveData[offset], 0x22));
             if (name.empty())
-                name = "盒子 " + std::to_string(b + 1);
+                name = "Box " + std::to_string(bDSP_BOXIndex + 1);
             boxNames.push_back(name);
         }
         // Current box (single u8 in the same BoxLayout region), clamped defensively.
@@ -131,23 +145,24 @@ namespace Trainer {
         // Count is int32 at record offset 0. Collect owned (count > 0) items into each pouch.
         items.clear();
         items.resize(POUCH_COUNT8BDSP);
-        for (size_t p = 0; p < POUCH_COUNT8BDSP; ++p) {
-            const auto& validIds = getValidItemIds8BDSP(static_cast<PouchType8BDSP>(p));
-            for (uint16_t id : validIds) {
-                const size_t off = BDSP_ITEM_BASE + static_cast<size_t>(id) * ITEM_ENTRY_SIZE8BDSP;
-                if (off + 4 > saveData.size()) continue;
-                const uint32_t count = readUInt32LittleEndian(&saveData[off + ITEM_COUNT_OFFSET8BDSP]);
-                if (count > 0) {
-                    items[p].push_back(InventoryItem{
-                        id, static_cast<uint16_t>(std::min<uint32_t>(count, 0xFFFFu)), false, false});
+        for (size_t pouchIndex = 0; pouchIndex < POUCH_COUNT8BDSP; ++pouchIndex)
+        {
+            const auto &validIds = getValidItemIds8BDSP(static_cast<PouchType8BDSP>(pouchIndex));
+            for (uint16_t itemId : validIds)
+            {
+                const size_t byteOffset = BDSP_ITEM_BASE + static_cast<size_t>(itemId) * ITEM_ENTRY_SIZE8BDSP;
+                if (byteOffset + 4 > saveData.size())
+                    continue;
+                const uint32_t count = readUInt32LittleEndian(&saveData[byteOffset + ITEM_COUNT_OFFSET8BDSP]);
+                if (count > 0)
+                {
+                    items[pouchIndex].push_back(InventoryItem{
+                        itemId, static_cast<uint16_t>(std::min<uint32_t>(count, 0xFFFFu)), false, false});
                 }
             }
         }
     }
 
-    // ------------------------------------------------------------------
-    // Write path
-    // ------------------------------------------------------------------
     void Trainer8BDSP::updatePartyBlock()
     {
         // Write each party slot in place (encrypted PB8), then set the party count byte.
@@ -157,27 +172,33 @@ namespace Trainer {
         // zeros decrypt to garbage and render a Bad Egg. The count is *supposed* to gate how many
         // slots are read, but leaning on that is how the SwishCrypto games ended up writing Bad
         // Eggs into every empty party slot. A blank is correct whether or not the count is.
-        std::vector<uint8_t> blank = m_boxBlank;
-        if (blank.empty()) {
+        std::vector<uint8_t> blank = boxBlank;
+        if (blank.empty())
+        {
             std::vector<std::byte> zero(SIZE_PARTY8_BDSP, std::byte{0});
-            std::byte* enc = encryptArray8BDSP(
+            std::byte *encryptedRecord = encryptArray8BDSP(
                 std::span<const std::byte>(zero.data(), SIZE_PARTY8_BDSP), 0);
-            blank.assign(reinterpret_cast<const uint8_t*>(enc),
-                         reinterpret_cast<const uint8_t*>(enc) + SIZE_PARTY8_BDSP);
-            delete[] enc;
+            blank.assign(reinterpret_cast<const uint8_t *>(encryptedRecord),
+                         reinterpret_cast<const uint8_t *>(encryptedRecord) + SIZE_PARTY8_BDSP);
+            delete[] encryptedRecord;
         }
-        for (size_t i = 0; i < MAX_PARTY_SLOTS; ++i) {
-            const size_t off = BDSP_PARTY_OFFSET + i * SIZE_PARTY8_BDSP;
-            if (off + SIZE_PARTY8_BDSP > saveData.size()) break;
-            if (i < party.size() && party[i] && party[i]->speciesID() != 0) {
-                const auto& pk = party[i];
-                const uint32_t ec = readUInt32LittleEndian(
-                    reinterpret_cast<const uint8_t*>(pk->getData().data()));
-                std::span<const std::byte> dec(pk->getData().data(), pk->getDataSize());
-                std::byte* enc = encryptArray8BDSP(dec, ec);
-                std::memcpy(&saveData[off], enc, SIZE_PARTY8_BDSP);
-                delete[] enc;
-            } else {
+        for (size_t partySlotIndex = 0; partySlotIndex < MAX_PARTY_SLOTS; ++partySlotIndex)
+        {
+            const size_t offset = BDSP_PARTY_OFFSET + partySlotIndex * SIZE_PARTY8_BDSP;
+            if (offset + SIZE_PARTY8_BDSP > saveData.size())
+                break;
+            if (partySlotIndex < party.size() && party[partySlotIndex] && party[partySlotIndex]->speciesID() != 0)
+            {
+                const auto &pokemon = party[partySlotIndex];
+                const uint32_t encryptionConstant = readUInt32LittleEndian(
+                    reinterpret_cast<const uint8_t *>(pokemon->getData().data()));
+                std::span<const std::byte> dec(pokemon->getData().data(), pokemon->getDataSize());
+                std::byte *encryptedRecord = encryptArray8BDSP(dec, encryptionConstant);
+                std::memcpy(&saveData[offset], encryptedRecord, SIZE_PARTY8_BDSP);
+                delete[] encryptedRecord;
+            }
+            else
+            {
                 // Already reads as empty? Leave the game's own bytes exactly as they are. Empty
                 // slots carry stale per-slot bytes the game never cleared, so stamping one
                 // canonical blank over them would rewrite a party nobody edited.
@@ -188,15 +209,17 @@ namespace Trainer {
                 // Without this, a slot an older build zeroed would be mistaken for a valid blank
                 // and never repaired.
                 bool anyNonZero = false;
-                for (size_t k = 0; k < SIZE_PARTY8_BDSP && !anyNonZero; ++k)
-                    anyNonZero = (saveData[off + k] != 0);
-                if (anyNonZero) {
+                for (size_t byteIndex = 0; byteIndex < SIZE_PARTY8_BDSP && !anyNonZero; ++byteIndex)
+                    anyNonZero = (saveData[offset + byteIndex] != 0);
+                if (anyNonZero)
+                {
                     std::span<const std::byte> slot(
-                        reinterpret_cast<const std::byte*>(&saveData[off]), SIZE_PARTY8_BDSP);
+                        reinterpret_cast<const std::byte *>(&saveData[offset]), SIZE_PARTY8_BDSP);
                     Pokemon8BDSP existing(slot);
-                    if (existing.speciesID() == 0) continue;
+                    if (existing.speciesID() == 0)
+                        continue;
                 }
-                std::memcpy(&saveData[off], blank.data(), SIZE_PARTY8_BDSP);
+                std::memcpy(&saveData[offset], blank.data(), SIZE_PARTY8_BDSP);
             }
         }
         if (BDSP_PARTY_COUNT < saveData.size())
@@ -209,29 +232,36 @@ namespace Trainer {
         // Rewrite the whole box region: occupied slots as encrypted PB8; empty slots as the game's
         // own encrypted blank (NOT zeros — the game decrypts every slot and checks species, so zeros
         // would render as a Bad Egg; same lesson as the SwishCrypto games).
-        std::vector<uint8_t> blank = m_boxBlank;
-        if (blank.empty()) {
+        std::vector<uint8_t> blank = boxBlank;
+        if (blank.empty())
+        {
             std::vector<std::byte> zero(SIZE_PARTY8_BDSP, std::byte{0});
-            std::byte* enc = encryptArray8BDSP(
+            std::byte *encryptedRecord = encryptArray8BDSP(
                 std::span<const std::byte>(zero.data(), SIZE_PARTY8_BDSP), 0);
-            blank.assign(reinterpret_cast<const uint8_t*>(enc),
-                         reinterpret_cast<const uint8_t*>(enc) + SIZE_PARTY8_BDSP);
-            delete[] enc;
+            blank.assign(reinterpret_cast<const uint8_t *>(encryptedRecord),
+                         reinterpret_cast<const uint8_t *>(encryptedRecord) + SIZE_PARTY8_BDSP);
+            delete[] encryptedRecord;
         }
-        for (size_t b = 0; b < BDSP_BOX_COUNT; ++b) {
-            for (size_t s = 0; s < BOX_SLOTS; ++s) {
-                const size_t off = BDSP_BOX_OFFSET + (b * BOX_SLOTS + s) * SIZE_PARTY8_BDSP;
-                if (off + SIZE_PARTY8_BDSP > saveData.size()) return;
-                if (boxes[b][s] && boxes[b][s]->speciesID() != 0) {
-                    const auto& pk = boxes[b][s];
-                    const uint32_t ec = readUInt32LittleEndian(
-                        reinterpret_cast<const uint8_t*>(pk->getData().data()));
-                    std::span<const std::byte> dec(pk->getData().data(), pk->getDataSize());
-                    std::byte* enc = encryptArray8BDSP(dec, ec);
-                    std::memcpy(&saveData[off], enc, SIZE_PARTY8_BDSP);
-                    delete[] enc;
-                } else {
-                    std::memcpy(&saveData[off], blank.data(), SIZE_PARTY8_BDSP);
+        for (size_t bDSP_BOXIndex = 0; bDSP_BOXIndex < BDSP_BOX_COUNT; ++bDSP_BOXIndex)
+        {
+            for (size_t slotIndex = 0; slotIndex < BOX_SLOTS; ++slotIndex)
+            {
+                const size_t offset = BDSP_BOX_OFFSET + (bDSP_BOXIndex * BOX_SLOTS + slotIndex) * SIZE_PARTY8_BDSP;
+                if (offset + SIZE_PARTY8_BDSP > saveData.size())
+                    return;
+                if (boxes[bDSP_BOXIndex][slotIndex] && boxes[bDSP_BOXIndex][slotIndex]->speciesID() != 0)
+                {
+                    const auto &pokemon = boxes[bDSP_BOXIndex][slotIndex];
+                    const uint32_t encryptionConstant = readUInt32LittleEndian(
+                        reinterpret_cast<const uint8_t *>(pokemon->getData().data()));
+                    std::span<const std::byte> dec(pokemon->getData().data(), pokemon->getDataSize());
+                    std::byte *encryptedRecord = encryptArray8BDSP(dec, encryptionConstant);
+                    std::memcpy(&saveData[offset], encryptedRecord, SIZE_PARTY8_BDSP);
+                    delete[] encryptedRecord;
+                }
+                else
+                {
+                    std::memcpy(&saveData[offset], blank.data(), SIZE_PARTY8_BDSP);
                 }
             }
         }
@@ -244,15 +274,14 @@ namespace Trainer {
         // -> a clean species-0, checksum-valid entity. Raw zeros in the ctor would decrypt to garbage
         // (BAD EGG); the encrypt->decrypt round-trip is what makes the blank valid.
         std::vector<std::byte> zero(SIZE_PARTY8_BDSP, std::byte{0});
-        std::byte* enc = encryptArray8BDSP(
+        std::byte *encryptedRecord = encryptArray8BDSP(
             std::span<const std::byte>(zero.data(), SIZE_PARTY8_BDSP), 0);
-        auto p = std::make_unique<Pokemon8BDSP>(
-            std::span<const std::byte>(enc, SIZE_PARTY8_BDSP));
-        delete[] enc;
-        return p;
+        auto clone = std::make_unique<Pokemon8BDSP>(
+            std::span<const std::byte>(encryptedRecord, SIZE_PARTY8_BDSP));
+        delete[] encryptedRecord;
+        return clone;
     }
 
-    // ---- Pokedex (ZUKAN_WORK @ 0x7A328, size 0x30B8) -----------------------------------------
     //
     // BDSP stores none of this as bitfields. Everything is a 4-byte-aligned array indexed by
     // (species - 1), covering the Sinnoh-era National Dex 1..493 (PKHeX Zukan8b):
@@ -268,99 +297,123 @@ namespace Trainer {
     //
     // The offsets chain from the array sizes and land exactly on 0x30B0 / 0x30B4 / 0x30B8, which is
     // what makes them checkable rather than copied.
-    namespace {
-        constexpr size_t BDSP_DEX          = 0x7A328;   // ZUKAN_WORK, absolute in saveData
-        constexpr size_t BDSP_DEX_SIZE     = 0x30B8;
-        constexpr uint16_t BDSP_MAX_SPECIES = 493;      // Arceus
-        constexpr size_t OFS_STATE         = 0x0000;
-        constexpr size_t OFS_MALE_SHINY    = 0x07B4;
-        constexpr size_t OFS_FEMALE_SHINY  = 0x0F68;
-        constexpr size_t OFS_MALE          = 0x171C;
-        constexpr size_t OFS_FEMALE        = 0x1ED0;
-        constexpr size_t OFS_LANGUAGE      = 0x28FC;
-        constexpr uint32_t ZUKAN_CAUGHT    = 3;         // ZukanState8b.Caught
+    namespace
+    {
+        constexpr size_t BDSP_DEX = 0x7A328; // ZUKAN_WORK, absolute in saveData
+        constexpr size_t BDSP_DEX_SIZE = 0x30B8;
+        constexpr uint16_t BDSP_MAX_SPECIES = 493; // Arceus
+        constexpr size_t OFS_STATE = 0x0000;
+        constexpr size_t OFS_MALE_SHINY = 0x07B4;
+        constexpr size_t OFS_FEMALE_SHINY = 0x0F68;
+        constexpr size_t OFS_MALE = 0x171C;
+        constexpr size_t OFS_FEMALE = 0x1ED0;
+        constexpr size_t OFS_LANGUAGE = 0x28FC;
+        constexpr uint32_t ZUKAN_CAUGHT = 3; // ZukanState8b.Caught
 
         // Species that have a per-form array, its entry count, and where the NON-shiny array starts.
         // The shiny twin follows immediately, count * 4 bytes later.
-        struct BdspFormArray { uint16_t species; uint16_t count; size_t offset; };
+        struct BdspFormArray
+        {
+            uint16_t species;
+            uint16_t count;
+            size_t offset;
+        };
         constexpr BdspFormArray FORM_ARRAYS[] = {
-            { 201, 28,  9860 },   // Unown
-            { 351,  4, 10084 },   // Castform
-            { 386,  4, 10116 },   // Deoxys
-            { 412,  3, 10148 },   // Burmy
-            { 413,  3, 10172 },   // Wormadam
-            { 414,  3, 10196 },   // Mothim
-            { 421,  2, 10220 },   // Cherrim
-            { 422,  2, 10236 },   // Shellos
-            { 423,  2, 10252 },   // Gastrodon
-            { 479,  6, 10268 },   // Rotom
-            { 487,  2, 10316 },   // Giratina
-            { 492,  2, 10332 },   // Shaymin
-            { 493, 18, 10348 },   // Arceus
+            {201, 28, 9860},  // Unown
+            {351, 4, 10084},  // Castform
+            {386, 4, 10116},  // Deoxys
+            {412, 3, 10148},  // Burmy
+            {413, 3, 10172},  // Wormadam
+            {414, 3, 10196},  // Mothim
+            {421, 2, 10220},  // Cherrim
+            {422, 2, 10236},  // Shellos
+            {423, 2, 10252},  // Gastrodon
+            {479, 6, 10268},  // Rotom
+            {487, 2, 10316},  // Giratina
+            {492, 2, 10332},  // Shaymin
+            {493, 18, 10348}, // Arceus
         };
 
         // Language id -> bit. Slot 6 is unused, so ids 7+ shift down by two (PKHeX GetLanguageBit).
-        int bdspLangBit(uint8_t language) {
-            if (language == 0 || language == 6 || language > 10) return -1;
+        int bdspLangBit(uint8_t language)
+        {
+            if (language == 0 || language == 6 || language > 10)
+                return -1;
             return (language >= 7) ? language - 2 : language - 1;
         }
     }
 
     void Trainer8BDSP::updatePokedexBlock()
     {
-        if (saveData.size() < BDSP_DEX + BDSP_DEX_SIZE) return;   // not a layout we recognise
+        // not a layout we recognise
+        if (saveData.size() < BDSP_DEX + BDSP_DEX_SIZE) return;
 
-        auto putU32 = [&](size_t rel, uint32_t v) {
-            writeUInt32LittleEndian(&saveData[BDSP_DEX + rel], v);
+        auto putU32 = [&](size_t relativeOffset, uint32_t newValue)
+        {
+            writeUInt32LittleEndian(&saveData[BDSP_DEX + relativeOffset], newValue);
         };
-        auto getU32 = [&](size_t rel) {
-            return readUInt32LittleEndian(&saveData[BDSP_DEX + rel]);
+        auto getU32 = [&](size_t relativeOffset)
+        {
+            return readUInt32LittleEndian(&saveData[BDSP_DEX + relativeOffset]);
         };
 
-        auto registerMon = [&](const ::Pokemon::Pokemon* pk) {
-            if (!pk || pk->isEgg()) return;
-            const uint16_t species = pk->speciesID();
-            if (species == 0 || species > BDSP_MAX_SPECIES) return;   // BDSP's dex stops at Arceus
+        auto registerMon = [&](const ::Pokemon::Pokemon *pokemon)
+        {
+            if (!pokemon || pokemon->isEgg())
+                return;
+            const uint16_t species = pokemon->speciesID();
+            // BDSP's dex stops at Arceus
+            if (species == 0 || species > BDSP_MAX_SPECIES) return;
 
-            const size_t i = static_cast<size_t>(species - 1) * 4;
-            const bool shiny = pk->isShiny(pk->id32(), pk->species());
+            const size_t dexEntryOffset = static_cast<size_t>(species - 1) * 4;
+            const bool shiny = pokemon->isShiny(pokemon->id32(), pokemon->species());
 
             // State is a value, not a flag: only ever raise it, so a Pokemon already Caught is not
             // knocked back down and a Seen one is promoted.
-            if (getU32(OFS_STATE + i) < ZUKAN_CAUGHT) putU32(OFS_STATE + i, ZUKAN_CAUGHT);
+            if (getU32(OFS_STATE + dexEntryOffset) < ZUKAN_CAUGHT)
+                putU32(OFS_STATE + dexEntryOffset, ZUKAN_CAUGHT);
 
             // Gender/shiny "have seen" markers. A GENDERLESS Pokemon sets BOTH, which is what the
             // games do -- it is not a male-by-default case like the other formats.
-            const uint8_t gender = pk->gender();
-            if (gender == 0 || gender == 2) putU32((shiny ? OFS_MALE_SHINY   : OFS_MALE)   + i, 1);
-            if (gender == 1 || gender == 2) putU32((shiny ? OFS_FEMALE_SHINY : OFS_FEMALE) + i, 1);
+            const uint8_t gender = pokemon->gender();
+            if (gender == 0 || gender == 2)
+                putU32((shiny ? OFS_MALE_SHINY : OFS_MALE) + dexEntryOffset, 1);
+            if (gender == 1 || gender == 2)
+                putU32((shiny ? OFS_FEMALE_SHINY : OFS_FEMALE) + dexEntryOffset, 1);
 
-            const int lang = bdspLangBit(pk->language());
-            if (lang >= 0) putU32(OFS_LANGUAGE + i, getU32(OFS_LANGUAGE + i) | (1u << lang));
+            const int lang = bdspLangBit(pokemon->language());
+            if (lang >= 0)
+                putU32(OFS_LANGUAGE + dexEntryOffset, getU32(OFS_LANGUAGE + dexEntryOffset) | (1u << lang));
 
             // Per-form array, for the thirteen species that have one. Non-shiny and shiny are separate
             // arrays, the shiny one immediately after.
-            const uint8_t form = pk->form();
-            for (const auto& fa : FORM_ARRAYS) {
-                if (fa.species != species) continue;
-                if (form >= fa.count) break;      // a form this game's dex has no slot for
-                const size_t ofs = fa.offset + (shiny ? static_cast<size_t>(fa.count) * 4 : 0)
-                                 + static_cast<size_t>(form) * 4;
-                putU32(ofs, 1);
+            const uint8_t form = pokemon->form();
+            for (const auto &fa : FORM_ARRAYS)
+            {
+                if (fa.species != species)
+                    continue;
+                // a form this game's dex has no slot for
+                if (form >= fa.count) break;
+                const size_t formFlagOffset =
+                    fa.offset + (shiny ? static_cast<size_t>(fa.count) * 4 : 0) + static_cast<size_t>(form) * 4;
+                putU32(formFlagOffset, 1);
                 break;
             }
         };
 
-        for (const auto& pk : party) registerMon(pk.get());
-        for (const auto& box : boxes)
-            for (const auto& pk : box) registerMon(pk.get());
+        for (const auto &pokemon : party)
+            registerMon(pokemon.get());
+        for (const auto &box : boxes)
+            for (const auto &pokemon : box)
+                registerMon(pokemon.get());
     }
 
     void Trainer8BDSP::updateTrainerInfoBlock()
     {
         // Raw-buffer game: write straight into saveData (like updateItemBlock); recomputeHash() runs
         // after.
-        if (saveData.size() < BDSP_MYSTATUS + 0x1A) return;
+        if (saveData.size() < BDSP_MYSTATUS + 0x1A)
+            return;
         setString(&saveData[BDSP_MYSTATUS], 0x1A, utf8ToUtf16(trainerName), 12);
         if (saveData.size() >= BDSP_MONEY + 4)
             writeUInt32LittleEndian(&saveData[BDSP_MONEY], money);
@@ -370,22 +423,26 @@ namespace Trainer {
     {
         // Write each parsed item's count (int32) in place — non-destructive: touches only known items,
         // leaving unrelated item records and the new/favorite/sort-order fields intact.
-        for (size_t p = 0; p < items.size() && p < POUCH_COUNT8BDSP; ++p) {
-            for (const auto& item : items[p]) {
-                const size_t off = BDSP_ITEM_BASE + static_cast<size_t>(item.itemId) * ITEM_ENTRY_SIZE8BDSP;
-                if (off + 4 > saveData.size()) continue;
-                saveData[off + 0] = static_cast<uint8_t>(item.count & 0xFF);
-                saveData[off + 1] = static_cast<uint8_t>((item.count >> 8) & 0xFF);
-                saveData[off + 2] = 0;
-                saveData[off + 3] = 0;
+        for (size_t pouchIndex = 0; pouchIndex < items.size() && pouchIndex < POUCH_COUNT8BDSP; ++pouchIndex)
+        {
+            for (const auto &item : items[pouchIndex])
+            {
+                const size_t offset = BDSP_ITEM_BASE + static_cast<size_t>(item.itemId) * ITEM_ENTRY_SIZE8BDSP;
+                if (offset + 4 > saveData.size())
+                    continue;
+                saveData[offset + 0] = static_cast<uint8_t>(item.count & 0xFF);
+                saveData[offset + 1] = static_cast<uint8_t>((item.count >> 8) & 0xFF);
+                saveData[offset + 2] = 0;
+                saveData[offset + 3] = 0;
                 // IsNew is an int32 at record 0x4. Only SET it for freshly-added items so the bag
                 // shows the "new" marker; existing new/favorite/sort fields stay intact. (BDSP derives
                 // the pouch from the item id, so unlike S/V-Z/A it needs no pouchId stamp.)
-                if (item.isNew && item.count > 0 && off + 8 <= saveData.size()) {
-                    saveData[off + 4] = 1;
-                    saveData[off + 5] = 0;
-                    saveData[off + 6] = 0;
-                    saveData[off + 7] = 0;
+                if (item.isNew && item.count > 0 && offset + 8 <= saveData.size())
+                {
+                    saveData[offset + 4] = 1;
+                    saveData[offset + 5] = 0;
+                    saveData[offset + 6] = 0;
+                    saveData[offset + 7] = 0;
                 }
             }
         }
@@ -395,7 +452,8 @@ namespace Trainer {
     {
         // Zero the 16 hash bytes, MD5 the ENTIRE buffer, write the digest back in place.
         // BDSP silently rejects a save whose hash doesn't match. Ready for the write path.
-        if (saveData.size() < BDSP_HASH_OFFSET + 16) return;
+        if (saveData.size() < BDSP_HASH_OFFSET + 16)
+            return;
         std::memset(&saveData[BDSP_HASH_OFFSET], 0, 16);
         Utils::md5(saveData.data(), saveData.size(), &saveData[BDSP_HASH_OFFSET]);
     }

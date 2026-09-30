@@ -7,11 +7,15 @@
  * The save layer (Trainer / Pokemon / Encryption / Names) is pure byte manipulation and has no
  * business needing a Switch SDK — but a handful of its headers pulled in <switch.h> purely for
  * `u8`..`s64`, which was enough to make the whole layer un-compilable anywhere else. That blocked
- * the read -> write -> re-read validation harness, which is the only automated check this
- * project has against save corruption.
+ * read -> write -> re-read validation off-console, which is the only way to check this project
+ * against save corruption without a Switch in front of you.
  *
  * On the Switch this is still <switch.h> verbatim, so nothing about the real build changes. Off it,
  * these few typedefs stand in and the save layer compiles for the host.
+ *
+ * NOTE ON NAMING. `u8`..`s64` are libnx's own spellings and must stay exactly that: on a Switch
+ * this header IS <switch.h>, so a longer name here would not match the one the real build uses.
+ * They are the only two-character names in PKSE that are not a variable at all.
  *
  * Anything that genuinely needs the SDK (title lookups, filesystem, accounts) stays behind
  * `#ifdef __SWITCH__` in its own file rather than being shimmed here — a stub that silently returns

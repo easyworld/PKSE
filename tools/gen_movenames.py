@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Generate src/Names/MoveNames.cpp -- move id -> display name -- from PKHeX's
-Simplified Chinese move-name text resource.
+English move-name text resource.
 
 Move id = array index, so PKHeX's flat one-name-per-line list maps directly (line 0
 = move 0). PKHeX's "no move" sentinel (a run of em dashes) and any blank id are
@@ -21,10 +21,11 @@ import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from pkhex_source import pkhex_path  # noqa: E402
+from name_languages import LANGUAGES, ENGLISH_INDEX, emit_tables  # noqa: E402
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 OUT = os.path.join(ROOT, "src", "Names", "MoveNames.cpp")
-SRC_REL = "Resources/text/other/zh-Hans/text_Moves_zh-Hans.txt"
+SRC_TEMPLATE = "Resources/text/other/{lang}/text_Moves_{lang}.txt"
 
 EMDASH = "—"
 
@@ -44,27 +45,25 @@ def esc(s):
 
 
 def main():
-    names = load_entries(pkhex_path(SRC_REL))
+    perLanguage = [load_entries(pkhex_path(SRC_TEMPLATE.format(lang=lang))) for lang in LANGUAGES]
+    names = perLanguage[ENGLISH_INDEX]
 
     p = []
     p.append("// AUTO-GENERATED from PKHeX's move-name text (move id = array index).\n")
-    p.append("// Source: PKHeX.Core/%s\n" % SRC_REL)
+    p.append("// Source: PKHeX.Core/%s, one table per language.\n" % SRC_TEMPLATE)
     p.append("// Regenerate with tools/gen_movenames.py (fetches from GitHub; see tools/pkhex_source.py).\n")
     p.append('#include "Names/MoveNames.h"\n')
+    p.append('#include "Names/NameLanguage.h"\n')
     p.append("\n")
     p.append("namespace Names {\n")
-    p.append("    static const char* const MOVE_NAMES[] = {\n")
-    for nm in names:
-        p.append('        "%s",\n' % esc(nm))
-    p.append("    };\n")
-    p.append("\n")
+    emit_tables(p, "MOVE_NAMES", perLanguage)
     p.append("    const char* getMoveName(uint16_t moveId) {\n")
-    p.append("        constexpr unsigned count = sizeof(MOVE_NAMES) / sizeof(MOVE_NAMES[0]);\n")
+    p.append("        constexpr unsigned count = sizeof(MOVE_NAMES_EN) / sizeof(MOVE_NAMES_EN[0]);\n")
     p.append('        if (moveId >= count) return "-";\n')
-    p.append("        return MOVE_NAMES[moveId];\n")
+    p.append("        return MOVE_NAMES_BY_LANGUAGE[displayLanguageIndex()][moveId];\n")
     p.append("    }\n")
     p.append("\n")
-    p.append("    unsigned getMoveCount() { return sizeof(MOVE_NAMES) / sizeof(MOVE_NAMES[0]); }\n")
+    p.append("    unsigned getMoveCount() { return sizeof(MOVE_NAMES_EN) / sizeof(MOVE_NAMES_EN[0]); }\n")
     p.append("}\n")
 
     with open(OUT, "w", encoding="utf-8", newline="\n") as fh:

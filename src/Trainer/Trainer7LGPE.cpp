@@ -1,56 +1,47 @@
-/**
- * Trainer7LGPE.cpp - Generation 7 Let's Go Trainer Implementation
- *
- * This file implements the Trainer7LGPE class for Pokemon Let's Go Pikachu/Eevee save files.
- * Handles Gen 7-specific block parsing, Pokemon encryption/decryption, and
- * save file serialization.
- */
 #include <algorithm>
 #include <cstdlib>
 #include <cstring>
 
 #include "Trainer/Trainer7LGPE.h"
 #include "Pokemon/Pokemon7LGPE.h"
-#include "Pokemon/PersonalInfoTable.h"   // getPersonalInfo -> per-game presence + formCount (Pokedex gate)
+#include "Pokemon/DexTable7LGPE.h"      // the generated dex form-bit + entry tables
+#include "Pokemon/PersonalInfoTable.h" // getPersonalInfo -> per-game presence + formCount (Pokedex gate)
 #include "Utils/Logger.h"
 
 using namespace Utils;
 using namespace Pokemon;
 
-namespace Trainer {
-    // ========================================
-    // Block Parsing Methods
-    // ========================================
+namespace Trainer
+{
 
-    void Trainer7LGPE::parseBlock(const Block& block)
+    void Trainer7LGPE::parseBlock(const Block &block)
     {
-        switch (block.key) {
-            case MY_ITEM7_LGPE:
-                parseMyItemBlock(block);
-                break;
-            case MY_STATUS7_LGPE:
-                parseMyStatusBlock(block);
-                break;
-            case POKE_LIST_HEADER7_LGPE:
-                parsePokeListHeaderBlock(block);
-                break;
-            case POKE_LIST_POKEMON7_LGPE:
-                parsePokeListPokemonBlock(block);
-                break;
-            case MISC7_LGPE:
-                parseMiscBlock(block);
-                break;
-            case PLAY_TIME7_LGPE:
-                parsePlayTimeBlock(block);
-                break;
-            // Additional blocks can be handled here
-            default:
-                // Unknown block - skip
-                break;
+        switch (block.key)
+        {
+        case MY_ITEM7_LGPE:
+            parseMyItemBlock(block);
+            break;
+        case MY_STATUS7_LGPE:
+            parseMyStatusBlock(block);
+            break;
+        case POKE_LIST_HEADER7_LGPE:
+            parsePokeListHeaderBlock(block);
+            break;
+        case POKE_LIST_POKEMON7_LGPE:
+            parsePokeListPokemonBlock(block);
+            break;
+        case MISC7_LGPE:
+            parseMiscBlock(block);
+            break;
+        case PLAY_TIME7_LGPE:
+            parsePlayTimeBlock(block);
+            break;
+        default:
+            break;
         }
     }
 
-    void Trainer7LGPE::parseMyStatusBlock(const Block& block)
+    void Trainer7LGPE::parseMyStatusBlock(const Block &block)
     {
         /**
          * MY_STATUS Block Structure (from PKHeX MyStatus7):
@@ -67,23 +58,28 @@ namespace Trainer {
         snprintf(logBuffer, sizeof(logBuffer), "parseMyStatusBlock: block size = %zu bytes", block.data.size());
         logInfoToFile(logBuffer);
 
-        if (block.data.size() < 0x38 + 26) {
+        if (block.data.size() < 0x38 + 26)
+        {
             logInfoToFile("Insufficient data in MY_STATUS block");
             return;
         }
 
-        // Parse trainer ID (at start of block)
+        // The save names its own game (PKHeX MyStatus7b.Game). Accepted only if it is one of this
+        // group's two titles -- a byte that says anything else is a misparse, not a discovery, and
+        // the group representative is the honest answer then.
+        const GameVersion storedVersion = static_cast<GameVersion>(block.data[0x04]);
+        if (storedVersion == GameVersion::GP || storedVersion == GameVersion::GE)
+            this->gameVersion = storedVersion;
+
         this->ID32 = readUInt32LittleEndian(&block.data[0x00]);
         this->TID16 = readUInt16LittleEndian(&block.data[0x00]);
         this->SID16 = readUInt16LittleEndian(&block.data[0x02]);
         this->TID = this->ID32 % 1000000;
         this->SID = this->ID32 / 1000000;
 
-        // Parse trainer name (UTF-16LE string at offset 0x38)
         this->trainerName = utf16ToUtf8(getString(&block.data[0x38], 26));
-        this->trainerGender = block.data[0x05] & 1;   // 0x05: gender (0=M, 1=F)
+        this->trainerGender = block.data[0x05] & 1; // 0x05: gender (0=M, 1=F)
 
-        // Log parsed values for debugging
         snprintf(logBuffer, sizeof(logBuffer), "Parsed trainer: Name='%s', ID32=%u, TID=%u, SID=%u",
                  this->trainerName.c_str(), this->ID32, this->TID, this->SID);
         logInfoToFile(logBuffer);
@@ -94,7 +90,7 @@ namespace Trainer {
         this->gameVersionString = "";
     }
 
-    void Trainer7LGPE::parsePokeListHeaderBlock(const Block& block)
+    void Trainer7LGPE::parsePokeListHeaderBlock(const Block &block)
     {
         /**
          * POKE_LIST_HEADER Block Structure (from PKHeX PokeListHeader.cs):
@@ -121,16 +117,17 @@ namespace Trainer {
         snprintf(logBuffer, sizeof(logBuffer), "parsePokeListHeaderBlock: block size = %zu bytes", block.data.size());
         logInfoToFile(logBuffer);
 
-        if (block.data.size() < 16) {
+        if (block.data.size() < 16)
+        {
             logInfoToFile("Insufficient data in POKE_LIST_HEADER block");
             return;
         }
 
         // Debug: Log first 16 bytes
-        snprintf(logBuffer, sizeof(logBuffer), "Header bytes 0-15: %02X %02X %02X %02X %02X %02X %02X %02X %02X %02X %02X %02X %02X %02X %02X %02X",
-                 block.data[0], block.data[1], block.data[2], block.data[3],
-                 block.data[4], block.data[5], block.data[6], block.data[7],
-                 block.data[8], block.data[9], block.data[10], block.data[11],
+        snprintf(logBuffer, sizeof(logBuffer),
+                 "Header bytes 0-15: %02X %02X %02X %02X %02X %02X %02X %02X %02X %02X %02X %02X %02X %02X %02X %02X",
+                 block.data[0], block.data[1], block.data[2], block.data[3], block.data[4], block.data[5],
+                 block.data[6], block.data[7], block.data[8], block.data[9], block.data[10], block.data[11],
                  block.data[12], block.data[13], block.data[14], block.data[15]);
         logInfoToFile(logBuffer);
 
@@ -140,17 +137,19 @@ namespace Trainer {
         // Read party pointers (6 × u16 starting at offset 0)
         // Party count is calculated, not stored!
         uint8_t calculatedPartyCount = 0;
-        for (size_t i = 0; i < MAX_PARTY_SLOTS; ++i) {
-            uint16_t index = readUInt16LittleEndian(&block.data[i * 2]);
-            partyIndices[i] = index;
+        for (size_t partySlotIndex = 0; partySlotIndex < MAX_PARTY_SLOTS; ++partySlotIndex)
+        {
+            uint16_t index = readUInt16LittleEndian(&block.data[partySlotIndex * 2]);
+            partyIndices[partySlotIndex] = index;
 
             // Count valid (non-empty) party members
-            if (index != SLOT_EMPTY && index < MAX_SLOTS) {
+            if (index != SLOT_EMPTY && index < MAX_SLOTS)
+            {
                 calculatedPartyCount++;
             }
 
-            snprintf(logBuffer, sizeof(logBuffer), "Party slot %zu: index = %u%s",
-                     i, index, (index == SLOT_EMPTY) ? " (empty)" : (index >= MAX_SLOTS ? " (INVALID)" : ""));
+            snprintf(logBuffer, sizeof(logBuffer), "Party slot %zu: index = %u%s", partySlotIndex, index,
+                     (index == SLOT_EMPTY) ? " (empty)" : (index >= MAX_SLOTS ? " (INVALID)" : ""));
             logInfoToFile(logBuffer);
         }
 
@@ -158,68 +157,61 @@ namespace Trainer {
         snprintf(logBuffer, sizeof(logBuffer), "Calculated party count: %u", this->partyCount);
         logInfoToFile(logBuffer);
 
-        // Read starter index (u16 at offset 0x0C)
         starterIndex = readUInt16LittleEndian(&block.data[0x0C]);
         snprintf(logBuffer, sizeof(logBuffer), "Starter index: %u%s",
                  starterIndex, (starterIndex == SLOT_EMPTY) ? " (empty)" : "");
         logInfoToFile(logBuffer);
 
-        // Read list count / next empty slot (u16 at offset 0x0E)
         uint16_t listCount = readUInt16LittleEndian(&block.data[0x0E]);
         snprintf(logBuffer, sizeof(logBuffer), "List count (next empty slot): %u", listCount);
         logInfoToFile(logBuffer);
     }
 
-    void Trainer7LGPE::parsePokeListPokemonBlock(const Block& block)
+    /// In Let's Go, party and boxes share ONE list: indices 0-999 are the box slots (40 boxes of
+    /// 25), and the party is named by partyIndices in PokeListHeader rather than stored separately.
+    void Trainer7LGPE::parsePokeListPokemonBlock(const Block &block)
     {
-        /**
-         * POKE_LIST_POKEMON Block Structure:
-         *
-         * In Let's Go, ALL Pokemon (party + boxes) are stored together:
-         * - Indices 0-999: Box slots (40 boxes × 25 slots)
-         * - Party members are identified by partyIndices from PokeListHeader
-         *
-         * Each slot is SIZE_PARTY7_LGPE bytes (260 bytes).
-         * Empty slots are zeroed out.
-         * Total: 1000 * 260 = 260,000 bytes (0x3F7A0)
-         */
         char logBuffer[256];
         snprintf(logBuffer, sizeof(logBuffer), "parsePokeListPokemonBlock: block size = %zu bytes", block.data.size());
         logInfoToFile(logBuffer);
 
         const std::span<const std::byte> blockSpan(
-            reinterpret_cast<const std::byte*>(block.data.data()),
-            block.data.size()
-        );
+            reinterpret_cast<const std::byte *>(block.data.data()),
+            block.data.size());
 
         size_t pokemonCount = 0;
         constexpr uint16_t SLOT_EMPTY = 1001;
         constexpr size_t MAX_STORAGE_SLOTS = BOX_COUNT7_LGPE * SLOTS_PER_BOX7_LGPE; // 1000
 
-        // Parse all Pokemon storage (boxes)
-        for (size_t boxIndex = 0; boxIndex < BOX_COUNT7_LGPE; ++boxIndex) {
-            // Initialize box name if not already set
-            if (boxNames[boxIndex].empty()) {
-                boxNames[boxIndex] = "盒子 " + std::to_string(boxIndex + 1);
+        for (size_t boxIndex = 0; boxIndex < BOX_COUNT7_LGPE; ++boxIndex)
+        {
+            if (boxNames[boxIndex].empty())
+            {
+                boxNames[boxIndex] = "Box " + std::to_string(boxIndex + 1);
             }
 
-            for (size_t slot = 0; slot < SLOTS_PER_BOX7_LGPE; ++slot) {
-                // Calculate offset: (boxIndex * slots per box + slot) * bytes per pokemon
+            for (size_t slot = 0; slot < SLOTS_PER_BOX7_LGPE; ++slot)
+            {
                 const size_t offset = (boxIndex * SLOTS_PER_BOX7_LGPE + slot) * SIZE_PARTY7_LGPE;
-                if (offset + SIZE_PARTY7_LGPE > block.data.size()) {
-                    snprintf(logBuffer, sizeof(logBuffer), "Box %zu slot %zu: offset %zu exceeds block size", boxIndex, slot, offset);
+                if (offset + SIZE_PARTY7_LGPE > block.data.size())
+                {
+                    snprintf(logBuffer, sizeof(logBuffer), "Box %zu slot %zu: offset %zu exceeds block size", boxIndex,
+                             slot, offset);
                     logInfoToFile(logBuffer);
                     break;
                 }
 
                 std::span<const std::byte> slotSpan = blockSpan.subspan(offset, SIZE_PARTY7_LGPE);
 
-                // Check if slot has valid Pokemon data (non-zero encryption constant)
-                uint32_t ec = readUInt32LittleEndian(reinterpret_cast<const uint8_t*>(slotSpan.data()));
-                if (ec != 0) {
+                uint32_t encryptionConstant =
+                    readUInt32LittleEndian(reinterpret_cast<const uint8_t *>(slotSpan.data()));
+                if (encryptionConstant != 0)
+                {
                     boxes[boxIndex][slot] = std::make_unique<Pokemon7LGPE>(slotSpan);
                     pokemonCount++;
-                } else {
+                }
+                else
+                {
                     boxes[boxIndex][slot] = nullptr;
                 }
             }
@@ -230,31 +222,39 @@ namespace Trainer {
 
         // Now populate party from partyIndices
         // Party indices point to storage slots (0-999)
-        for (size_t i = 0; i < partyCount && i < MAX_PARTY_SLOTS; ++i) {
-            uint16_t storageIndex = partyIndices[i];
+        for (size_t partySlotIndex = 0; partySlotIndex < partyCount && partySlotIndex < MAX_PARTY_SLOTS;
+             ++partySlotIndex)
+        {
+            uint16_t storageIndex = partyIndices[partySlotIndex];
 
-            if (storageIndex == SLOT_EMPTY || storageIndex >= MAX_STORAGE_SLOTS) {
-                snprintf(logBuffer, sizeof(logBuffer), "Party slot %zu: skipped (index=%u)", i, storageIndex);
+            if (storageIndex == SLOT_EMPTY || storageIndex >= MAX_STORAGE_SLOTS)
+            {
+                snprintf(logBuffer, sizeof(logBuffer), "Party slot %zu: skipped (index=%u)", partySlotIndex,
+                         storageIndex);
                 logInfoToFile(logBuffer);
                 continue;
             }
 
-            // Convert flat index to box/slot
             size_t boxIndex = storageIndex / SLOTS_PER_BOX7_LGPE;
             size_t slotIndex = storageIndex % SLOTS_PER_BOX7_LGPE;
 
-            if (boxIndex < BOX_COUNT7_LGPE && boxes[boxIndex][slotIndex]) {
-                // Read Pokemon data directly from block for party (to create independent copy)
+            if (boxIndex < BOX_COUNT7_LGPE && boxes[boxIndex][slotIndex])
+            {
                 const size_t offset = storageIndex * SIZE_PARTY7_LGPE;
-                if (offset + SIZE_PARTY7_LGPE <= block.data.size()) {
+                if (offset + SIZE_PARTY7_LGPE <= block.data.size())
+                {
                     std::span<const std::byte> slotSpan = blockSpan.subspan(offset, SIZE_PARTY7_LGPE);
                     party.push_back(std::make_unique<Pokemon7LGPE>(slotSpan));
-                    snprintf(logBuffer, sizeof(logBuffer), "Party slot %zu: loaded from storage index %u (box %zu, slot %zu)",
-                             i, storageIndex, boxIndex, slotIndex);
+                    snprintf(logBuffer, sizeof(logBuffer),
+                             "Party slot %zu: loaded from storage index %u (box %zu, slot %zu)", partySlotIndex,
+                             storageIndex, boxIndex, slotIndex);
                     logInfoToFile(logBuffer);
                 }
-            } else {
-                snprintf(logBuffer, sizeof(logBuffer), "Party slot %zu: storage index %u has no Pokemon", i, storageIndex);
+            }
+            else
+            {
+                snprintf(logBuffer, sizeof(logBuffer), "Party slot %zu: storage index %u has no Pokemon",
+                         partySlotIndex, storageIndex);
                 logInfoToFile(logBuffer);
             }
         }
@@ -263,28 +263,20 @@ namespace Trainer {
         logInfoToFile(logBuffer);
     }
 
-    void Trainer7LGPE::parseMiscBlock(const Block& block)
+    void Trainer7LGPE::parseMiscBlock(const Block &block)
     {
-        /**
-         * MISC Block Structure:
-         * 0x04: Money (4 bytes) - Trainer's currency amount
-         */
-        if (block.data.size() < 0x04 + 4) {
+        if (block.data.size() < 0x04 + 4)
+        {
             return;
         }
 
         this->money = readUInt32LittleEndian(&block.data[0x04]);
     }
 
-    void Trainer7LGPE::parsePlayTimeBlock(const Block& block)
+    void Trainer7LGPE::parsePlayTimeBlock(const Block &block)
     {
-        /**
-         * PLAY_TIME Block Structure:
-         * 0x00: Hours (2 bytes)
-         * 0x02: Minutes (1 byte)
-         * 0x03: Seconds (1 byte)
-         */
-        if (block.data.size() < 4) {
+        if (block.data.size() < 4)
+        {
             return;
         }
 
@@ -297,7 +289,7 @@ namespace Trainer {
         logInfoToFile(buffer);
     }
 
-    void Trainer7LGPE::parseMyItemBlock(const Block& block)
+    void Trainer7LGPE::parseMyItemBlock(const Block &block)
     {
         /**
          * MY_ITEM Block Structure for Let's Go:
@@ -316,60 +308,61 @@ namespace Trainer {
         snprintf(logBuffer, sizeof(logBuffer), "parseMyItemBlock: block size = %zu bytes", block.data.size());
         logInfoToFile(logBuffer);
 
-        // Initialize items vector with pouches for each type
         items.resize(POUCH_COUNT7_LGPE);
 
-        // Load each pouch
-        for (size_t p = 0; p < POUCH_COUNT7_LGPE; p++) {
-            PouchType7LGPE pouchType = static_cast<PouchType7LGPE>(p);
-            const PouchInfo7LGPE& info = getPouchInfo7LGPE(pouchType);
+        for (size_t pouchIndex = 0; pouchIndex < POUCH_COUNT7_LGPE; pouchIndex++)
+        {
+            PouchType7LGPE pouchType = static_cast<PouchType7LGPE>(pouchIndex);
+            const PouchInfo7LGPE &info = getPouchInfo7LGPE(pouchType);
 
             std::vector<InventoryItem> pouch;
             pouch.reserve(info.maxSlots);
 
-            // Read items from block data
-            for (int i = 0; i < info.maxSlots; i++) {
-                size_t offset = info.offset + (i * 4);
-                if (offset + 4 <= block.data.size()) {
+            for (int itemSlotIndex = 0; itemSlotIndex < info.maxSlots; itemSlotIndex++)
+            {
+                size_t offset = info.offset + (itemSlotIndex * 4);
+                if (offset + 4 <= block.data.size())
+                {
                     uint32_t itemValue = readUInt32LittleEndian(&block.data[offset]);
                     InventoryItem7LGPE item = InventoryItem7LGPE::fromValue(itemValue);
 
                     // Only add items with valid IDs (non-zero). isNew (bit 30) is preserved as-read
                     // so it round-trips faithfully on save.
-                    if (item.itemId != 0) {
+                    if (item.itemId != 0)
+                    {
                         pouch.push_back(item);
                     }
                 }
             }
 
-            items[p] = std::move(pouch);
+            items[pouchIndex] = std::move(pouch);
         }
 
         // Log item counts
         size_t totalItems = 0;
-        for (const auto& pouch : items) {
+        for (const auto &pouch : items)
+        {
             totalItems += pouch.size();
         }
         snprintf(logBuffer, sizeof(logBuffer), "Loaded %zu total items across %zu pouches", totalItems, items.size());
         logInfoToFile(logBuffer);
     }
 
-    // ========================================
-    // Block Update Methods
-    // ========================================
-
-    namespace {
+    namespace
+    {
         // Encrypt a Pokemon's decrypted buffer (seed = EncryptionConstant at 0x00) and write
-        // it into `dst` at `offset`. Inverse of the read path's decryptArray7LGPE.
-        void writeEncryptedPokemon(std::vector<uint8_t>& dst, size_t offset, const ::Pokemon::Pokemon& pokemon)
+        // it into `destination` at `offset`. Inverse of the read path's decryptArray7LGPE.
+        void writeEncryptedPokemon(std::vector<uint8_t> &destination, size_t offset, const ::Pokemon::Pokemon &pokemon)
         {
             const size_t size = pokemon.getDataSize();
-            if (offset + size > dst.size()) return;
-            uint32_t ec = readUInt32LittleEndian(reinterpret_cast<const uint8_t*>(pokemon.getData().data()));
+            if (offset + size > destination.size())
+                return;
+            uint32_t encryptionConstant =
+                readUInt32LittleEndian(reinterpret_cast<const uint8_t *>(pokemon.getData().data()));
             std::span<const std::byte> decrypted(pokemon.getData().data(), size);
-            std::byte* enc = Encryption::encryptArray7LGPE(decrypted, ec);
-            std::memcpy(&dst[offset], enc, size);
-            delete[] enc;
+            std::byte *encryptedRecord = Encryption::encryptArray7LGPE(decrypted, encryptionConstant);
+            std::memcpy(&destination[offset], encryptedRecord, size);
+            delete[] encryptedRecord;
         }
     }
 
@@ -400,12 +393,15 @@ namespace Trainer {
 
         // 1. Build packed list + old->new index map.
         std::vector<int> oldToNew(TOTAL, -1);
-        std::vector<::Pokemon::Pokemon*> packed;
+        std::vector<::Pokemon::Pokemon *> packed;
         packed.reserve(TOTAL);
-        for (size_t box = 0; box < BOX_COUNT7_LGPE; ++box) {
-            for (size_t slot = 0; slot < SLOTS_PER_BOX7_LGPE; ++slot) {
+        for (size_t box = 0; box < BOX_COUNT7_LGPE; ++box)
+        {
+            for (size_t slot = 0; slot < SLOTS_PER_BOX7_LGPE; ++slot)
+            {
                 const size_t oldIdx = box * SLOTS_PER_BOX7_LGPE + slot;
-                if (boxes[box][slot] && boxes[box][slot]->speciesID() != 0) {
+                if (boxes[box][slot] && boxes[box][slot]->speciesID() != 0)
+                {
                     oldToNew[oldIdx] = static_cast<int>(packed.size());
                     packed.push_back(boxes[box][slot].get());
                 }
@@ -413,37 +409,53 @@ namespace Trainer {
         }
         const uint16_t packedCount = static_cast<uint16_t>(packed.size());
 
-        auto remap = [&](uint16_t oldIdx) -> uint16_t {
+        auto remap = [&](uint16_t oldIdx) -> uint16_t
+        {
             return (oldIdx < TOTAL && oldToNew[oldIdx] >= 0) ? static_cast<uint16_t>(oldToNew[oldIdx]) : SLOT_EMPTY;
         };
 
         // 2 & 3. Write packed storage, then overlay party copies at their remapped indices.
-        for (auto& block : blocks) {
-            if (block.key != POKE_LIST_POKEMON7_LGPE) continue;
+        for (auto &block : blocks)
+        {
+            if (block.key != POKE_LIST_POKEMON7_LGPE)
+                continue;
             const size_t required = TOTAL * SIZE_PARTY7_LGPE;
-            if (block.data.size() < required) block.data.resize(required, 0);
+            if (block.data.size() < required)
+                block.data.resize(required, 0);
 
-            for (size_t n = 0; n < TOTAL; ++n) {
-                const size_t offset = n * SIZE_PARTY7_LGPE;
-                if (n < packed.size()) writeEncryptedPokemon(block.data, offset, *packed[n]);
-                else std::memset(&block.data[offset], 0, SIZE_PARTY7_LGPE);
+            for (size_t nIndex = 0; nIndex < TOTAL; ++nIndex)
+            {
+                const size_t offset = nIndex * SIZE_PARTY7_LGPE;
+                if (nIndex < packed.size())
+                    writeEncryptedPokemon(block.data, offset, *packed[nIndex]);
+                else
+                    std::memset(&block.data[offset], 0, SIZE_PARTY7_LGPE);
             }
 
-            for (size_t i = 0; i < party.size() && i < MAX_PARTY_SLOTS; ++i) {
-                const uint16_t newIdx = remap(partyIndices[i]);
-                if (newIdx >= TOTAL) continue;
-                if (!party[i] || party[i]->speciesID() == 0) continue;
-                writeEncryptedPokemon(block.data, static_cast<size_t>(newIdx) * SIZE_PARTY7_LGPE, *party[i]);
+            for (size_t partySlotIndex = 0; partySlotIndex < party.size() && partySlotIndex < MAX_PARTY_SLOTS;
+                 ++partySlotIndex)
+            {
+                const uint16_t newIdx = remap(partyIndices[partySlotIndex]);
+                if (newIdx >= TOTAL)
+                    continue;
+                if (!party[partySlotIndex] || party[partySlotIndex]->speciesID() == 0)
+                    continue;
+                writeEncryptedPokemon(block.data, static_cast<size_t>(newIdx) * SIZE_PARTY7_LGPE,
+                                      *party[partySlotIndex]);
             }
             break;
         }
 
         // 4. Header: remapped party pointers + starter + packed count.
-        for (auto& block : blocks) {
-            if (block.key != POKE_LIST_HEADER7_LGPE) continue;
-            if (block.data.size() >= 0x10) {
-                for (size_t i = 0; i < MAX_PARTY_SLOTS; ++i) {
-                    writeUInt16LittleEndian(&block.data[i * 2], remap(partyIndices[i]));
+        for (auto &block : blocks)
+        {
+            if (block.key != POKE_LIST_HEADER7_LGPE)
+                continue;
+            if (block.data.size() >= 0x10)
+            {
+                for (size_t partySlotIndex = 0; partySlotIndex < MAX_PARTY_SLOTS; ++partySlotIndex)
+                {
+                    writeUInt16LittleEndian(&block.data[partySlotIndex * 2], remap(partyIndices[partySlotIndex]));
                 }
                 writeUInt16LittleEndian(&block.data[0x0C], remap(starterIndex));
                 writeUInt16LittleEndian(&block.data[0x0E], packedCount);
@@ -464,51 +476,69 @@ namespace Trainer {
          * partner reference storage BY INDEX, so re-packing without remapping would leave them
          * pointing at whichever Pokemon slid into the vacated slot.
          */
-        constexpr size_t TOTAL = BOX_COUNT7_LGPE * SLOTS_PER_BOX7_LGPE;   // 1000
+        constexpr size_t TOTAL = BOX_COUNT7_LGPE * SLOTS_PER_BOX7_LGPE; // 1000
         constexpr uint16_t SLOT_EMPTY = 1001;
 
         // Cheap pre-scan, no allocation: storage is packed iff no occupied slot follows an empty
         // one. This runs every frame, so the common "nothing to do" case must stay allocation-free.
         bool seenEmpty = false, hasGap = false;
-        for (size_t box = 0; box < BOX_COUNT7_LGPE && !hasGap; ++box) {
-            for (size_t slot = 0; slot < SLOTS_PER_BOX7_LGPE; ++slot) {
-                const auto& cell = boxes[box][slot];
+        for (size_t box = 0; box < BOX_COUNT7_LGPE && !hasGap; ++box)
+        {
+            for (size_t slot = 0; slot < SLOTS_PER_BOX7_LGPE; ++slot)
+            {
+                const auto &cell = boxes[box][slot];
                 // Gate on species, not the pointer: a "ghost" (non-null but species 0) is an empty
                 // slot, and treating it as occupied would hold the hole open forever.
-                if (!cell || cell->speciesID() == 0) seenEmpty = true;
-                else if (seenEmpty) { hasGap = true; break; }
+                if (!cell || cell->speciesID() == 0)
+                    seenEmpty = true;
+                else if (seenEmpty)
+                {
+                    hasGap = true;
+                    break;
+                }
             }
         }
-        if (!hasGap) return false;
+        if (!hasGap)
+            return false;
 
         std::vector<int> oldToNew(TOTAL, -1);
         std::vector<std::unique_ptr<::Pokemon::Pokemon>> packed;
         packed.reserve(TOTAL);
-        for (size_t box = 0; box < BOX_COUNT7_LGPE; ++box) {
-            for (size_t slot = 0; slot < SLOTS_PER_BOX7_LGPE; ++slot) {
-                auto& cell = boxes[box][slot];
-                if (cell && cell->speciesID() != 0) {
+        for (size_t box = 0; box < BOX_COUNT7_LGPE; ++box)
+        {
+            for (size_t slot = 0; slot < SLOTS_PER_BOX7_LGPE; ++slot)
+            {
+                auto &cell = boxes[box][slot];
+                if (cell && cell->speciesID() != 0)
+                {
                     oldToNew[box * SLOTS_PER_BOX7_LGPE + slot] = static_cast<int>(packed.size());
                     packed.push_back(std::move(cell));
-                } else {
-                    cell.reset();       // drop ghosts while we are here
+                }
+                else
+                {
+                    cell.reset(); // drop ghosts while we are here
                 }
             }
         }
 
-        size_t n = 0;
-        for (size_t box = 0; box < BOX_COUNT7_LGPE; ++box) {
-            for (size_t slot = 0; slot < SLOTS_PER_BOX7_LGPE; ++slot) {
-                boxes[box][slot] = (n < packed.size()) ? std::move(packed[n++]) : nullptr;
+        size_t byteCount = 0;
+        for (size_t box = 0; box < BOX_COUNT7_LGPE; ++box)
+        {
+            for (size_t slot = 0; slot < SLOTS_PER_BOX7_LGPE; ++slot)
+            {
+                boxes[box][slot] = (byteCount < packed.size()) ? std::move(packed[byteCount++]) : nullptr;
             }
         }
 
         // Remap everything that points INTO storage. Same mapping updateBoxBlock() will apply.
-        auto remap = [&](uint16_t oldIdx) -> uint16_t {
+        auto remap = [&](uint16_t oldIdx) -> uint16_t
+        {
             return (oldIdx < TOTAL && oldToNew[oldIdx] >= 0)
-                 ? static_cast<uint16_t>(oldToNew[oldIdx]) : SLOT_EMPTY;
+                       ? static_cast<uint16_t>(oldToNew[oldIdx])
+                       : SLOT_EMPTY;
         };
-        for (size_t i = 0; i < MAX_PARTY_SLOTS; ++i) partyIndices[i] = remap(partyIndices[i]);
+        for (size_t partySlotIndex = 0; partySlotIndex < MAX_PARTY_SLOTS; ++partySlotIndex)
+            partyIndices[partySlotIndex] = remap(partyIndices[partySlotIndex]);
         starterIndex = remap(starterIndex);
         return true;
     }
@@ -518,15 +548,19 @@ namespace Trainer {
         // If this box slot is a party member, copy its (just-edited) bytes into the party copy so
         // updateBoxBlock()'s party overlay doesn't clobber the edit on save. Both are PK7b (same
         // size), and the box edit already recomputed stats + checksum, so a raw buffer copy suffices.
-        const int pos = getPartyPosition(boxIndex, slotIndex);  // 1-based; 0 if not a party member
-        if (pos <= 0) return;
-        const size_t i = static_cast<size_t>(pos - 1);
-        if (i >= party.size() || !party[i]) return;
-        if (boxIndex >= boxes.size() || slotIndex >= boxes[boxIndex].size()) return;
-        auto& src = boxes[boxIndex][slotIndex];
-        if (!src) return;
-        const size_t n = std::min(party[i]->getDataSize(), src->getDataSize());
-        std::memcpy(party[i]->getData().data(), src->getData().data(), n);
+        const int position = getPartyPosition(boxIndex, slotIndex); // 1-based; 0 if not a party member
+        if (position <= 0)
+            return;
+        const size_t partyIndex = static_cast<size_t>(position - 1);
+        if (partyIndex >= party.size() || !party[partyIndex])
+            return;
+        if (boxIndex >= boxes.size() || slotIndex >= boxes[boxIndex].size())
+            return;
+        auto &source = boxes[boxIndex][slotIndex];
+        if (!source)
+            return;
+        const size_t byteCount = std::min(party[partyIndex]->getDataSize(), source->getDataSize());
+        std::memcpy(party[partyIndex]->getData().data(), source->getData().data(), byteCount);
     }
 
     void Trainer7LGPE::mirrorPartyMemberFromParty(size_t partyIndex)
@@ -534,16 +568,20 @@ namespace Trainer {
         // Reverse direction: push a party-copy edit back into its box/storage slot (the display copy)
         // so the two representations stay byte-identical.
         constexpr uint16_t SLOT_EMPTY = 1001;
-        if (partyIndex >= party.size() || !party[partyIndex]) return;
-        const uint16_t idx = partyIndices[partyIndex];
-        if (idx == SLOT_EMPTY) return;
-        const size_t boxIndex = idx / SLOTS_PER_BOX7_LGPE;
-        const size_t slotIndex = idx % SLOTS_PER_BOX7_LGPE;
-        if (boxIndex >= boxes.size() || slotIndex >= boxes[boxIndex].size()) return;
-        auto& dst = boxes[boxIndex][slotIndex];
-        if (!dst) return;
-        const size_t n = std::min(dst->getDataSize(), party[partyIndex]->getDataSize());
-        std::memcpy(dst->getData().data(), party[partyIndex]->getData().data(), n);
+        if (partyIndex >= party.size() || !party[partyIndex])
+            return;
+        const uint16_t index = partyIndices[partyIndex];
+        if (index == SLOT_EMPTY)
+            return;
+        const size_t boxIndex = index / SLOTS_PER_BOX7_LGPE;
+        const size_t slotIndex = index % SLOTS_PER_BOX7_LGPE;
+        if (boxIndex >= boxes.size() || slotIndex >= boxes[boxIndex].size())
+            return;
+        auto &destination = boxes[boxIndex][slotIndex];
+        if (!destination)
+            return;
+        const size_t byteCount = std::min(destination->getDataSize(), party[partyIndex]->getDataSize());
+        std::memcpy(destination->getData().data(), party[partyIndex]->getData().data(), byteCount);
     }
 
     std::unique_ptr<::Pokemon::Pokemon> Trainer7LGPE::createBlankPokemon() const
@@ -554,15 +592,14 @@ namespace Trainer {
         // *live* blank entity still needs a valid decrypted PB7 buffer, so use the encrypt->decrypt
         // round-trip here (same principle as the SwishCrypto gens' encrypted-blank fallback).
         std::vector<std::byte> zero(SIZE_PARTY7_LGPE, std::byte{0});
-        std::byte* enc = Encryption::encryptArray7LGPE(
+        std::byte *encryptedRecord = Encryption::encryptArray7LGPE(
             std::span<const std::byte>(zero.data(), SIZE_PARTY7_LGPE), 0);
-        auto p = std::make_unique<Pokemon7LGPE>(
-            std::span<const std::byte>(enc, SIZE_PARTY7_LGPE));
-        delete[] enc;
-        return p;
+        auto clone = std::make_unique<Pokemon7LGPE>(
+            std::span<const std::byte>(encryptedRecord, SIZE_PARTY7_LGPE));
+        delete[] encryptedRecord;
+        return clone;
     }
 
-    // ---- Pokedex (Zukan block, idx 4 @ 0x02A00) ----------------------------------------------
     //
     // Far richer than Gen 3's two bit arrays. Layout, relative to the block start (PKHeX Zukan7 /
     // Zukan7b; the language-flag offset 0x550 is the ctor argument in SaveBlockAccessor7b):
@@ -576,69 +613,29 @@ namespace Trainer {
     // The DISPLAYED flag is what makes an entry actually render; seen alone leaves a blank slot. The
     // games set it for the FIRST variant registered and leave it there, so it is only written when no
     // displayed flag exists for that species/form in any of the four regions.
-    namespace {
+    namespace
+    {
         constexpr size_t ZUKAN_OFS_CAUGHT = 0x088;
-        constexpr size_t ZUKAN_OFS_SEEN   = 0x0F0;
-        constexpr size_t ZUKAN_BIT_REGION = 0x08C;   // bytes per seen/displayed region
-        constexpr size_t ZUKAN_OFS_LANG   = 0x550;
-        constexpr int    ZUKAN_LANG_COUNT = 9;
-        constexpr uint16_t LGPE_MAX_SPECIES = 809;   // Melmetal -- the base for alternate-form bits
+        constexpr size_t ZUKAN_OFS_SEEN = 0x0F0;
+        constexpr size_t ZUKAN_BIT_REGION = 0x08C; // bytes per seen/displayed region
+        constexpr size_t ZUKAN_OFS_LANG = 0x550;
+        constexpr int ZUKAN_LANG_COUNT = 9;
+        constexpr uint16_t LGPE_MAX_SPECIES = 809; // Melmetal -- the base for alternate-form bits
 
-        // Species that carry alternate dex FORM bits in Let's Go, and how many forms each occupies.
-        // PKHeX DexFormUtil.DexSpeciesWithForm_GG / DexSpeciesCount_GG, verbatim and sorted.
-        constexpr uint16_t GG_FORM_SPECIES[32] = {
-              3,   6,   9,  15,  18,  19,  20,  25,  26,  27,  28,  37,  38,  50,  51,  52,
-             53,  65,  74,  75,  76,  80,  88,  89,  94, 103, 105, 115, 127, 130, 142, 150,
-        };
-        constexpr uint8_t GG_FORM_COUNT[32] = {
-              2,   3,   2,   2,   2,   2,   3,   9,   2,   2,   2,   2,   2,   2,   2,   2,
-              2,   2,   2,   2,   2,   2,   2,   2,   2,   2,   3,   2,   2,   2,   2,   3,
-        };
-
-        // Index of this species' first alternate-form bit, or -1 if it has none in the GG dex.
+        // The dex form-bit index and the (species, form) entry list are GENERATED, in
+        // DexTable7LGPE. They were hand-transcribed here from PKHeX -- correctly, and with the
+        // provenance written down -- but PKHeX-derived data that no generator can refresh is data
+        // that eventually goes wrong with no way to say so, which is exactly the position the
+        // pokemondb base-stat tables were in. getDexFormBitIndex7LGPE / getDexEntryIndex7LGPE
+        // reproduce what was here byte for byte.
         //
-        // PKHeX additionally bails when the GG form count exceeds the save's personal-table FormCount.
-        // That guard is not reproduced: it compares against Let's Go's OWN personal table, and PKSE
-        // carries only the Gen 9-derived one. Checked across all 32 species -- the counts happen to
-        // agree today, so the guard would never fire, but comparing to the wrong table is a trap
-        // waiting for the next data regeneration. The GG table is the authority for the GG dex.
-        int ggFormBitIndex(uint16_t species) {
-            int idx = -1;
-            for (int i = 0; i < 32; ++i) {
-                if (GG_FORM_SPECIES[i] == species) { idx = i; break; }
-            }
-            if (idx < 0) return -1;
-            int prior = -idx;
-            for (int i = 0; i < idx; ++i) prior += GG_FORM_COUNT[i];
-            return prior;
-        }
+        // PKHeX additionally bails when the GG form count exceeds the save's personal-table
+        // FormCount. That guard was not reproduced because PKSE carried only the Gen 9-derived
+        // personal table to compare against; it now has PersonalInfo7LGPE, generated from
+        // personal_gg, so the guard is reproducible -- getDexFormCount7LGPE is what it needs. It
+        // is still not applied, because the counts agree for all 32 species and turning it on is
+        // a behaviour change rather than a move.
 
-        // The (species, form) pairs Let's Go's Pokedex actually has an entry for, beyond plain form 0.
-        // PKHeX Zukan7b.SizeDexInfoTable -- which is also the GATE its SetDex uses: a Pokemon whose
-        // (species, form) is absent here is not recorded at all.
-        constexpr uint16_t GG_DEX_FORMS[33][2] = {
-            {  3,1},{  6,1},{  6,2},{  9,1},{ 15,1},{ 18,1},{ 19,1},{ 20,1},{ 26,1},{ 27,1},{ 28,1},
-            { 37,1},{ 38,1},{ 50,1},{ 51,1},{ 52,1},{ 53,1},{ 65,1},{ 74,1},{ 75,1},{ 76,1},{ 80,1},
-            { 88,1},{ 89,1},{ 94,1},{103,1},{105,1},{115,1},{127,1},{130,1},{142,1},{150,1},{150,2},
-        };
-
-        // Dex entry index for a (species, form), or -1 if the dex has no entry. 0-150 are Kanto,
-        // 151/152 are Meltan/Melmetal, and 153+ are the alternate forms above, in table order.
-        // PKHeX Zukan7b.TryGetSizeEntryIndex.
-        int ggDexEntryIndex(uint16_t species, uint8_t form) {
-            if (form == 0) {
-                if (species >= 1 && species <= 151) return species - 1;
-                if (species == 808) return 151;
-                if (species == 809) return 152;
-                return -1;
-            }
-            for (int i = 0; i < 33; ++i) {
-                if (GG_DEX_FORMS[i][0] == species && GG_DEX_FORMS[i][1] == form) return 153 + i;
-            }
-            return -1;
-        }
-
-        // ---- Size records ------------------------------------------------------------------
         // Let's Go remembers the smallest and largest of each species you have seen. Four groups of
         // 186 six-byte entries at 0xF78; the table ends exactly on the block's last byte (0x20E8),
         // which is a useful check that the geometry is right.
@@ -647,77 +644,111 @@ namespace Trainer {
         constexpr size_t ZUKAN_SIZE_START = 0xF78;
         constexpr size_t ZUKAN_SIZE_ENTRY = 6;
         constexpr size_t ZUKAN_SIZE_COUNT = 186;
-        enum : int { SIZE_MIN_HEIGHT = 0, SIZE_MAX_HEIGHT = 1, SIZE_MIN_WEIGHT = 2, SIZE_MAX_WEIGHT = 3 };
+        enum : int
+        {
+            SIZE_MIN_HEIGHT = 0,
+            SIZE_MAX_HEIGHT = 1,
+            SIZE_MIN_WEIGHT = 2,
+            SIZE_MAX_WEIGHT = 3
+        };
 
-        size_t ggSizeOffset(int group, int index) {
-            return ZUKAN_SIZE_START
-                 + ZUKAN_SIZE_ENTRY * (static_cast<size_t>(index) + static_cast<size_t>(group) * ZUKAN_SIZE_COUNT);
+        size_t ggSizeOffset(int group, int index)
+        {
+            return ZUKAN_SIZE_START +
+                   ZUKAN_SIZE_ENTRY * (static_cast<size_t>(index) + static_cast<size_t>(group) * ZUKAN_SIZE_COUNT);
         }
-        bool ggSizeUnset(const std::vector<uint8_t>& d, size_t ofs) {
+        bool ggSizeUnset(const std::vector<uint8_t> &d, size_t offset)
+        {
             // UNSET == 0x007F00FE little-endian: FE 00 7F 00.
-            return ofs + 4 <= d.size()
-                && d[ofs] == 0xFE && d[ofs + 1] == 0x00 && d[ofs + 2] == 0x7F && d[ofs + 3] == 0x00;
+            return offset + 4 <= d.size() && d[offset] == 0xFE && d[offset + 1] == 0x00 && d[offset + 2] == 0x7F &&
+                   d[offset + 3] == 0x00;
         }
-        void ggSizeWrite(std::vector<uint8_t>& d, size_t ofs, uint8_t height, uint8_t weight) {
-            if (ofs + 4 > d.size()) return;
-            d[ofs]     = height;
-            d[ofs + 1] = 0;        // "flagged" marker; the games leave it clear for an ordinary record
-            d[ofs + 2] = weight;
-            d[ofs + 3] = 0;
+        void ggSizeWrite(std::vector<uint8_t> &d, size_t offset, uint8_t height, uint8_t weight)
+        {
+            if (offset + 4 > d.size())
+                return;
+            d[offset] = height;
+            d[offset + 1] = 0; // "flagged" marker; the games leave it clear for an ordinary record
+            d[offset + 2] = weight;
+            d[offset + 3] = 0;
         }
         // Same ratios the creator and the bank converter use for PB7 absolute size (PKHeX PB7).
-        float ggHeightRatio(uint8_t s) { return (static_cast<float>(s) / 255.0f) * 0.79999995f + 0.6f; }
-        float ggWeightRatio(uint8_t s) { return (static_cast<float>(s) / 255.0f) * 0.40000004f + 0.8f; }
-        float ggWeightAbsoluteFrom(const ::Pokemon::PersonalInfo& pi, uint8_t hs, uint8_t ws) {
-            return ggHeightRatio(hs) * (ggWeightRatio(ws) * static_cast<float>(pi.weight));
+        float ggHeightRatio(uint8_t sourceBytes)
+        {
+            return (static_cast<float>(sourceBytes) / 255.0f) * 0.79999995f + 0.6f;
+        }
+        float ggWeightRatio(uint8_t sourceBytes)
+        {
+            return (static_cast<float>(sourceBytes) / 255.0f) * 0.40000004f + 0.8f;
+        }
+        float ggWeightAbsoluteFrom(const ::Pokemon::PersonalInfo &pi, uint8_t heightScalar, uint8_t weightScalar)
+        {
+            return ggHeightRatio(heightScalar) * (ggWeightRatio(weightScalar) * static_cast<float>(pi.weight));
         }
 
         // The partner Pikachu / Eevee are cosmetic overlays on form 0, not dex forms of their own.
-        bool isBuddyForm(uint16_t species, uint8_t form) {
+        bool isBuddyForm(uint16_t species, uint8_t form)
+        {
             return (species == 25 && form == 8) || (species == 133 && form == 1);
         }
 
         // Language id -> dex language slot. Slot 6 (langID 6) is unused, so 7+ shift down by two.
-        int ggLangSlot(uint8_t language) {
-            if (language == 0 || language == 6 || language > 10) return -1;
+        int ggLangSlot(uint8_t language)
+        {
+            if (language == 0 || language == 6 || language > 10)
+                return -1;
             return (language >= 7) ? language - 2 : language - 1;
         }
 
-        inline bool getBit(const std::vector<uint8_t>& d, size_t ofs, int bit) {
-            const size_t byteOfs = ofs + static_cast<size_t>(bit >> 3);
+        inline bool getBit(const std::vector<uint8_t> &d, size_t offset, int bit)
+        {
+            const size_t byteOfs = offset + static_cast<size_t>(bit >> 3);
             return byteOfs < d.size() && (d[byteOfs] & (1u << (bit & 7))) != 0;
         }
-        inline void setBit(std::vector<uint8_t>& d, size_t ofs, int bit) {
-            const size_t byteOfs = ofs + static_cast<size_t>(bit >> 3);
-            if (byteOfs < d.size()) d[byteOfs] |= static_cast<uint8_t>(1u << (bit & 7));
+        inline void setBit(std::vector<uint8_t> &d, size_t offset, int bit)
+        {
+            const size_t byteOfs = offset + static_cast<size_t>(bit >> 3);
+            if (byteOfs < d.size())
+                d[byteOfs] |= static_cast<uint8_t>(1u << (bit & 7));
         }
     }
 
     void Trainer7LGPE::updatePokedexBlock()
     {
-        std::vector<uint8_t>* dex = nullptr;
-        for (auto& block : blocks) {
-            if (block.key == ZUKAN7_LGPE) { dex = &block.data; break; }
+        std::vector<uint8_t> *dex = nullptr;
+        for (auto &block : blocks)
+        {
+            if (block.key == ZUKAN7_LGPE)
+            {
+                dex = &block.data;
+                break;
+            }
         }
-        if (!dex || dex->size() < ZUKAN_OFS_LANG) return;   // block missing or too small: leave it alone
+        // block missing or too small: leave it alone
+        if (!dex || dex->size() < ZUKAN_OFS_LANG) return;
 
-        auto registerMon = [&](const ::Pokemon::Pokemon* pk) {
-            if (!pk || pk->isEgg()) return;
-            const uint16_t species = pk->speciesID();
-            if (species == 0 || species > LGPE_MAX_SPECIES) return;
+        auto registerMon = [&](const ::Pokemon::Pokemon *pokemon)
+        {
+            if (!pokemon || pokemon->isEgg())
+                return;
+            const uint16_t species = pokemon->speciesID();
+            if (species == 0 || species > LGPE_MAX_SPECIES)
+                return;
 
-            uint8_t form = pk->form();
-            if (isBuddyForm(species, form)) form = 0;
+            uint8_t form = pokemon->form();
+            if (isBuddyForm(species, form))
+                form = 0;
             // Gate on the dex's own entry table, not on the personal table's per-game presence bit.
             // Presence answers "can this game hold it", which is a different question: it is true for
             // forms the DEX has no entry for, and writing a form bit for one of those would set a flag
             // the game never reads.
-            const int entryIndex = ggDexEntryIndex(species, form);
-            if (entryIndex < 0) return;
+            const int entryIndex = getDexEntryIndex7LGPE(species, form);
+            if (entryIndex < 0)
+                return;
 
             const int baseBit = species - 1;
-            const uint8_t gender = pk->gender();
-            const bool shiny = pk->isShiny(pk->id32(), pk->species());
+            const uint8_t gender = pokemon->gender();
+            const bool shiny = pokemon->isShiny(pokemon->id32(), pokemon->species());
             // Genderless counts as male here, matching the games (gender 2 -> bit 0).
             const int shift = ((gender == 1) ? 1 : 0) | (shiny ? 2 : 0);
 
@@ -726,9 +757,11 @@ namespace Trainer {
 
             // Alternate forms live at their own bit, past the species range.
             int formBit = baseBit;
-            if (form > 0) {
-                const int idx = ggFormBitIndex(species);
-                if (idx >= 0) formBit = LGPE_MAX_SPECIES + idx + (form - 1);
+            if (form > 0)
+            {
+                const int index = getDexFormBitIndex7LGPE(species);
+                if (index >= 0)
+                    formBit = LGPE_MAX_SPECIES + index + (form - 1);
             }
 
             // SEEN is per FORM, not per species -- it is indexed by the FORM bit, and that is what
@@ -751,18 +784,18 @@ namespace Trainer {
             // entry has none at all, which is the case that matters: a species whose first sighting
             // is an alternate form (a fresh Alolan Sandslash) still gets an entry to display.
             bool anyDisplayed = false;
-            for (int r = 0; r < 4 && !anyDisplayed; ++r) {
-                const size_t ofs = ZUKAN_OFS_SEEN + static_cast<size_t>(r + 4) * ZUKAN_BIT_REGION;
-                anyDisplayed = getBit(*dex, ofs, baseBit) || getBit(*dex, ofs, formBit);
+            for (int moveIndex = 0; moveIndex < 4 && !anyDisplayed; ++moveIndex)
+            {
+                const size_t offset = ZUKAN_OFS_SEEN + static_cast<size_t>(moveIndex + 4) * ZUKAN_BIT_REGION;
+                anyDisplayed = getBit(*dex, offset, baseBit) || getBit(*dex, offset, formBit);
             }
             if (!anyDisplayed)
                 setBit(*dex, ZUKAN_OFS_SEEN + static_cast<size_t>(shift + 4) * ZUKAN_BIT_REGION, formBit);
 
-            const int lang = ggLangSlot(pk->language());
+            const int lang = ggLangSlot(pokemon->language());
             if (lang >= 0)
                 setBit(*dex, ZUKAN_OFS_LANG, baseBit * ZUKAN_LANG_COUNT + lang);
 
-            // ---- smallest / largest seen ----------------------------------------------------
             // Compared against the species' BASE size: a Pokemon smaller than base can only ever be a
             // minimum, larger can only be a maximum, and exactly base is neither. A record is taken
             // when it beats the stored one, or when nothing is stored yet.
@@ -771,60 +804,74 @@ namespace Trainer {
             // guarded by getGameGroup() -- the project's standard cross-generation dispatch. A slot in an
             // LGPE trainer should always hold a PB7 (the bank converts on withdrawal), but a static_cast
             // is unchecked and this is the one place that would silently read a foreign buffer.
-            if (pk->getGameGroup() != Enums::GameVersion::GG) return;
-            const auto* lg = static_cast<const Pokemon7LGPE*>(pk);
+            if (pokemon->getGameGroup() != Enums::GameVersion::GG)
+                return;
+            const auto *lg = static_cast<const Pokemon7LGPE *>(pokemon);
             const float hAbs = lg->heightAbsolute();
             const float wAbs = lg->weightAbsolute();
             // A Pokemon with no absolute size written (0.0) is not a record of anything -- older PKSE
             // builds left these blank, and treating that as "smallest ever" would stamp a bogus 0 into
             // the dex that the player could never beat.
-            if (!(hAbs > 0.0f) || !(wAbs > 0.0f)) return;
+            if (!(hAbs > 0.0f) || !(wAbs > 0.0f))
+                return;
 
-            const ::Pokemon::PersonalInfo& pi = ::Pokemon::getPersonalInfo(species, form);
-            const uint8_t hs = lg->heightScalar();
-            const uint8_t ws = lg->weightScalar();
+            const ::Pokemon::PersonalInfo &pi = ::Pokemon::getPersonalInfo(species, form);
+            const uint8_t heightScalarValue = lg->heightScalar();
+            const uint8_t weightScalarValue = lg->weightScalar();
 
-            if (hAbs < static_cast<float>(pi.height)) {
-                const size_t ofs = ggSizeOffset(SIZE_MIN_HEIGHT, entryIndex);
-                if (ofs + ZUKAN_SIZE_ENTRY <= dex->size() && (ggSizeUnset(*dex, ofs) || hs < (*dex)[ofs]))
-                    ggSizeWrite(*dex, ofs, hs, ws);
-            } else if (hAbs > static_cast<float>(pi.height)) {
-                const size_t ofs = ggSizeOffset(SIZE_MAX_HEIGHT, entryIndex);
-                if (ofs + ZUKAN_SIZE_ENTRY <= dex->size() && (ggSizeUnset(*dex, ofs) || hs > (*dex)[ofs]))
-                    ggSizeWrite(*dex, ofs, hs, ws);
+            if (hAbs < static_cast<float>(pi.height))
+            {
+                const size_t offset = ggSizeOffset(SIZE_MIN_HEIGHT, entryIndex);
+                if (offset + ZUKAN_SIZE_ENTRY <= dex->size() &&
+                    (ggSizeUnset(*dex, offset) || heightScalarValue < (*dex)[offset]))
+                    ggSizeWrite(*dex, offset, heightScalarValue, weightScalarValue);
+            }
+            else if (hAbs > static_cast<float>(pi.height))
+            {
+                const size_t offset = ggSizeOffset(SIZE_MAX_HEIGHT, entryIndex);
+                if (offset + ZUKAN_SIZE_ENTRY <= dex->size() &&
+                    (ggSizeUnset(*dex, offset) || heightScalarValue > (*dex)[offset]))
+                    ggSizeWrite(*dex, offset, heightScalarValue, weightScalarValue);
             }
 
             // Weight records compare ABSOLUTE weight, not the scalar: absolute weight depends on the
             // height scalar too, so a bigger weight scalar is not necessarily a heavier Pokemon.
-            if (wAbs < static_cast<float>(pi.weight)) {
-                const size_t ofs = ggSizeOffset(SIZE_MIN_WEIGHT, entryIndex);
-                if (ofs + ZUKAN_SIZE_ENTRY <= dex->size()
-                    && (ggSizeUnset(*dex, ofs)
-                        || wAbs < ggWeightAbsoluteFrom(pi, (*dex)[ofs], (*dex)[ofs + 2])))
-                    ggSizeWrite(*dex, ofs, hs, ws);
-            } else if (wAbs > static_cast<float>(pi.weight)) {
-                const size_t ofs = ggSizeOffset(SIZE_MAX_WEIGHT, entryIndex);
-                if (ofs + ZUKAN_SIZE_ENTRY <= dex->size()
-                    && (ggSizeUnset(*dex, ofs)
-                        || wAbs > ggWeightAbsoluteFrom(pi, (*dex)[ofs], (*dex)[ofs + 2])))
-                    ggSizeWrite(*dex, ofs, hs, ws);
+            if (wAbs < static_cast<float>(pi.weight))
+            {
+                const size_t offset = ggSizeOffset(SIZE_MIN_WEIGHT, entryIndex);
+                if (offset + ZUKAN_SIZE_ENTRY <= dex->size() &&
+                    (ggSizeUnset(*dex, offset) || wAbs < ggWeightAbsoluteFrom(pi, (*dex)[offset], (*dex)[offset + 2])))
+                    ggSizeWrite(*dex, offset, heightScalarValue, weightScalarValue);
+            }
+            else if (wAbs > static_cast<float>(pi.weight))
+            {
+                const size_t offset = ggSizeOffset(SIZE_MAX_WEIGHT, entryIndex);
+                if (offset + ZUKAN_SIZE_ENTRY <= dex->size() &&
+                    (ggSizeUnset(*dex, offset) || wAbs > ggWeightAbsoluteFrom(pi, (*dex)[offset], (*dex)[offset + 2])))
+                    ggSizeWrite(*dex, offset, heightScalarValue, weightScalarValue);
             }
         };
 
-        for (const auto& pk : party) registerMon(pk.get());
-        for (const auto& box : boxes)
-            for (const auto& pk : box) registerMon(pk.get());
+        for (const auto &pokemon : party)
+            registerMon(pokemon.get());
+        for (const auto &box : boxes)
+            for (const auto &pokemon : box)
+                registerMon(pokemon.get());
     }
 
     void Trainer7LGPE::updateTrainerInfoBlock()
     {
         // Write money / OT name back to the same blocks they are parsed from. Block CRC-16/ARC
         // checksums are recomputed later by writeBlocksToSaveData7LGPE().
-        for (auto& block : blocks) {
-            if (block.key == MY_STATUS7_LGPE) {
-                if (block.data.size() >= 0x38 + 26)
-                    setString(&block.data[0x38], 26, utf8ToUtf16(trainerName), 12);   // OT name, 12 chars
-            } else if (block.key == MISC7_LGPE) {
+        for (auto &block : blocks)
+        {
+            if (block.key == MY_STATUS7_LGPE)
+            {
+                // OT name, 12 chars
+                if (block.data.size() >= 0x38 + 26) setString(&block.data[0x38], 26, utf8ToUtf16(trainerName), 12);
+            }
+            else if (block.key == MISC7_LGPE)
+            {
                 if (block.data.size() >= 0x04 + 4)
                     writeUInt32LittleEndian(&block.data[0x04], money);
             }
@@ -840,26 +887,32 @@ namespace Trainer {
          * fromValue/toValue round-trip is byte-exact for valid items, a save that didn't touch items
          * reproduces the original block bytes. The block is re-hashed/re-encrypted by the caller.
          */
-        for (auto& block : blocks) {
-            if (block.key != MY_ITEM7_LGPE) continue;
+        for (auto &block : blocks)
+        {
+            if (block.key != MY_ITEM7_LGPE)
+                continue;
 
-            for (size_t p = 0; p < POUCH_COUNT7_LGPE; ++p) {
-                const PouchInfo7LGPE& info = getPouchInfo7LGPE(static_cast<PouchType7LGPE>(p));
-                const size_t itemCount = (p < items.size()) ? items[p].size() : 0;
+            for (size_t pouchIndex = 0; pouchIndex < POUCH_COUNT7_LGPE; ++pouchIndex)
+            {
+                const PouchInfo7LGPE &info = getPouchInfo7LGPE(static_cast<PouchType7LGPE>(pouchIndex));
+                const size_t itemCount = (pouchIndex < items.size()) ? items[pouchIndex].size() : 0;
 
-                for (int i = 0; i < info.maxSlots; ++i) {
-                    const size_t offset = static_cast<size_t>(info.offset) + static_cast<size_t>(i) * 4;
-                    if (offset + 4 > block.data.size()) break;
+                for (int itemSlotIndex = 0; itemSlotIndex < info.maxSlots; ++itemSlotIndex)
+                {
+                    const size_t offset = static_cast<size_t>(info.offset) + static_cast<size_t>(itemSlotIndex) * 4;
+                    if (offset + 4 > block.data.size())
+                        break;
 
-                    uint32_t value = 0;  // empty slot
-                    if (static_cast<size_t>(i) < itemCount) {
-                        const InventoryItem& src = items[p][i];
-                        InventoryItem7LGPE it;
-                        it.itemId = src.itemId;
-                        it.count = src.count;
-                        it.isNew = src.isNew;
-                        it.isFavorite = src.isFavorite;
-                        value = it.toValue();
+                    uint32_t value = 0; // empty slot
+                    if (static_cast<size_t>(itemSlotIndex) < itemCount)
+                    {
+                        const InventoryItem &source = items[pouchIndex][itemSlotIndex];
+                        InventoryItem7LGPE inventoryItem;
+                        inventoryItem.itemId = source.itemId;
+                        inventoryItem.count = source.count;
+                        inventoryItem.isNew = source.isNew;
+                        inventoryItem.isFavorite = source.isFavorite;
+                        value = inventoryItem.toValue();
                     }
                     writeUInt32LittleEndian(&block.data[offset], value);
                 }
@@ -870,135 +923,140 @@ namespace Trainer {
         }
     }
 
-    // ========================================
-    // Block Creation from Raw Save Data
-    // ========================================
-
-    std::vector<Save::Block> createBlocksFromSaveData7LGPE(const std::vector<uint8_t>& saveData)
+    std::vector<Save::Block> createBlocksFromSaveData7LGPE(const std::vector<uint8_t> &saveData)
     {
         /**
-         * Converts raw Let's Go save data to Block structures.
-         *
-         * Let's Go uses fixed-offset blocks (not SCBlocks like Gen 8+).
-         * This function creates Block structures from the raw data
-         * for consistent handling with other generations.
-         *
-         * Block info verbatim from PKHeX BelugaBlockIndex.cs:
-         * - idx 0  (MyItem)          @ 0x00000, len 0x00D90
-         * - idx 2  (MyStatus)        @ 0x01000, len 0x00168
-         * - idx 4  (Zukan)           @ 0x02A00, len 0x020E8
-         * - idx 5  (Misc)            @ 0x04C00, len 0x00930
-         * - idx 8  (PokeListHeader)  @ 0x05A00, len 0x00012  <- party header
-         * - idx 9  (PokeListPokemon) @ 0x05C00, len 0x3F7A0
-         * - idx 10 (PlayTime)        @ 0x45400, len 0x00008
+         * Let's Go uses fixed-offset blocks, not the SCBlocks of Gen 8+. Offsets verbatim from PKHeX
+         * BelugaBlockIndex.cs:
+         *   index 0  (MyItem)          @ 0x00000, length 0x00D90
+         *   index 2  (MyStatus)        @ 0x01000, length 0x00168
+         *   index 4  (Zukan)           @ 0x02A00, length 0x020E8
+         *   index 5  (Misc)            @ 0x04C00, length 0x00930
+         *   index 8  (PokeListHeader)  @ 0x05A00, length 0x00012  <- party header
+         *   index 9  (PokeListPokemon) @ 0x05C00, length 0x3F7A0
+         *   index 10 (PlayTime)        @ 0x45400, length 0x00008
          */
 
         std::vector<Save::Block> blocks;
 
-        if (saveData.size() != SAVE_SIZE7_LGPE) {
+        if (saveData.size() != SAVE_SIZE7_LGPE)
+        {
             logErrorToFile("createBlocksFromSaveData7LGPE: Invalid save file size. Expected " +
-                std::to_string(SAVE_SIZE7_LGPE) + " bytes, got " +
-                std::to_string(saveData.size()) + " bytes.");
+                           std::to_string(SAVE_SIZE7_LGPE) + " bytes, got " +
+                           std::to_string(saveData.size()) + " bytes.");
             return blocks;
         }
 
         // Define block info: {key, offset, size}
-        struct BlockDef {
+        struct BlockDef
+        {
             size_t key;
             size_t offset;
             size_t size;
         };
 
-        // Fixed-position blocks, offsets/lengths taken verbatim from PKHeX
-        // BelugaBlockIndex. The party header (PokeListHeader) is idx 8 @ 0x05A00,
-        // len 0x12 - previously guessed at 0x01200/0x04C00, which is what made
-        // party/box loading unreliable and forced the old whole-save scan.
+        // Fixed-position blocks, offsets and lengths taken verbatim from PKHeX BelugaBlockIndex. The party
+        // header (PokeListHeader) is index 8 @ 0x05A00, length 0x12.
         const BlockDef blockDefs[] = {
-            { MY_ITEM7_LGPE,           0x00000, 0x00D90 },  // idx 0  MyItem
-            { MY_STATUS7_LGPE,         0x01000, 0x00168 },  // idx 2  MyStatus
-            { ZUKAN7_LGPE,             0x02A00, 0x020E8 },  // idx 4  Zukan (pokedex)
-            { MISC7_LGPE,              0x04C00, 0x00930 },  // idx 5  Misc (money)
-            { POKE_LIST_HEADER7_LGPE,  0x05A00, 0x00012 },  // idx 8  party header
-            { POKE_LIST_POKEMON7_LGPE, 0x05C00, 0x3F7A0 },  // idx 9  storage (1000 x 260 bytes)
-            { PLAY_TIME7_LGPE,         0x45400, 0x00008 },  // idx 10 PlayTime
+            {MY_ITEM7_LGPE, 0x00000, 0x00D90},           // index 0  MyItem
+            {MY_STATUS7_LGPE, 0x01000, 0x00168},         // index 2  MyStatus
+            {ZUKAN7_LGPE, 0x02A00, 0x020E8},             // index 4  Zukan (pokedex)
+            {MISC7_LGPE, 0x04C00, 0x00930},              // index 5  Misc (money)
+            {POKE_LIST_HEADER7_LGPE, 0x05A00, 0x00012},  // index 8  party header
+            {POKE_LIST_POKEMON7_LGPE, 0x05C00, 0x3F7A0}, // index 9  storage (1000 x 260 bytes)
+            {PLAY_TIME7_LGPE, 0x45400, 0x00008},         // index 10 PlayTime
         };
 
-        for (const auto& def : blockDefs) {
-            if (def.offset + def.size <= saveData.size()) {
+        for (const auto &def : blockDefs)
+        {
+            if (def.offset + def.size <= saveData.size())
+            {
                 Save::Block block;
                 block.key = static_cast<uint32_t>(def.key);
                 block.type = SCTypeCode::Array;
                 block.data.assign(
                     saveData.begin() + def.offset,
-                    saveData.begin() + def.offset + def.size
-                );
+                    saveData.begin() + def.offset + def.size);
                 blocks.push_back(std::move(block));
             }
         }
 
-        logInfoToFile("createBlocksFromSaveData7LGPE: Created " + std::to_string(blocks.size()) + " blocks from save data");
+        logInfoToFile("createBlocksFromSaveData7LGPE: Created " + std::to_string(blocks.size()) +
+                      " blocks from save data");
 
         return blocks;
     }
 
-    // ========================================
-    // Serialize edited blocks back into the raw save buffer (+ block checksums)
-    // ========================================
-
-    namespace {
+    namespace
+    {
         // CRC-16/ARC (reflected poly 0xA001, init 0x0000, no final XOR) — the LGPE block
         // checksum (PKHeX Checksums.CRC16NoInvert / BlockInfo7b). Computed over [p, p+n).
-        uint16_t crc16Arc(const uint8_t* p, size_t n)
+        uint16_t crc16Arc(const uint8_t *bytes, size_t byteCount)
         {
-            uint16_t crc = 0x0000;
-            for (size_t i = 0; i < n; ++i) {
-                crc ^= p[i];
-                for (int b = 0; b < 8; ++b) {
-                    crc = (crc & 1) ? static_cast<uint16_t>((crc >> 1) ^ 0xA001)
-                                    : static_cast<uint16_t>(crc >> 1);
+            uint16_t checksum = 0x0000;
+            for (size_t index = 0; index < byteCount; ++index)
+            {
+                checksum ^= bytes[index];
+                for (int bitIndex = 0; bitIndex < 8; ++bitIndex)
+                {
+                    checksum = (checksum & 1) ? static_cast<uint16_t>((checksum >> 1) ^ 0xA001)
+                                    : static_cast<uint16_t>(checksum >> 1);
                 }
             }
-            return crc;
+            return checksum;
         }
 
         // Active-area byte offset for a Beluga block key (matches createBlocksFromSaveData7LGPE).
         size_t offsetForBlockKey(uint32_t key)
         {
-            switch (key) {
-                case MY_ITEM7_LGPE:           return 0x00000;
-                case MY_STATUS7_LGPE:         return 0x01000;
-                case ZUKAN7_LGPE:             return 0x02A00;
-                case MISC7_LGPE:              return 0x04C00;
-                case POKE_LIST_HEADER7_LGPE:  return 0x05A00;
-                case POKE_LIST_POKEMON7_LGPE: return 0x05C00;
-                case PLAY_TIME7_LGPE:         return 0x45400;
-                default:                      return SIZE_MAX;
+            switch (key)
+            {
+            case MY_ITEM7_LGPE:
+                return 0x00000;
+            case MY_STATUS7_LGPE:
+                return 0x01000;
+            case ZUKAN7_LGPE:
+                return 0x02A00;
+            case MISC7_LGPE:
+                return 0x04C00;
+            case POKE_LIST_HEADER7_LGPE:
+                return 0x05A00;
+            case POKE_LIST_POKEMON7_LGPE:
+                return 0x05C00;
+            case PLAY_TIME7_LGPE:
+                return 0x45400;
+            default:
+                return SIZE_MAX;
             }
         }
     }
 
-    void writeBlocksToSaveData7LGPE(std::vector<uint8_t>& raw, const std::vector<Save::Block>& blocks)
+    void writeBlocksToSaveData7LGPE(std::vector<uint8_t> &raw, const std::vector<Save::Block> &blocks)
     {
         // In the "BEEF" footer, block id N's 2-byte CRC lives at 0xB861A + N*8.
         // (footer base 0xB8600 + 0x14 header + id*8 + 6 for the checksum field.)
         constexpr size_t CHECKSUM_BASE = 0xB861A;
 
-        for (const auto& block : blocks) {
+        for (const auto &block : blocks)
+        {
             const size_t offset = offsetForBlockKey(block.key);
-            if (offset == SIZE_MAX) continue;
+            if (offset == SIZE_MAX)
+                continue;
 
-            const size_t len = block.data.size();
-            if (offset + len > raw.size()) continue;
+            const size_t length = block.data.size();
+            if (offset + length > raw.size())
+                continue;
 
             // Patch the block bytes in place.
-            std::memcpy(raw.data() + offset, block.data.data(), len);
+            std::memcpy(raw.data() + offset, block.data.data(), length);
 
             // Recompute this block's checksum into the footer. (Blocks we don't touch keep
             // their original bytes and valid checksums, so we only need to redo the ones here.)
-            const uint16_t crc = crc16Arc(raw.data() + offset, len);
+            const uint16_t storedChecksum = crc16Arc(raw.data() + offset, length);
             const size_t chkOff = CHECKSUM_BASE + static_cast<size_t>(block.key) * 8;
-            if (chkOff + 2 <= raw.size()) {
-                writeUInt16LittleEndian(raw.data() + chkOff, crc);
+            if (chkOff + 2 <= raw.size())
+            {
+                writeUInt16LittleEndian(raw.data() + chkOff, storedChecksum);
             }
         }
     }

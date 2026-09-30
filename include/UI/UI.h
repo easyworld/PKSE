@@ -11,17 +11,21 @@
 #include "UI/BackupSelectionScreen.h"
 #include "UI/TrainerViewScreen.h"
 
-namespace Trainer {
+namespace Trainer
+{
     class Trainer;
 }
 
-namespace Pokemon {
+namespace Pokemon
+{
     struct Pokemon8SWSH;
 }
 
-namespace UI {
+namespace UI
+{
 
-    class UIManager {
+    class UIManager
+    {
     public:
         UIManager();
         ~UIManager();
@@ -29,19 +33,32 @@ namespace UI {
         void run();
 
     private:
-        PKSEFramebuffer fb;
+        PKSEFramebuffer framebuffer;
         PadState pad;
         TouchInput touch;
         bool running;
+        /// Every save this console holds, captured while the picker had them enumerated. The
+        /// editor's trade-partner picker needs the OTHER saves, and walking save data is fs/ns work
+        /// the picker screen has already done -- so it is carried here rather than repeated.
+        std::vector<TrainerViewScreen::ConsoleSaveEntry> consoleSaves;
 
         void handleSaveSelection();
-        void handleBackupSelection(AccountUid userUid, u64 titleId, const std::string& titleName);
+        /// `titleName` is prose and `titleFolder` is a directory; they are NOT interchangeable.
+        /// See Save/TitleFolder.h -- the folder carries the title id and the prose must not.
+        void handleBackupSelection(AccountUid userUid, u64 titleId, const std::string &titleName,
+                                   const std::string &titleFolder);
         // loadedFromCart: true when this session was read from the LIVE game save (the "load from
         // title" path), false when an older backup was opened. Writing back to the game is the
         // normal, expected thing to do in the first case and a rollback in the second, so the two
         // are gated very differently at save time.
-        void handleTrainerView(AccountUid userUid, u64 titleId, const std::string& titleName,
-                               const std::string& backupDir, bool loadedFromCart);
+        void handleTrainerView(AccountUid userUid, u64 titleId, const std::string &titleName,
+                               // no titleFolder: by here the backup PATH is already resolved
+
+                               const std::string &backupDir, bool loadedFromCart);
+        /// Opens a loose save file picked from the SD card rather than an installed title's save.
+        /// There is no title id, no account and no backup directory to work from -- the path IS
+        /// the save -- so this is a parallel entry point rather than a variation of the one above.
+        void handleExternalSave(const std::string &path);
     };
 }
 

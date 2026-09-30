@@ -18,8 +18,9 @@
 #ifndef NANOVG_GL_UTILS_H
 #define NANOVG_GL_UTILS_H
 
-struct NVGLUframebuffer {
-	NVGcontext* ctx;
+struct NVGLUframebuffer
+{
+	NVGcontext *ctx;
 	GLuint fbo;
 	GLuint rbo;
 	GLuint texture;
@@ -28,9 +29,9 @@ struct NVGLUframebuffer {
 typedef struct NVGLUframebuffer NVGLUframebuffer;
 
 // Helper function to create GL frame buffer to render to.
-void nvgluBindFramebuffer(NVGLUframebuffer* fb);
-NVGLUframebuffer* nvgluCreateFramebuffer(NVGcontext* ctx, int w, int h, int imageFlags);
-void nvgluDeleteFramebuffer(NVGLUframebuffer* fb);
+void nvgluBindFramebuffer(NVGLUframebuffer *fb);
+NVGLUframebuffer *nvgluCreateFramebuffer(NVGcontext *ctx, int w, int h, int imageFlags);
+void nvgluDeleteFramebuffer(NVGLUframebuffer *fb);
 
 #endif // NANOVG_GL_UTILS_H
 
@@ -38,29 +39,30 @@ void nvgluDeleteFramebuffer(NVGLUframebuffer* fb);
 
 #if defined(NANOVG_GL3) || defined(NANOVG_GLES2) || defined(NANOVG_GLES3)
 // FBO is core in OpenGL 3>.
-#	define NANOVG_FBO_VALID 1
+#define NANOVG_FBO_VALID 1
 #elif defined(NANOVG_GL2)
 // On OS X including glext defines FBO on GL2 too.
-#	ifdef __APPLE__
-#		include <OpenGL/glext.h>
-#		define NANOVG_FBO_VALID 1
-#	endif
+#ifdef __APPLE__
+#include <OpenGL/glext.h>
+#define NANOVG_FBO_VALID 1
+#endif
 #endif
 
 static GLint defaultFBO = -1;
 
-NVGLUframebuffer* nvgluCreateFramebuffer(NVGcontext* ctx, int w, int h, int imageFlags)
+NVGLUframebuffer *nvgluCreateFramebuffer(NVGcontext *ctx, int w, int h, int imageFlags)
 {
 #ifdef NANOVG_FBO_VALID
 	GLint defaultFBO;
 	GLint defaultRBO;
-	NVGLUframebuffer* fb = NULL;
+	NVGLUframebuffer *fb = NULL;
 
 	glGetIntegerv(GL_FRAMEBUFFER_BINDING, &defaultFBO);
 	glGetIntegerv(GL_RENDERBUFFER_BINDING, &defaultRBO);
 
-	fb = (NVGLUframebuffer*)malloc(sizeof(NVGLUframebuffer));
-	if (fb == NULL) goto error;
+	fb = (NVGLUframebuffer *)malloc(sizeof(NVGLUframebuffer));
+	if (fb == NULL)
+		goto error;
 	memset(fb, 0, sizeof(NVGLUframebuffer));
 
 	fb->image = nvgCreateImageRGBA(ctx, w, h, imageFlags | NVG_IMAGE_FLIPY | NVG_IMAGE_PREMULTIPLIED, NULL);
@@ -90,7 +92,8 @@ NVGLUframebuffer* nvgluCreateFramebuffer(NVGcontext* ctx, int w, int h, int imag
 	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, fb->texture, 0);
 	glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_STENCIL_ATTACHMENT, GL_RENDERBUFFER, fb->rbo);
 
-	if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) {
+	if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
+	{
 #ifdef GL_DEPTH24_STENCIL8
 		// If GL_STENCIL_INDEX8 is not supported, try GL_DEPTH24_STENCIL8 as a fallback.
 		// Some graphics cards require a depth buffer along with a stencil.
@@ -120,20 +123,22 @@ error:
 #endif
 }
 
-void nvgluBindFramebuffer(NVGLUframebuffer* fb)
+void nvgluBindFramebuffer(NVGLUframebuffer *fb)
 {
 #ifdef NANOVG_FBO_VALID
-	if (defaultFBO == -1) glGetIntegerv(GL_FRAMEBUFFER_BINDING, &defaultFBO);
+	if (defaultFBO == -1)
+		glGetIntegerv(GL_FRAMEBUFFER_BINDING, &defaultFBO);
 	glBindFramebuffer(GL_FRAMEBUFFER, fb != NULL ? fb->fbo : defaultFBO);
 #else
 	NVG_NOTUSED(fb);
 #endif
 }
 
-void nvgluDeleteFramebuffer(NVGLUframebuffer* fb)
+void nvgluDeleteFramebuffer(NVGLUframebuffer *fb)
 {
 #ifdef NANOVG_FBO_VALID
-	if (fb == NULL) return;
+	if (fb == NULL)
+		return;
 	if (fb->fbo != 0)
 		glDeleteFramebuffers(1, &fb->fbo);
 	if (fb->rbo != 0)

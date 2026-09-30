@@ -40,6 +40,112 @@ OUT_CPP = os.path.join(ROOT, "src", "Names", "ItemPouches.cpp")
 # game key -> (default ItemStorage class, GameVersion ids, [(PKSE pouch name, span or None)])
 # The pouch list order MUST match that game's PouchType* enum in include/Trainer/.
 GAMES = [
+    # Gen 1 has exactly two pouches and ONE legal set behind both: ItemStorage1 exposes a single
+    # `General` span and returns it for every InventoryType, because the PC in Gen 1 holds the same
+    # items the bag does. The set is narrower than "has a name" -- 84-195 are unused slots, and 7/44
+    # are named but unobtainable -- which is precisely why the picker needs this rather than a range.
+    ("RBY", "ItemStorage1", ["RBY", "RD", "GN", "BU", "YW"], [
+        ("Items",       "General"),
+        ("PCItems",     "General"),
+    ]),
+    # Gen 2 has FIVE pouches and two key-item sets: Crystal has four key items Gold/Silver do
+    # not, so GSC's KeyItems uses the Crystal superset -- the picker offering a Crystal-only key
+    # item in a GS bag is a legality finding, offering NOTHING is a broken editor. Same reasoning
+    # for PC Items, whose Crystal list is the superset.
+    ("GSC", "ItemStorage2", ["GSC", "GD", "SI", "C"], [
+        ("TMHM",        "Machine"),
+        ("Items",       "General"),
+        ("KeyItems",    "KeyCrystal"),
+        ("Balls",       "Balls"),
+        # PKHeX computes PCItemsC as General+Balls+Machine+KeyCrystal rather than spelling it
+        # out, so it is composed here the same way.
+        ("PCItems",     ["General", "Balls", "Machine", "KeyCrystal"]),
+    ]),
+    # Gen 4: eight pouches. Diamond/Pearl, Platinum and HeartGold/SoulSilver differ in the general
+    # list (Pt added items), the key list (three different ones) and the ball list -- which is why
+    # PKHeX has three storage classes and why these are three rows, not one.
+    ("DP", "ItemStorage4DP", ["DP", "D", "P"], [
+        ("Items",       "ItemStorage4.GeneralDP"),
+        ("KeyItems",    "ItemStorage4.Key"),
+        ("TMHM",        "ItemStorage4.Machine"),
+        ("Mail",        "ItemStorage4.Mail"),
+        ("Medicine",    "ItemStorage4.Medicine"),
+        ("Berries",     "ItemStorage4.Berry"),
+        ("Balls",       "ItemStorage4.BallsDPPt"),
+        ("Battle",      "ItemStorage4.Battle"),
+    ]),
+    ("PT", "ItemStorage4Pt", ["PT", "Pt"], [
+        ("Items",       "ItemStorage4.GeneralPt"),
+        ("KeyItems",    "KeyPt"),
+        ("TMHM",        "ItemStorage4.Machine"),
+        ("Mail",        "ItemStorage4.Mail"),
+        ("Medicine",    "ItemStorage4.Medicine"),
+        ("Berries",     "ItemStorage4.Berry"),
+        ("Balls",       "ItemStorage4.BallsDPPt"),
+        ("Battle",      "ItemStorage4.Battle"),
+    ]),
+    ("HGSS", "ItemStorage4HGSS", ["HGSS", "HG", "SS"], [
+        ("Items",       "ItemStorage4.GeneralPt"),
+        ("KeyItems",    "KeyHGSS"),
+        ("TMHM",        "ItemStorage4.Machine"),
+        ("Mail",        "ItemStorage4.Mail"),
+        ("Medicine",    "ItemStorage4.Medicine"),
+        ("Berries",     "ItemStorage4.Berry"),
+        ("Balls",       "BallsHGSS"),
+        ("Battle",      "ItemStorage4.Battle"),
+    ]),
+    # Gen 5: five pouches -- balls and battle items fold back into Items. Only the key list
+    # differs between BW and B2W2.
+    ("BW", "ItemStorage5BW", ["BW", "B", "W"], [
+        ("Items",       "ItemStorage5.General"),
+        ("KeyItems",    "Key"),
+        ("TMHM",        "ItemStorage5.Machine"),
+        ("Medicine",    "ItemStorage5.Medicine"),
+        ("Berries",     "ItemStorage5.Berry"),
+    ]),
+    ("B2W2", "ItemStorage5B2W2", ["B2W2", "B2", "W2"], [
+        ("Items",       "ItemStorage5.General"),
+        ("KeyItems",    "Key"),
+        ("TMHM",        "ItemStorage5.Machine"),
+        ("Medicine",    "ItemStorage5.Medicine"),
+        ("Berries",     "ItemStorage5.Berry"),
+    ]),
+    # Gen 6: same five pouches. XY and ORAS have entirely separate lists (ORAS added items and
+    # two HMs), so neither borrows from the other.
+    ("XY", "ItemStorage6XY", ["XY", "X", "Y"], [
+        ("Items",       "General"),
+        ("KeyItems",    "Key"),
+        ("TMHM",        "Machine"),
+        ("Medicine",    "Medicine"),
+        ("Berries",     "Berry"),
+    ]),
+    # ORAS pulls Berry from XY via `using static`; only General/Key/Machine/Medicine are its own.
+    ("ORAS", "ItemStorage6AO", ["ORAS", "OR", "AS"], [
+        ("Items",       "General"),
+        ("KeyItems",    "Key"),
+        ("TMHM",        "Machine"),
+        ("Medicine",    "Medicine"),
+        ("Berries",     "ItemStorage6XY.Berry"),
+    ]),
+    # Gen 7 adds a Z-Crystal pouch, and USUM a Roto/battle-item pouch on top. The pouch ORDER here
+    # is the on-disk order in Inventory67.h, not the in-game bag order.
+    ("SM", "ItemStorage7SM", ["SM", "SN", "MN"], [
+        ("Items",       "General"),
+        ("Medicine",    "Medicine"),
+        ("TMHM",        "Machine"),
+        ("Berries",     "Berry"),
+        ("KeyItems",    "Key"),
+        ("ZCrystals",   "ZCrystalKey"),
+    ]),
+    ("USUM", "ItemStorage7USUM", ["USUM", "US", "UM"], [
+        ("Items",       "ItemStorage7SM.General"),
+        ("Medicine",    "ItemStorage7SM.Medicine"),
+        ("TMHM",        "ItemStorage7SM.Machine"),
+        ("Berries",     "ItemStorage7SM.Berry"),
+        ("KeyItems",    "Key"),
+        ("ZCrystals",   "ZCrystalKey"),
+        ("Battle",      "Roto"),
+    ]),
     ("FRLG", "ItemStorage3RS", ["FRLG", "FR", "LG"], [
         ("Items",       "General"),
         ("KeyItems",    "ItemStorage3FRLG.Key"),   # FR/LG key items differ from R/S
@@ -47,6 +153,21 @@ GAMES = [
         ("TMHM",        "Machine"),
         ("Berries",     "Berry"),
         ("PCItems",     "General"),                # same set as Items
+    ]),
+    # Ruby/Sapphire/Emerald. PKSE has ONE Hoenn group, so where R/S and Emerald differ the
+    # pouch takes the WIDER set -- narrowing would refuse an item the user legitimately has.
+    #   * KeyItems comes from ItemStorage3E, whose list is a strict superset of R/S's: it is
+    #     the R/S key items plus FR/LG's three and Emerald's two.
+    #   * PCItems follows R/S rather than Emerald. R/S's PC accepts key items and Emerald's
+    #     does not, so R/S's is the union; ItemPresence is what says whether a given id is
+    #     legal, and this list only decides what the picker offers.
+    ("RSE", "ItemStorage3RS", ["RSE", "RU", "SA", "EM"], [
+        ("Items",       "General"),
+        ("KeyItems",    "ItemStorage3E.Key"),
+        ("Balls",       "Balls"),
+        ("TMHM",        "Machine"),
+        ("Berries",     "Berry"),
+        ("PCItems",     ["General", "Key", "Berry", "Balls", "Machine"]),
     ]),
     ("GG", "ItemStorage7GG", ["GG", "GP", "GE"], [
         ("Medicine",    "Medicine"),
@@ -90,7 +211,7 @@ GAMES = [
         ("KeyItems",    "Key"),
     ]),
     # Order == the in-game bag order (Inventory9SV.h enum). "TM Materials" (Candy->Material in PKHeX)
-    # is a real S/V pocket that was previously missing entirely, dropping every TM-material item.
+    # is a real S/V pocket; omitting it drops every TM-material item.
     ("SV", "ItemStorage9SV", ["SV", "SL", "VL"], [
         ("Medicine",    "Medicine"),               # "Medicines"
         ("Balls",       "Balls"),                  # "Poke Balls"
@@ -149,8 +270,6 @@ def main():
 
     with open(OUT_H, "w", encoding="utf-8", newline="\n") as fh:
         fh.write('''/**
- * ItemPouches.h - Which item ids legally belong in each pouch of each game.
- *
  * Auto-generated by tools/gen_itempouches.py from PKHeX's ItemStorage classes.
  * DO NOT EDIT BY HAND -- rerun the generator instead.
  *
@@ -185,8 +304,6 @@ namespace Names {
 
     p = []
     p.append('/**\n'
-             ' * ItemPouches.cpp - Per-game, per-pouch legal item id lists.\n'
-             ' *\n'
              ' * Auto-generated by tools/gen_itempouches.py from PKHeX ItemStorage\n'
              ' * GetItems()/GetLegal(). DO NOT EDIT BY HAND -- rerun the generator.\n'
              ' */\n\n')
@@ -224,8 +341,8 @@ namespace Names {
     p.append("    }\n\n")
 
     p.append("    std::span<const uint16_t> getPouchItems(Enums::GameVersion group, size_t pouchIndex) {\n")
-    p.append("        const auto t = tableFor(group);\n")
-    p.append("        return pouchIndex < t.size() ? t[pouchIndex] : std::span<const uint16_t>{};\n")
+    p.append("        const auto pouchTable = tableFor(group);\n")
+    p.append("        return pouchIndex < pouchTable.size() ? pouchTable[pouchIndex] : std::span<const uint16_t>{};\n")
     p.append("    }\n\n")
     p.append("    size_t getPouchCount(Enums::GameVersion group) {\n")
     p.append("        return tableFor(group).size();\n")

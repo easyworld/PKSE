@@ -22,6 +22,34 @@ computed per (species, form) by replicating each game's PersonalTable*.IsPresent
   * BDSP -- species <= 493; form 0 always present; else HasForm (no per-entry flag).
   * SWSH / PLA / SV / ZA -- the per-entry IsPresentInGame flag, gated by HasForm.
 
+...with ONE deliberate deviation: a Gen 7 TOTEM form is present in no supported game.
+
+PKHeX's per-game rules answer "does this table have a row for that form", and for Let's
+Go that is not the same question. personal_gg carries rows for Totem Raticate (20 form 2)
+and Totem Marowak (105 form 2) -- copies of the Alolan stats -- but those rows have ZERO
+TM flags and an EMPTY level-up learnset, so Let's Go cannot produce or hold one. PKHeX
+already special-cases the identical situation for Pikachu (`if (species == Pikachu) return
+form == 8`, which is what excludes the seven cap Pikachu rows, equally blank); the Totem
+pair simply is not in that special case, so HasForm waves them through.
+
+Left alone, PKSE inherited a form that is claimed to exist and can learn nothing: the form
+picker offered "Totem Raticate" in a Let's Go save, the legality checker called it legal,
+Conversion let a mon be converted INTO it, and every move then read as unlearnable -- which
+the bank's transfer sanitizer acts on by DELETING all four. PKHeX's own FormInfo agrees on
+the principle: IsTotemForm(species, form, context) is true only for EntityContext.Gen7, and
+a Totem Pokemon reverts to its base form on capture/transfer (GetTotemBaseForm), so no
+format PKSE edits can contain one. The species/form list here is PKHeX's HasTotemForm +
+IsTotemForm verbatim.
+
+The other games corroborate it: Mimikyu's two Totem forms are in Sword/Shield's table and
+SWSH's per-entry IsPresentInGame flag already says NO to them, unprompted. Every game that
+answers with a real flag excludes Totem forms; only GG, whose rule is the coarse HasForm
+fallback, let them through. So this changes exactly two bytes -- Raticate form 2 and Marowak
+form 2 lose their GG bit -- and nothing else in the emitted table moves.
+
+(This is the only place the emitted table deviates from a literal transcription of PKHeX's
+per-game rule. Keep it that way, and keep this note with it.)
+
 Forms are addressed exactly like PKHeX's PersonalInfo.FormIndex: form 0 -> Table[species];
 form N (0 < N < FormCount, FormStatsIndex > 0) -> Table[FormStatsIndex + N - 1]. The
 emitted table mirrors this with its own `formIndex` redirection (see getPersonalInfo).
@@ -68,6 +96,19 @@ an S/V-only ability for a Gen 3 mon writes a bit that displays as something else
 FireRed and LeafGreen carry identical ability data (verified: 0 differences), so one
 table serves both.
 
+GEN 3 BASE STATS ride along in the same row (0x00..0x05, in PKHeX's HP/ATK/DEF/SPE/SPA/SPD
+order), and they need their own table for a third time: 42 of the 386 Gen 3 species were
+re-tuned in later generations, mostly by the Gen 6 stat pass. Pikachu is 30 Def / 40 SpD in
+FireRed and 40 / 50 in Sword; Dugtrio's Attack went 80 -> 100; Swellow's Sp. Atk 50 -> 75.
+Reading the modern row computes a stat the GBA game never had -- and PKSE writes those six
+numbers straight into the party record, so a save round trip silently re-stats the mon.
+
+ONE row differs between FireRed and LeafGreen: Deoxys (#386). Its forme is chosen by the
+GAME, not stored in the entity (FR = Attack, LG = Defense, R/S = Normal, E = Speed), so the
+two personal tables carry different stats for the same species id. The emitted table is
+FireRed's, since a PK3 has no Deoxys form field for a lookup to key on. Every other species
+is byte-identical across the pair and the generator refuses to emit if that ever changes.
+
 Regenerate:  python tools/gen_personal.py
 Pulls the PKHeX personal binaries it reads from GitHub on demand
 (tools/pkhex_source.py); no local PKHeX checkout required.
@@ -83,7 +124,10 @@ from pkhex_source import pkhex_path  # noqa: E402
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 OUT_H = os.path.join(ROOT, "include", "Pokemon", "PersonalInfoTable.h")
 OUT_CPP = os.path.join(ROOT, "src", "Pokemon", "PersonalInfoTable.cpp")
-SPECIES_NAMES_SRC = os.path.join(ROOT, "src", "Names", "SpeciesNames.cpp")
+# Species names for the generated comments come from PKHeX, like every other name this script
+# reads -- NOT from PKSE's own SpeciesNames.cpp. A generator that reads another generator's
+# OUTPUT breaks the moment that output is reshaped, and says nothing useful when it does.
+SPECIES_NAMES_SRC = "Resources/text/other/en/text_Species_en.txt"
 
 MAX_SPECIES = 1025            # National Dex #1025 Pecharunt (PKHeX MaxSpeciesID_9)
 BASE_ROWS = MAX_SPECIES + 1   # indices 0..1025
@@ -93,6 +137,9 @@ BASE_ROWS = MAX_SPECIES + 1   # indices 0..1025
 G3_MAX_SPECIES = 386          # PKHeX MaxSpeciesID_3 (Deoxys)
 G3_SIZE = 0x1C                # PersonalInfo3.SIZE
 G3_AB1, G3_AB2 = 0x16, 0x17
+# Deoxys: the one species whose personal row legitimately differs between FireRed and
+# LeafGreen, because its forme is picked by the game rather than stored in the entity.
+DEOXYS = 386
 
 # Type pair. Same offsets in every modern format AND in PersonalInfo3 -- the six stat
 # bytes come first in all of them and the types follow. All of these tables (personal_fr
@@ -100,6 +147,9 @@ G3_AB1, G3_AB2 = 0x16, 0x17
 # check_g3_type_encoding() below enforces that rather than assuming it.
 TYPE1, TYPE2 = 0x06, 0x07
 TYPE_NONE = 255               # PKSE's "single-typed"; PKHeX duplicates Type1 instead
+# The six base stats precede the type pair in every personal format, PersonalInfo3 included.
+STATS = 0x00
+STAT_ORDER = ("hp", "atk", "def", "spe", "spa", "spd")   # PKHeX's order, NOT BaseStatsGen89's
 TYPE_FIRE = 9                 # Gen 6+ id; the raw Gen 3 id for Fire is 10
 CHARMANDER = 4
 
@@ -175,6 +225,10 @@ class Table:
             return False
         return form == 0 or self.has_form(species, form)
 
+    def stats(self, species, form):
+        """The six base stats of a (species, form), keyed by STAT_ORDER."""
+        return dict(zip(STAT_ORDER, self._ent(self.form_index(species, form))[STATS:STATS + 6]))
+
     def fields(self, species, form):
         e = self._ent(self.form_index(species, form))
         t1, t2 = e[TYPE1], e[TYPE2]
@@ -208,16 +262,45 @@ class Table:
         return ((e[0x21] >> 6) & 1) == 1
 
 
+# PKHeX FormInfo.HasTotemForm + IsTotemForm, verbatim. Mimikyu's Totem entries are 2 and 3
+# (form 1 is Busted); Raticate and Marowak have a regional form at 1, so theirs is 2;
+# everything else puts its single Totem form at 1. Matches the forms FormNames.cpp names
+# "Totem" -- the two lists describe the same set and must stay in step.
+TOTEM_FORMS = {
+    20:  (2,),         # Raticate  (Alolan at 1)
+    105: (2,),         # Marowak   (Alolan at 1)
+    778: (2, 3),       # Mimikyu   (Busted at 1; Totem Disguised / Totem Busted)
+    735: (1,),         # Gumshoos
+    738: (1,),         # Vikavolt
+    743: (1,),         # Ribombee
+    752: (1,),         # Araquanid
+    754: (1,),         # Lurantis
+    758: (1,),         # Salazzle
+    777: (1,),         # Togedemaru
+    784: (1,),         # Kommo-o
+}
+
+
+def is_totem_form(species, form):
+    """A Gen 7 Totem form, which no game PKSE supports can contain. See the module docstring."""
+    return form != 0 and form in TOTEM_FORMS.get(species, ())
+
+
 def load_species_names():
-    """Parse the flat SPECIES_NAMES[] string array out of PKSE's SpeciesNames.cpp."""
-    with open(SPECIES_NAMES_SRC, encoding="utf-8") as fh:
-        text = fh.read()
-    m = re.search(r"SPECIES_NAMES\[\]\s*=\s*\{(.*?)\};", text, re.S)
-    if not m:
-        raise SystemExit("could not locate SPECIES_NAMES[] in " + SPECIES_NAMES_SRC)
-    names = re.findall(r'"((?:[^"\\]|\\.)*)"', m.group(1))
+    """Species names, index-aligned so entry N is species N. Comments only, so English."""
+    with open(pkhex_path(SPECIES_NAMES_SRC), "rb") as fh:
+        raw = fh.read()
+    # Decoded by its BOM: PKHeX's text resources are not uniformly encoded, and almost any
+    # even-length byte sequence is valid UTF-16, so trying encodings in order decodes garbage
+    # instead of raising.
+    text = raw.decode("utf-16") if raw[:2] in (b"\xff\xfe", b"\xfe\xff") else raw.decode("utf-8-sig")
+    names = text.splitlines()
+    # PKHeX calls entry 0 "Egg"; PKSE's own species table substitutes "None" there. Keep PKSE's
+    # spelling so this file's row comments do not churn against the rest of the tree.
+    if names:
+        names[0] = "None"
     if len(names) <= MAX_SPECIES:
-        raise SystemExit(f"SpeciesNames only has {len(names)} entries; need > {MAX_SPECIES}")
+        raise SystemExit(f"{SPECIES_NAMES_SRC} only has {len(names)} entries; need > {MAX_SPECIES}")
     return names
 
 
@@ -242,6 +325,11 @@ def build():
         return tables["SV"].fields(sp, 0)
 
     def presence(sp, form):
+        # A Totem form is present in NO supported game -- see the module docstring. Applied here
+        # rather than inside Table.present() so it stays visibly a PKSE decision on top of the
+        # faithful per-game rules, not a quiet edit to one of them.
+        if is_totem_form(sp, form):
+            return 0
         mask = 0
         for g in GAMES:
             if tables[g].present(sp, form):
@@ -272,14 +360,51 @@ def build():
             next_index += fc - 1
         base_rows[sp] = make_row(sp, 0, fi)
 
-    return names, base_rows, alt_rows
+    return names, base_rows, alt_rows, tables
+
+
+def build_ability_overrides(tables):
+    """(species, form) ability slots that a Switch-era game defines DIFFERENTLY from S/V.
+
+    The rows above take ability1/2/H from Scarlet/Violet because it spans the whole National
+    Dex. That is right for most species and WRONG for a handful, because ability slots are
+    per-game data: S/V moved the Piplup line's hidden ability from Defiant to Competitive,
+    Shiftry's second from Early Bird to Wind Rider, Gallade's from none to Sharpness, and it
+    re-slotted most of Legends: Arceus's Hisuian forms. Resolving a BDSP Piplup or a Hisuian
+    Growlithe against the S/V row reports a legitimate Pokemon as holding an illegal ability.
+
+    Emitting the DIFFERENCES rather than a full per-game table keeps this to a couple of dozen
+    rows: the divergence really is that small, and it is recomputed here on every run, so it
+    cannot silently go stale the way a hand-written list would.
+
+    Only rows the game and S/V BOTH have are compared -- a personal table carries dummy rows
+    for species the game does not contain, and those are not disagreements about anything.
+    """
+    sv = tables["SV"]
+    out = []
+    for key in GAMES:
+        if key == "SV":
+            continue
+        t = tables[key]
+        for sp in range(1, min(t.maxsp, sv.maxsp) + 1):
+            for form in range(max(t.form_count(sp), sv.form_count(sp))):
+                if not (t.present(sp, form) and sv.present(sp, form)):
+                    continue
+                a, b = t.fields(sp, form), sv.fields(sp, form)
+                if (a["a1"], a["a2"], a["ah"]) != (b["a1"], b["a2"], b["ah"]):
+                    out.append(dict(game=key, sp=sp, form=form,
+                                    a1=a["a1"], a2=a["a2"], ah=a["ah"]))
+    # Sorted so the emitted table is a stable, bisectable (game, species, form) order.
+    out.sort(key=lambda r: (GAME_BIT[r["game"]], r["sp"], r["form"]))
+    return out
 
 
 def build_g3():
-    """Gen 3 (species, ability1, ability2, type1, type2) rows for National Dex 0..386.
+    """Gen 3 (species, base stats, ability1, ability2, type1, type2) rows for National Dex 0..386.
 
-    Cross-checks FireRed against LeafGreen and refuses to emit if they ever disagree
-    -- one table stands in for both, so a divergence has to be caught here.
+    Cross-checks FireRed against LeafGreen and refuses to emit if they disagree anywhere
+    but Deoxys -- one table stands in for both, so a NEW divergence has to be caught here.
+    Deoxys is the known, permanent exception (see the module docstring); FireRed's row wins.
     """
     with open(pkhex_path("Resources/byte/personal/personal_fr"), "rb") as fh:
         fr = fh.read()
@@ -293,13 +418,13 @@ def build_g3():
     rows = []
     for sp in range(G3_MAX_SPECIES + 1):
         o = sp * G3_SIZE
+        if sp != DEOXYS and fr[o:o + G3_SIZE] != lg[o:o + G3_SIZE]:
+            raise SystemExit(f"species {sp}: FR/LG personal rows differ -- one table can no "
+                             "longer stand in for both, so this needs a per-version table")
+        stats = dict(zip(STAT_ORDER, fr[o + STATS:o + STATS + 6]))
         a1, a2 = fr[o + G3_AB1], fr[o + G3_AB2]
-        if (a1, a2) != (lg[o + G3_AB1], lg[o + G3_AB2]):
-            raise SystemExit(f"species {sp}: FR/LG ability mismatch -- they need separate tables")
         t1, t2 = fr[o + TYPE1], fr[o + TYPE2]
-        if (t1, t2) != (lg[o + TYPE1], lg[o + TYPE2]):
-            raise SystemExit(f"species {sp}: FR/LG type mismatch -- they need separate tables")
-        rows.append((sp, a1, a2, t1, TYPE_NONE if t2 == t1 else t2))
+        rows.append((sp, stats, a1, a2, t1, TYPE_NONE if t2 == t1 else t2))
 
     # personal_fr must already be in Gen 6+ type numbering, not raw Gen 3 ids. Pin it on
     # Charmander (pure Fire -> 9 modern, 10 raw) and on the absence of Fairy, which is the
@@ -308,16 +433,20 @@ def build_g3():
     if fr[o + TYPE1] != TYPE_FIRE:
         raise SystemExit(f"personal_fr: Charmander type is {fr[o + TYPE1]}, expected {TYPE_FIRE} "
                          "-- the table is in raw Gen 3 ids and now needs a remap")
-    worst = max(max(t1, t2) for _, _, _, t1, t2 in rows if t2 != TYPE_NONE)
+    worst = max(max(t1, t2) for _, _, _, _, t1, t2 in rows if t2 != TYPE_NONE)
     if worst > 16:
         raise SystemExit(f"personal_fr: type id {worst} > 16 -- Gen 3 has no Fairy, so this is "
                          "either raw Gen 3 numbering or a bad parse")
+    # The stat block has to be the six bytes at 0x00, not something that merely parses. Pin it on
+    # Chansey, whose 250 HP is unique enough that a misread offset cannot land on it by accident.
+    chansey = rows[113][1]
+    if (chansey["hp"], chansey["atk"], chansey["spe"]) != (250, 5, 50):
+        raise SystemExit(f"personal_fr: Chansey reads {chansey}, expected HP 250 / ATK 5 / SPE 50 "
+                         "-- the base-stat offsets are wrong for this format")
     return rows
 
 
 HDR = '''/**
- * PersonalInfoTable.h - Per-species "personal info" (abilities / gender / friendship
- *                       / form count / per-game presence)
  *
  * Auto-generated by tools/gen_personal.py from PKHeX's binary personal tables.
  * DO NOT EDIT BY HAND -- rerun the generator instead.
@@ -374,31 +503,42 @@ namespace Pokemon {{
     // Out-of-range species or forms fall back to the species' form-0 (or index 0) entry.
     const PersonalInfo& getPersonalInfo(uint16_t species, uint8_t form);
 
-    // ---- Generation 3 (FireRed/LeafGreen) abilities + types ----
-    // Gen 3's slot pair is NOT the one above: the S/V row disagrees for 101 of these
-    // species and always carries a hidden ability, which Gen 3 has no slot for. A PK3
-    // stores only a selector BIT and the game resolves it through its own table, so
-    // this is the only table that describes what a Gen 3 mon can actually hold.
-    // Forms share a row (PKHeX PersonalTable3.GetFormIndex is the species id).
+    // ---- Generation 3 (FireRed/LeafGreen) base stats + abilities + types ----
+    // Everything a Gen 3 entity needs looked up, from Gen 3's OWN personal table. Every
+    // field here disagrees with the modern table for some species, which is the whole
+    // reason it exists. Forms share a row (PKHeX PersonalTable3.GetFormIndex is the
+    // species id), so there is no form parameter.
     //
-    // Its TYPES disagree with the modern table too, for {G3TYPEDIFF} of the {G3MAX} species: Gen 3
-    // predates the Fairy type, so Clefairy is Normal there and Fairy in Scarlet/Violet.
-    // These are the SAME Gen 6+ type ids used above -- only the values differ, not the
-    // encoding -- so a caller switches table without translating.
-    struct PersonalAbilityG3 {{
-        uint8_t ability1;
-        uint8_t ability2;   // == ability1 when the species has only one ability
-        uint8_t type1;
-        uint8_t type2;      // TYPE_NONE (255) when single-typed
-    }};
-
-    constexpr uint16_t PERSONAL_G3_MAX_SPECIES = {G3MAX};
-
-    extern const PersonalAbilityG3 PERSONAL_ABILITY_G3[PERSONAL_G3_MAX_SPECIES + 1];
-
-    // Gen 3 ability slots + types for a species. Out-of-range species return all-zero
-    // abilities and Normal/none, the same shape the modern lookup falls back to.
-    const PersonalAbilityG3& getPersonalAbilityG3(uint16_t species);
+    // BASE STATS: {G3STATDIFF} of the {G3MAX} species differ from the modern (S/V) table, nearly all of
+    // them from the Gen 6 stat pass -- Pikachu is 30 Def / 40 SpD here and 40 / 50 in Sword,
+    // Dugtrio's Attack went 80 -> 100. PKSE writes the six computed battle stats into a Gen 3
+    // party record, so a modern base stat does not merely display wrong, it gets saved into
+    // the game.
+    //
+    // ABILITIES: the S/V slot pair disagrees for 101 of these species and always carries a
+    // hidden ability, which Gen 3 has no slot for. A PK3 stores only a selector BIT and the
+    // game resolves it through its own table, so an S/V-only ability writes a bit that
+    // displays as something else.
+    //
+    // TYPES: {G3TYPEDIFF} species differ, because Gen 3 predates the Fairy type -- Clefairy is Normal
+    // here and Fairy in Scarlet/Violet. These are the SAME Gen 6+ type ids used above; only
+    // the values differ, not the encoding, so a caller switches table without translating.
+    //
+    // ONE CAVEAT, Deoxys (#386): its forme is chosen by the GAME and not stored in the
+    // entity, so FireRed and LeafGreen disagree on this row alone. These are FireRed's
+    // (Attack Forme) stats -- a PK3 carries no Deoxys form field for a lookup to key on.
+    // GEN 3 AND THE PER-GAME ABILITY OVERRIDES ARE GONE FROM HERE, both for one reason.
+    // This table is sourced from Scarlet/Violet because S/V spans the whole National Dex, which
+    // makes it the right answer to CROSS-GAME questions -- which games have a species, its
+    // height and weight, how many forms exist across the series -- and the wrong answer to
+    // per-game ones. Gen 3 needed its own rows here, and six Switch groups needed a generated
+    // list of the rows where they disagreed with S/V, precisely because they were all reading a
+    // table that was not theirs.
+    //
+    // Every group has its own now: PersonalInfo1RBY through PersonalInfo9LZA, one file per
+    // save-format group, each built from the single PKHeX resource that belongs to it. A
+    // per-game lookup goes to getPersonalRecord(group, species, form), and there is nothing
+    // left for an override to correct.
 }}
 
 #endif  // PKM_PERSONAL_INFO_TABLE_H
@@ -423,25 +563,27 @@ def fmt_row(r, names):
 
 
 def main():
-    names, base_rows, alt_rows = build()
+    names, base_rows, alt_rows, tables = build()
     g3_rows = build_g3()
+    ability_overrides = build_ability_overrides(tables)
     total = len(base_rows) + len(alt_rows)
 
-    # How far Gen 3 typing drifts from the modern table -- reported, and baked into the
-    # header comment, so the reason this second table exists stays visible.
-    g3_type_diff = sum(1 for sp, _, _, t1, t2 in g3_rows
+    # How far Gen 3 drifts from the modern table -- reported, and baked into the header
+    # comment, so the reason this second table exists stays visible. Both are measured
+    # against Scarlet/Violet, the table the modern rows above are built from.
+    g3_type_diff = sum(1 for sp, _, _, _, t1, t2 in g3_rows
                        if sp and (t1, t2) != (base_rows[sp]["t1"], base_rows[sp]["t2"]))
+    g3_stat_diff = sum(1 for sp, st, *_ in g3_rows if sp and st != tables["SV"].stats(sp, 0))
 
     # Header
     with open(OUT_H, "w", encoding="utf-8", newline="\n") as fh:
-        fh.write(HDR.format(MAX=MAX_SPECIES, COUNT=total, BASE=BASE_ROWS,
-                            G3MAX=G3_MAX_SPECIES, G3TYPEDIFF=g3_type_diff))
+        fh.write(HDR.format(MAX=MAX_SPECIES, COUNT=total, BASE=BASE_ROWS, G3MAX=G3_MAX_SPECIES,
+                            G3TYPEDIFF=g3_type_diff, G3STATDIFF=g3_stat_diff,
+                            ABCOUNT=len(ability_overrides)))
 
     # Source
     p = []
     p.append('/**\n'
-             ' * PersonalInfoTable.cpp - Per-species personal info table.\n'
-             ' *\n'
              ' * Auto-generated by tools/gen_personal.py from PKHeX\'s binary personal tables.\n'
              ' * DO NOT EDIT BY HAND -- rerun the generator instead.\n'
              ' *\n'
@@ -472,29 +614,12 @@ def main():
     p.append("        return PERSONAL_INFO_TABLE[base.formIndex + form - 1];\n")
     p.append("    }\n\n")
 
-    # ---- Gen 3 ability + type table ----
-    p.append("    // Generation 3 (FireRed/LeafGreen) ability slots and types, from PKHeX's personal_fr.\n")
-    p.append("    // Indexed by National Dex id; ability2 == ability1 means \"single ability\", and\n")
-    p.append("    // type2 == 255 means \"single type\". Type ids are the same Gen 6+ numbering used\n")
-    p.append("    // everywhere else in PKSE -- Gen 3 differs in its VALUES (no Fairy), not its encoding.\n")
-    p.append("    const PersonalAbilityG3 PERSONAL_ABILITY_G3[PERSONAL_G3_MAX_SPECIES + 1] = {\n")
-    for sp, a1, a2, t1, t2 in g3_rows:
-        name = names[sp] if sp < len(names) else "?"
-        p.append("        {{ {a1:>3}, {a2:>3}, {t1:>3}, {t2:>4} }},  // {sp} {n}\n".format(
-            a1=a1, a2=a2, t1=t1, t2=t2, sp=sp, n=name))
-    p.append("    };\n\n")
-    p.append("    const PersonalAbilityG3& getPersonalAbilityG3(uint16_t species) {\n")
-    p.append("        static const PersonalAbilityG3 none = { 0, 0, 0, 255 };\n")
-    p.append("        if (species > PERSONAL_G3_MAX_SPECIES)\n")
-    p.append("            return none;\n")
-    p.append("        return PERSONAL_ABILITY_G3[species];\n")
-    p.append("    }\n")
     p.append("}\n")
 
     with open(OUT_CPP, "w", encoding="utf-8", newline="\n") as fh:
         fh.write("".join(p))
 
-    dual3 = sum(1 for _, a1, a2, _, _ in g3_rows if a1 != a2)
+    dual3 = sum(1 for _, _, a1, a2, _, _ in g3_rows if a1 != a2)
     # Forms whose type pair differs from their own species' form 0 -- exactly the ones a
     # species-keyed type table gets wrong.
     form_type_diff = sum(1 for r in alt_rows
@@ -504,10 +629,12 @@ def main():
     print(f"  base rows      : {len(base_rows)} (species 0..{MAX_SPECIES})")
     print(f"  alt-form rows  : {len(alt_rows)}")
     print(f"  TOTAL rows     : {total}")
-    print(f"  Gen 3 ability  : {len(g3_rows)} rows (species 0..{G3_MAX_SPECIES}), "
+    print(f"  Gen 3 personal : {len(g3_rows)} rows (species 0..{G3_MAX_SPECIES}), "
           f"{dual3} with two distinct abilities")
     print(f"  types          : {form_type_diff} alternate forms retype their base species; "
           f"{g3_type_diff} species are typed differently in Gen 3")
+    print(f"  base stats     : {g3_stat_diff} species have different base stats in Gen 3 than in S/V "
+          f"(Deoxys among them -- FireRed's Attack Forme row is the one emitted)")
 
 
 if __name__ == "__main__":

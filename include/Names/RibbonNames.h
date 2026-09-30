@@ -30,27 +30,39 @@
 
 #include <vector>
 #include <string>
+#include <cstddef>
 #include <cstdint>
 
 #include "Enums/GameVersion.h"
 
-namespace Names {
+namespace Names
+{
     /**
-     * Returns the display names of every ribbon/mark set on a mon.
+     * A ribbon name in one specific language, or nullptr when this table has none for it.
      *
-     * @param entityData Pointer to the mon's DECRYPTED entity buffer, indexed
+     * Generated from PKHeX (tools/gen_ribbonnames.py) and carries the EIGHT NON-ENGLISH languages
+     * only. PKSE's English names are the ones the GAMES show, which is not always PKHeX's UI label
+     * -- "Champion" rather than "Champion (Gen3)", "Cool Ribbon Super" rather than "Cool Super" --
+     * so English is never taken from here. Looked up BY the English string, which is why every name
+     * RibbonNames.cpp can produce is asserted to have a row.
+     */
+    const char *getRibbonNameLocalized(const char *englishName, size_t languageIndex);
+    /**
+     * Returns the display names of every ribbon/mark set on a pokemon.
+     *
+     * @param entityData Pointer to the pokemon's DECRYPTED entity buffer, indexed
      *                   from offset 0 (entityData[0x34] is PKHeX's Data[0x34]).
      *                   Must be non-null and large enough to cover the group's
      *                   ribbon block: >= 0x46 bytes for Gen 8/9, >= 0x37 for
      *                   Gen 7 Let's Go, >= 0x50 for Gen 3 FireRed/LeafGreen.
-     * @param group      The mon's game group (Enums::GameVersion). Accepts the
+     * @param group      The pokemon's game group (Enums::GameVersion). Accepts the
      *                   group ids (GG, SWSH, BDSP, PLA, SV, ZA) as well as the
      *                   individual game ids (GP/GE, SW/SH, BD/SP, PLA, SL/VL, ZA).
      * @return Names of every SET ribbon/mark, in a stable (byte, bit) order.
      *         Empty vector when none are set, the buffer is null, or the group
      *         is not handled.
      */
-    std::vector<std::string> getMonRibbons(const uint8_t* entityData, Enums::GameVersion group);
+    std::vector<std::string> getMonRibbons(const uint8_t *entityData, Enums::GameVersion group);
 }
 
 #endif

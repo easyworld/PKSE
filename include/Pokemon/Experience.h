@@ -1,6 +1,4 @@
 /**
- * Experience.h - EXP -> Level lookup and per-species growth rates
- *
  * Mirrors PKHeX's Experience math (PKHeX.Core/PKM/Util/Experience.cs). Provides the
  * six growth-rate total-EXP tables (levels 1-100) via getLevelFromExp(), plus a
  * national-dex growth-rate lookup extracted from PKHeX's Scarlet/Violet personal table.
@@ -23,43 +21,18 @@
 
 #include <cstdint>
 
-namespace Pokemon {
+namespace Pokemon
+{
 
-    /**
-     * Gets the current level for an amount of experience under a growth rate.
-     *
-     * Returns the highest level L in [1,100] whose total-EXP threshold is <= exp,
-     * clamped to [1,100]. Mirrors PKHeX Experience.GetLevel.
-     *
-     * @param exp        Total experience points.
-     * @param growthRate Growth-rate index 0-5 (see ordering above). Out-of-range
-     *                   values fall back to Medium Fast (0).
-     * @return Level in the range [1,100].
-     */
+    /// The highest level in [1,100] whose total-EXP threshold is <= exp. An out-of-range growth
+    /// rate falls back to Medium Fast.
     uint8_t getLevelFromExp(uint32_t exp, uint8_t growthRate) noexcept;
 
-    /**
-     * Gets the minimum total EXP required to reach a level under a growth rate.
-     *
-     * Inverse of getLevelFromExp: indexes the SAME six growth-rate total-EXP tables
-     * and returns the threshold for `level`. Level is clamped to [1,100]. Level 1
-     * returns the table's level-1 threshold (0 for every growth rate).
-     *
-     * @param level      Target level (clamped to [1,100]).
-     * @param growthRate Growth-rate index 0-5 (see ordering above). Out-of-range
-     *                   values fall back to Medium Fast (0).
-     * @return Minimum total experience points for `level`.
-     */
+    /// Inverse of getLevelFromExp, off the same six tables. An out-of-range growth rate falls
+    /// back to Medium Fast.
     uint32_t getExpForLevel(uint8_t level, uint8_t growthRate) noexcept;
 
-    /**
-     * Gets the EXP growth rate (0-5) for a national-dex species.
-     *
-     * Data extracted from PKHeX's Scarlet/Violet personal table (full national dex).
-     *
-     * @param species National dex number (1-1025).
-     * @return Growth-rate index 0-5; 0 for species 0 or out-of-range.
-     */
+    /// Read from the Scarlet/Violet personal table, the only one spanning the whole National Dex.
     uint8_t getGrowthRate(uint16_t species) noexcept;
 
 }

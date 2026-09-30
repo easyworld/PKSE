@@ -1,11 +1,13 @@
 #ifndef ENUMS_SC_TYPE_CODE_H
 #define ENUMS_SC_TYPE_CODE_H
 
+#include <cstddef>
 #include <cstdint>
 
-#include "Utils/NXTypes.h"   // u8..s64; <switch.h> on console, plain typedefs off it
+#include "Utils/NXTypes.h" // u8..s64; <switch.h> on console, plain typedefs off it
 
-namespace Enums {
+namespace Enums
+{
     enum class SCTypeCode
     {
         None = 0,
