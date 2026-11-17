@@ -36,22 +36,73 @@ namespace Pokemon
             {
                 return false;
             }
-            return languageId != static_cast<uint8_t>(Enums::LanguageID::Japanese) &&
-                   languageId != static_cast<uint8_t>(Enums::LanguageID::Korean);
+            return languageId != static_cast<uint8_t>(Enums::LanguageID::Japanese) && languageId != static_cast<uint8_t>(Enums::LanguageID::Korean);
         }
 
-        /** A species name as the record's own game and language would have stored it. */
-        std::u16string speciesNameAsStored(uint16_t speciesId, Enums::GameVersion gameGroup, uint8_t languageId)
+    }
+
+    std::u16string speciesNameAsStored(uint16_t speciesId, Enums::GameVersion gameGroup, uint8_t languageId)
+    {
+        const size_t languageIndex = Names::languageIndexFor(static_cast<Enums::LanguageID>(languageId));
+        const std::u16string speciesName = Utils::utf8ToUtf16(std::string(Names::getSpeciesNameLocalized(speciesId, languageIndex)));
+        if (!storesUpperCaseSpeciesNames(gameGroup, languageId))
         {
-            const size_t languageIndex = Names::languageIndexFor(static_cast<Enums::LanguageID>(languageId));
-            const std::u16string speciesName =
-                Utils::utf8ToUtf16(std::string(Names::getSpeciesNameLocalized(speciesId, languageIndex)));
-            if (storesUpperCaseSpeciesNames(gameGroup, languageId))
-            {
-                return Utils::upperCaseLatinLetters(speciesName);
-            }
             return speciesName;
         }
+        // PKHeX upper-cases invariantly, so an accented letter is upper-cased too, and then French
+        // strips the accent off E and I (StringConverter4Util.StripDiacriticsFR4).
+        constexpr char16_t latinSmallAGrave = u'\u00E0';
+        constexpr char16_t latinSmallThorn = u'\u00FE';
+        constexpr char16_t divisionSign = u'\u00F7';
+        constexpr char16_t latinCapitalEGrave = u'\u00C8';
+        constexpr char16_t latinCapitalIDiaeresis = u'\u00CF';
+        std::u16string storedName = Utils::upperCaseLatinLetters(speciesName);
+        const bool isFrench = languageId == static_cast<uint8_t>(Enums::LanguageID::French);
+        for (char16_t &character : storedName)
+        {
+            if (character >= latinSmallAGrave && character <= latinSmallThorn && character != divisionSign)
+            {
+                character = static_cast<char16_t>(character - (latinSmallAGrave - u'\u00C0'));
+            }
+            const int frenchAccentOffset = character - latinCapitalEGrave;
+            if (isFrench && frenchAccentOffset >= 0 && frenchAccentOffset < 3)
+            {
+                character = u'E';
+            }
+            else if (isFrench && character == latinCapitalIDiaeresis)
+            {
+                character = u'I';
+            }
+        }
+        const int generation = Enums::getVersionGeneration(Enums::getGroupRepVersion(gameGroup));
+        if (generation >= 3)
+        {
+            // The DS and GBA games spell Farfetch'd with a straight apostrophe.
+            for (char16_t &character : storedName)
+            {
+                if (character == u'\u2019')
+                {
+                    character = u'\'';
+                }
+            }
+            return storedName;
+        }
+        // Gen 1/2 store MR.MIME with no space and the one-dot leader, not the full stop a user types.
+        constexpr uint16_t mrMimeSpecies = 122;
+        if (speciesId == mrMimeSpecies)
+        {
+            const size_t spaceIndex = storedName.find(u' ');
+            if (spaceIndex != std::u16string::npos && spaceIndex > 0)
+            {
+                storedName[spaceIndex - 1] = u'\u2024';
+                storedName.erase(spaceIndex, 1);
+            }
+        }
+        return storedName;
+    }
+
+    namespace
+    {
 
         /**
          * True when the nickname field is holding the species' own name rather than a name the
@@ -80,8 +131,7 @@ namespace Pokemon
             {
                 return false;
             }
-            const std::u16string currentSpeciesName = Utils::upperCaseLatinLetters(
-                speciesNameAsStored(pokemon.speciesID(), pokemon.getGameGroup(), pokemon.language()));
+            const std::u16string currentSpeciesName = Utils::upperCaseLatinLetters(speciesNameAsStored(pokemon.speciesID(), pokemon.getGameGroup(), pokemon.language()));
             return storedNickname == currentSpeciesName;
         }
 
@@ -90,8 +140,7 @@ namespace Pokemon
          * hidden. The slot index, not the ability id, is what survives an evolution -- the ids are
          * per species and almost never match. Mirrors what the species picker does.
          */
-        void carryAbilitySlot(Pokemon &pokemon, uint8_t previousAbilityNumber, uint16_t destinationSpeciesId,
-                              uint8_t destinationFormId, Enums::GameVersion gameGroup)
+        void carryAbilitySlot(Pokemon &pokemon, uint8_t previousAbilityNumber, uint16_t destinationSpeciesId, uint8_t destinationFormId, Enums::GameVersion gameGroup)
         {
             if (!pokemon.hasAbility())
             {
@@ -99,8 +148,7 @@ namespace Pokemon
             }
             const AbilitySlots slots = getAbilitySlots(destinationSpeciesId, destinationFormId, gameGroup);
             // abilityNumber is a BITMASK in the modern formats: 1 = slot 1, 2 = slot 2, 4 = hidden.
-            int wantedSlot = (previousAbilityNumber == 4) ? 2 : (previousAbilityNumber == 2) ? 1
-                                                                                            : 0;
+            int wantedSlot = (previousAbilityNumber == 4) ? 2 : (previousAbilityNumber == 2) ? 1 : 0;
             if (wantedSlot >= slots.count || slots.slot[wantedSlot] == 0)
             {
                 wantedSlot = 0;
@@ -124,8 +172,7 @@ namespace Pokemon
         {
             return offer;
         }
-        offer.candidateCount = getTradeEvolutions(pokemon.getGameGroup(), pokemon.speciesID(), pokemon.form(),
-                                                  offer.candidates, TRADE_EVOLUTIONS_MAX_PER_SPECIES);
+        offer.candidateCount = getTradeEvolutions(pokemon.getGameGroup(), pokemon.speciesID(), pokemon.form(), offer.candidates, TRADE_EVOLUTIONS_MAX_PER_SPECIES);
         // WHICH ROW THE ITEM NAMES, not whether the evolution may happen. A held item of 0 is
         // "holding nothing", so it must never match a row -- a HeldItem row with no item id would
         // be a table bug, and this is what stops it becoming a wrong evolution.
@@ -159,23 +206,20 @@ namespace Pokemon
 
         pokemon.setSpecies(evolution.destinationSpeciesId); // first: drives the base-stat lookup
         pokemon.setForm(evolution.destinationFormId);
-        carryAbilitySlot(pokemon, previousAbilityNumber, evolution.destinationSpeciesId,
-                         evolution.destinationFormId, gameGroup);
+        carryAbilitySlot(pokemon, previousAbilityNumber, evolution.destinationSpeciesId, evolution.destinationFormId, gameGroup);
 
         // The item is destroyed by the evolution in every game that has one of these; it does not
         // go back to the bag. ONLY THE ITEM THE ROW ASKS FOR: the evolution runs whether or not it
         // is held, so clearing the field unconditionally would destroy an unrelated item a Scyther
         // happened to be carrying.
-        if (evolution.trigger == TradeEvolutionTrigger::HeldItem && pokemon.hasHeldItem() &&
-            pokemon.heldItem() == evolution.requiredItemId)
+        if (evolution.trigger == TradeEvolutionTrigger::HeldItem && pokemon.hasHeldItem() && pokemon.heldItem() == evolution.requiredItemId)
         {
             pokemon.setHeldItem(0);
         }
 
         if (renameNickname)
         {
-            pokemon.setNickname(
-                speciesNameAsStored(evolution.destinationSpeciesId, gameGroup, pokemon.language()));
+            pokemon.setNickname(speciesNameAsStored(evolution.destinationSpeciesId, gameGroup, pokemon.language()));
         }
 
         // EXP and level are deliberately untouched -- see the header. recalculateStats() reads the

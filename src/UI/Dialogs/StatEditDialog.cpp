@@ -1,3 +1,4 @@
+#include <algorithm>
 #include <string>
 
 #include "UI/Dialogs/StatEditDialog.h"
@@ -8,7 +9,9 @@
 #include "UI/PKSEFramebuffer.h"
 #include "Trainer/Trainer.h"
 #include "Pokemon/Pokemon.h"
+#include "Pokemon/Experience.h"
 #include "Globals.h"
+#include "Enums/GameVersion.h"
 
 using namespace Trainer;
 
@@ -16,6 +19,32 @@ namespace UI
 {
     namespace Dialogs
     {
+        int legalEffortValueCap(const Pokemon::Pokemon &pokemon)
+        {
+            constexpr int modernEffortValueCap = 252;
+            constexpr int firstGenerationWithModernCap = 6;
+            const int fieldMaxEffortValue = pokemon.maxEV();
+            const int formatGeneration = Enums::getVersionGeneration(Enums::getGroupRepVersion(pokemon.getGameGroup()));
+            if (formatGeneration < firstGenerationWithModernCap)
+                return fieldMaxEffortValue;
+            return std::min(fieldMaxEffortValue, modernEffortValueCap);
+        }
+
+        std::string getHyperTrainBlockedReason(const Pokemon::Pokemon &pokemon, int individualValue)
+        {
+            if (!pokemon.isHyperTrainingAvailable())
+                return "无法特训";
+            // A box record in the packed formats carries no level byte; EXP is the authority there.
+            uint8_t levelValue = pokemon.level();
+            if (levelValue == 0)
+                levelValue = Pokemon::getLevelFromExp(pokemon.exp(), Pokemon::getGrowthRate(pokemon.speciesID()));
+            if (levelValue < pokemon.hyperTrainMinimumLevel())
+                return "所需等级 " + std::to_string(pokemon.hyperTrainMinimumLevel());
+            if (individualValue >= pokemon.maxIV())
+                return "个体值已达到 " + std::to_string(pokemon.maxIV());
+            return std::string();
+        }
+
         void drawStatEditDialog(TrainerViewScreen &screen, PKSEFramebuffer &framebuffer)
         {
             // Resolve the Pokemon being edited (party / box / bank).
@@ -33,45 +62,55 @@ namespace UI
             const int fmtMaxEV = pokemon->maxEV();
             const bool gbStats = (fmtMaxEV > 255); // Stat Experience rather than EVs
             const char *ivLabel = (fmtMaxIV < 31) ? "DV" : "IV";
-            const char *evLabel = usesAV ? "AV" : (gbStats ? "Exp" : "EV");
+            const char *evLabel = usesAV ? "AV" : (gbStats ? "经验值" : "EV");
 
             const char *statNames[] = {"HP", "攻击", "防御", "特攻", "特防", "速度"};
             const char *statName = statNames[screen.statEdit.selectedStat];
 
-            constexpr int dialogWidth = 600, h = 384;
+            const bool showsHyperTraining = pokemon->hasHyperTraining();
+            constexpr int dialogWidth = 600;
+            const int dialogHeight = showsHyperTraining ? 426 : 384;
             const int dialogX = (framebuffer.getWidth() - dialogWidth) / 2;
-            const int dialogY = (framebuffer.getHeight() - h) / 2;
-            int centerY = drawDialogFrame(framebuffer, dialogX, dialogY, dialogWidth, h,
-                                          std::string("编辑") + statName, Colors::Text);
+            const int dialogY = (framebuffer.getHeight() - dialogHeight) / 2;
+            int centerY = drawDialogFrame(framebuffer, dialogX, dialogY, dialogWidth, dialogHeight, std::string("编辑") + statName, Colors::Text);
 
             screen.touchButtons.clear();
 
             const bool ivMode = (screen.statEdit.mode == StatEditMode::IV);
-            const int labelX = dialogX + 28, valX = dialogX + 150, rangeX = dialogX + dialogWidth - 150;
+            const int labelX = dialogX + 28, valX = dialogX + 180, rangeX = dialogX + dialogWidth - 150;
 
             // IV row (tap -> select IV, id 10)
             if (ivMode)
                 framebuffer.drawSelectionHighlight(dialogX + 16, centerY - 4, dialogWidth - 32, 34);
             framebuffer.drawText(labelX, centerY + 2, ivLabel, ivMode ? Colors::Text : Colors::TextDim);
-            framebuffer.drawText(valX, centerY + 2, std::to_string(screen.statEdit.currentIV),
-                                 ivMode ? Colors::Accent : Colors::Text);
-            framebuffer.drawText(rangeX, centerY + 4, "(0 - " + std::to_string(fmtMaxIV) + "）", Colors::TextDim,
-                                 TextStyle::Caption);
+            framebuffer.drawText(valX, centerY + 2, std::to_string(screen.statEdit.currentIV), ivMode ? Colors::Accent : Colors::Text);
+            framebuffer.drawText(rangeX, centerY + 4, "(0 - " + std::to_string(fmtMaxIV) + "）", Colors::TextDim, TextStyle::Caption);
             screen.touchButtons.push_back({10, dialogX + 16, centerY - 4, dialogWidth - 32, 34});
             centerY += 42;
 
-            // Second row: AV (Let's Go) or EV (tap -> select it, id 11)
-            if (!ivMode)
-                framebuffer.drawSelectionHighlight(dialogX + 16, centerY - 4, dialogWidth - 32, 34);
-            framebuffer.drawText(labelX, centerY + 2, evLabel, !ivMode ? Colors::Text : Colors::TextDim);
-            framebuffer.drawText(valX, centerY + 2,
-                                 std::to_string(usesAV ? screen.statEdit.currentAV : screen.statEdit.currentEV),
-                                 !ivMode ? Colors::Accent : Colors::Text);
+            // Hyper Training row, under the IV it overrides (tap -> select it, tap again -> toggle, id 12).
+            const bool hyperTrainMode = (screen.statEdit.mode == StatEditMode::HyperTrain);
+            if (showsHyperTraining)
             {
-                const std::string evRange =
-                    usesAV    ? (g_allowIllegalEdits ? std::string("(0 - 255)") : std::string("(0 - 200)"))
-                    : gbStats ? ("(0 - " + std::to_string(fmtMaxEV) + "）")
-                              : (g_allowIllegalEdits ? std::string("(0 - 255)") : std::string("(0 - 252)"));
+                if (hyperTrainMode)
+                    framebuffer.drawSelectionHighlight(dialogX + 16, centerY - 4, dialogWidth - 32, 34);
+                framebuffer.drawText(labelX, centerY + 2, "极限特训", hyperTrainMode ? Colors::Text : Colors::TextDim);
+                framebuffer.drawText(valX, centerY + 2, screen.statEdit.currentHyperTrained ? "是" : "否", hyperTrainMode ? Colors::Accent : Colors::Text);
+                const std::string blockedReason = getHyperTrainBlockedReason(*pokemon, screen.statEdit.currentIV);
+                const std::string hyperTrainNote = (screen.statEdit.currentHyperTrained || blockedReason.empty()) ? "实际个体值为 " + std::to_string(screen.statEdit.currentHyperTrained ? fmtMaxIV : screen.statEdit.currentIV) : blockedReason;
+                framebuffer.drawText(rangeX, centerY + 4, hyperTrainNote, Colors::TextDim, TextStyle::Caption);
+                screen.touchButtons.push_back({12, dialogX + 16, centerY - 4, dialogWidth - 32, 34});
+                centerY += 42;
+            }
+
+            // Second row: AV (Let's Go) or EV (tap -> select it, id 11)
+            const bool secondMode = !ivMode && !hyperTrainMode;
+            if (secondMode)
+                framebuffer.drawSelectionHighlight(dialogX + 16, centerY - 4, dialogWidth - 32, 34);
+            framebuffer.drawText(labelX, centerY + 2, evLabel, secondMode ? Colors::Text : Colors::TextDim);
+            framebuffer.drawText(valX, centerY + 2, std::to_string(usesAV ? screen.statEdit.currentAV : screen.statEdit.currentEV), secondMode ? Colors::Accent : Colors::Text);
+            {
+                const std::string evRange = usesAV ? (g_allowIllegalEdits ? std::string("(0 - 255)") : std::string("(0 - 200)")) : ("(0 - " + std::to_string(g_allowIllegalEdits ? fmtMaxEV : legalEffortValueCap(*pokemon)) + "）");
                 framebuffer.drawText(rangeX, centerY + 4, evRange, Colors::TextDim, TextStyle::Caption);
             }
             screen.touchButtons.push_back({11, dialogX + 16, centerY - 4, dialogWidth - 32, 34});
@@ -79,8 +118,7 @@ namespace UI
 
             if (usesAV)
             {
-                framebuffer.drawText(labelX, centerY, "觉醒值（每项 0-200，无总和上限）", Colors::TextDim,
-                                     TextStyle::Caption);
+                framebuffer.drawText(labelX, centerY, "觉醒值（每项 0-200，无总和上限）", Colors::TextDim, TextStyle::Caption);
             }
             else if (gbStats)
             {
@@ -88,8 +126,7 @@ namespace UI
                 // once. Printing an "x / 510" bar here would invent a budget the games do not have.
                 // What IS worth saying is that the contribution is a square root, so the last few
                 // thousand points are worth almost nothing and the number is not a linear stat bonus.
-                framebuffer.drawText(labelX, centerY, "能力经验（每项 0-65535，无总和上限；通过平方根增加）",
-                            Colors::TextDim, TextStyle::Caption);
+                framebuffer.drawText(labelX, centerY, "能力经验（每项 0-65535，无总和上限；通过平方根增加）", Colors::TextDim, TextStyle::Caption);
             }
             else
             {
@@ -115,24 +152,20 @@ namespace UI
                     currentEV = pokemon->evSPE();
                     break;
                 }
-                int totalEVs = pokemon->evHP() + pokemon->evATK() + pokemon->evDEF() +
-                               pokemon->evSPE() + pokemon->evSPA() + pokemon->evSPD();
+                int totalEVs = pokemon->evHP() + pokemon->evATK() + pokemon->evDEF() + pokemon->evSPE() + pokemon->evSPA() + pokemon->evSPD();
                 int projectedTotal = totalEVs - currentEV + screen.statEdit.currentEV;
                 bool over = projectedTotal > 510;
-                framebuffer.drawText(labelX, centerY, "努力值总和：" + std::to_string(projectedTotal) + " / 510",
-                            over ? Colors::Red : Colors::TextDim, TextStyle::Caption);
+                framebuffer.drawText(labelX, centerY, "努力值总和：" + std::to_string(projectedTotal) + " / 510", over ? Colors::Red : Colors::TextDim, TextStyle::Caption);
             }
 
             // Step buttons (ZL -100 | L -10 | < -1 | > +1 | R +10 | ZR +100), then Cancel / Save labelled
-            // with B / A. Up/Down still switch the IV <-> EV/AV row (handled in the input path).
-            const int choiceButtonHeight = TouchTargetMin, cby = dialogY + h - choiceButtonHeight - 14;
+            // with B / A. Up/Down still step between the rows (handled in the input path).
+            const int choiceButtonHeight = TouchTargetMin, cby = dialogY + dialogHeight - choiceButtonHeight - 14;
             drawEditStepRow(screen, framebuffer, dialogX, dialogWidth, cby - 58 - 14, 58);
 
             const int choiceButtonWidth = 190;
-            drawEditChoiceButton(screen, framebuffer, dialogX + 24, cby, choiceButtonWidth, choiceButtonHeight, "B",
-                                 "取消", 0);
-            drawEditChoiceButton(screen, framebuffer, dialogX + dialogWidth - 24 - choiceButtonWidth, cby,
-                                 choiceButtonWidth, choiceButtonHeight, "A", "保存", 1);
+            drawEditChoiceButton(screen, framebuffer, dialogX + 24, cby, choiceButtonWidth, choiceButtonHeight, "B", "取消", 0);
+            drawEditChoiceButton(screen, framebuffer, dialogX + dialogWidth - 24 - choiceButtonWidth, cby, choiceButtonWidth, choiceButtonHeight, "A", "保存", 1);
         }
     }
 }

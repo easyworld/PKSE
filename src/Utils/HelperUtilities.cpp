@@ -1,4 +1,6 @@
 #include <cstdint>
+#include <cstdio>
+#include <memory>
 #include <random>
 
 #ifdef __SWITCH__
@@ -13,36 +15,22 @@ namespace Utils
 {
     uint16_t readUInt16LittleEndian(const uint8_t *pointer)
     {
-        return static_cast<uint16_t>(pointer[0]) |
-               (static_cast<uint16_t>(pointer[1]) << 8);
+        return static_cast<uint16_t>(pointer[0]) | (static_cast<uint16_t>(pointer[1]) << 8);
     }
 
     int32_t readInt32LittleEndian(const uint8_t *pointer)
     {
-        return static_cast<uint32_t>(pointer[0]) |
-               (static_cast<uint32_t>(pointer[1]) << 8) |
-               (static_cast<uint32_t>(pointer[2]) << 16) |
-               (static_cast<uint32_t>(pointer[3]) << 24);
+        return static_cast<uint32_t>(pointer[0]) | (static_cast<uint32_t>(pointer[1]) << 8) | (static_cast<uint32_t>(pointer[2]) << 16) | (static_cast<uint32_t>(pointer[3]) << 24);
     }
 
     uint32_t readUInt32LittleEndian(const uint8_t *pointer)
     {
-        return static_cast<uint32_t>(pointer[0]) |
-               (static_cast<uint32_t>(pointer[1]) << 8) |
-               (static_cast<uint32_t>(pointer[2]) << 16) |
-               (static_cast<uint32_t>(pointer[3]) << 24);
+        return static_cast<uint32_t>(pointer[0]) | (static_cast<uint32_t>(pointer[1]) << 8) | (static_cast<uint32_t>(pointer[2]) << 16) | (static_cast<uint32_t>(pointer[3]) << 24);
     }
 
     uint64_t readUInt64LittleEndian(const uint8_t *pointer)
     {
-        return static_cast<uint64_t>(pointer[0]) |
-               (static_cast<uint64_t>(pointer[1]) << 8) |
-               (static_cast<uint64_t>(pointer[2]) << 16) |
-               (static_cast<uint64_t>(pointer[3]) << 24) |
-               (static_cast<uint64_t>(pointer[4]) << 32) |
-               (static_cast<uint64_t>(pointer[5]) << 40) |
-               (static_cast<uint64_t>(pointer[6]) << 48) |
-               (static_cast<uint64_t>(pointer[7]) << 56);
+        return static_cast<uint64_t>(pointer[0]) | (static_cast<uint64_t>(pointer[1]) << 8) | (static_cast<uint64_t>(pointer[2]) << 16) | (static_cast<uint64_t>(pointer[3]) << 24) | (static_cast<uint64_t>(pointer[4]) << 32) | (static_cast<uint64_t>(pointer[5]) << 40) | (static_cast<uint64_t>(pointer[6]) << 48) | (static_cast<uint64_t>(pointer[7]) << 56);
     }
 
     void writeUInt16LittleEndian(uint8_t *pointer, uint16_t value)
@@ -91,17 +79,20 @@ namespace Utils
 #ifdef __SWITCH__
     std::string getTitleVersion(u64 titleId)
     {
-        NsApplicationControlData controlData;
+        // NsApplicationControlData is ~0x24000 bytes: on the heap, as SystemIcons.cpp does, never
+        // on the stack.
+        auto controlData = std::make_unique<NsApplicationControlData>();
         u64 controlDataSize = 0;
-        Result result = nsGetApplicationControlData(NsApplicationControlSource_Storage, titleId, &controlData,
-                                                    sizeof(controlData), &controlDataSize);
+        Result result = nsGetApplicationControlData(NsApplicationControlSource_Storage, titleId, controlData.get(), sizeof(NsApplicationControlData), &controlDataSize);
         if (R_FAILED(result))
         {
-            printf("Failed to get application control data for TitleID: 0x%016lX (error: 0x%x)\n", titleId, result);
+            char titleDescription[64];
+            snprintf(titleDescription, sizeof(titleDescription), "title 0x%016lX, result 0x%x", titleId, result);
+            logErrorToFile("Failed to get application control data", titleDescription);
             return "";
         }
 
-        const NacpStruct *nacp = (const NacpStruct *)&controlData.nacp;
+        const NacpStruct *nacp = &controlData->nacp;
 
         // display_version contains the version string like "1.0.1" or "1.3.2"
         if (nacp->display_version[0] != '\0')

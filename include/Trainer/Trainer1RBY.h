@@ -173,15 +173,21 @@ namespace Trainer
             return saveIsYellow ? GameVersion::YW : GameVersion::RD;
         }
         bool supportsBoxNames() const noexcept override { return false; } // the games have none
+        /// A box slot whose counted entry was kept as an UnmappedListEntry (see Trainer).
+        bool isBoxSlotUnmapped(size_t boxIndex, size_t slotIndex) const noexcept override;
+        /// The party slots the kept unmapped party entries are written to (see Trainer).
+        std::vector<size_t> getUnmappedPartySlots() const override;
+        /// Gen 1's own glyph table (per language) -- the check the trainer-name editor asks too.
+        bool canStoreBoxName(const std::string &name) const override;
         uint32_t getMaxMoney() const noexcept override { return 999999; } // 3-byte BCD ceiling
         size_t getMaxTrainerNameLength() const noexcept override { return saveIsJapanese ? 5u : 7u; }
+        int getMaxTrainerNameDigits() const noexcept override { return -1; } // no digit cap before generation 4 (PKHeX)
         size_t getItemPouchCapacity(int pouch) const override
         {
-            const PouchType1RBY pouchType = (pouch == static_cast<int>(PouchType1RBY::PCItems))
-                                                ? PouchType1RBY::PCItems
-                                                : PouchType1RBY::Items;
+            const PouchType1RBY pouchType = (pouch == static_cast<int>(PouchType1RBY::PCItems)) ? PouchType1RBY::PCItems : PouchType1RBY::Items;
             return static_cast<size_t>(getPouchInfo1RBY(pouchType).maxSlots);
         }
+        int getItemMaxCount(int pouch) const override { return ITEM_MAX_COUNT1_RBY; }
 
         uint8_t badgeFlags = 0; // 8 badge bits
         uint16_t coins = 0;     // Game Corner coins (BCD, max 9999)
@@ -208,8 +214,7 @@ namespace Trainer
         size_t boxRawOffset(size_t boxIndex) const noexcept
         {
             const size_t half = boxCount() / 2;
-            return boxIndex < half ? 0x4000 + boxIndex * boxListSize()
-                            : 0x6000 + (boxIndex - half) * boxListSize();
+            return boxIndex < half ? 0x4000 + boxIndex * boxListSize() : 0x6000 + (boxIndex - half) * boxListSize();
         }
         uint8_t currentBoxIndex() const noexcept { return saveData[offsets.currentBoxIndex] & 0x7F; }
         bool boxesInitialized() const noexcept { return (saveData[offsets.currentBoxIndex] & 0x80) != 0; }
@@ -221,10 +226,13 @@ namespace Trainer
 
         /// Pull entry `index` out of a multi-entry PokeList and wrap it as a single-entry list,
         /// which is the only form Pokemon1RBY accepts. Mirrors PKHeX's PokeList1.Unpack.
-        std::unique_ptr<::Pokemon::Pokemon> readListEntry(size_t listOffset, size_t capacity, bool isParty,
-                                                          size_t index) const;
+        /// Null for an empty or uncounted slot, and for a counted entry PKSE cannot map, which is
+        /// then copied into `unmappedEntry` (when given) to be written back verbatim.
+        std::unique_ptr<::Pokemon::Pokemon> readListEntry(size_t listOffset, size_t capacity, bool isParty, size_t index, UnmappedListEntry *unmappedEntry = nullptr) const;
         /// Write `mons` back into a multi-entry PokeList at `listOffset`. Mirrors PokeList1.WriteToList.
-        void writeList(size_t listOffset, size_t capacity, bool isParty, const std::vector<::Pokemon::Pokemon *> &mons);
+        void writeList(size_t listOffset, size_t capacity, bool isParty, const std::vector<::Pokemon::Pokemon *> &mons, const std::vector<UnmappedListEntry> &unmappedEntries);
+        std::vector<UnmappedListEntry> unmappedPartyEntries;
+        std::vector<std::vector<UnmappedListEntry>> unmappedBoxEntries;
         void readPouch(size_t offset, size_t capacity, std::vector<InventoryItem> &out) const;
         void writePouch(size_t offset, size_t capacity, const std::vector<InventoryItem> &in);
         void refreshChecksum();

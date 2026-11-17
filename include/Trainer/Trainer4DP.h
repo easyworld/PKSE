@@ -63,6 +63,8 @@ namespace Trainer
         /// Bytes per box name -- 40, holding 20 UTF-16 units of which the game writes at most 8
         /// characters (PKHeX SAV4Sinnoh/SAV4HGSS BOX_NAME_LEN).
         static constexpr size_t GEN4_BOX_NAME_LEN = 40;
+        /// Offset of the language byte inside the trainer record (PKHeX SAV4: Trainer1 + 0x19).
+        static constexpr size_t GEN4_LANGUAGE_OFFSET = 0x19;
 
         Trainer4DP(std::vector<uint8_t> raw, std::string path);
 
@@ -87,6 +89,18 @@ namespace Trainer
         /// convention getGroupRepVersion() already uses everywhere else.
         GameVersion getGameVersion() const noexcept override { return GameVersion::D; }
 
+        /// The save's language (PKHeX SAV4.Language, Trainer1 + 0x19), so a Pokemon created here is
+        /// stamped with it. A byte Gen 4 cannot hold (0, the unused 6, past Korean) answers English.
+        uint8_t language() const noexcept override
+        {
+            using Enums::LanguageID;
+            if (!valid)
+                return static_cast<uint8_t>(LanguageID::English);
+            const uint8_t languageId = generalBlock()[ofsTrainer() + GEN4_LANGUAGE_OFFSET];
+            const bool gen4Language = languageId >= static_cast<uint8_t>(LanguageID::Japanese) && languageId <= static_cast<uint8_t>(LanguageID::Korean) && languageId != static_cast<uint8_t>(LanguageID::UNUSED_6);
+            return gen4Language ? languageId : static_cast<uint8_t>(LanguageID::English);
+        }
+
         size_t getBoxCount() const noexcept override { return 18; }
         size_t getSlotsPerBox() const noexcept override { return 30; }
         size_t getPartySize() const noexcept override { return party.size(); }
@@ -97,6 +111,9 @@ namespace Trainer
         bool supportsBoxNames() const noexcept override { return true; }
         size_t getMaxBoxNameLength() const noexcept override { return 8; }
         bool itemsAreIdIndexed() const noexcept override { return false; }
+        size_t getItemPouchCapacity(int pouch) const override { return (pouch >= 0 && pouch < POUCH_COUNT4_DP) ? POUCHES4_DP[pouch].slots : 0; }
+        int getItemMaxCount(int pouch) const override { return (pouch >= 0 && pouch < POUCH_COUNT4_DP) ? POUCHES4_DP[pouch].maxCount : 0; }
+        const char *getItemPouchName(int pouch) const override { return (pouch >= 0 && pouch < POUCH_COUNT4_DP) ? POUCHES4_DP[pouch].name : nullptr; }
         /// Gen 4 storage is POSITIONAL -- every slot has a fixed home and an empty one stays empty.
         /// Re-packing would shuffle Pokemon the player arranged deliberately.
         bool compactStorage() override { return false; }

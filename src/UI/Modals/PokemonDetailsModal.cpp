@@ -11,6 +11,7 @@
 #include "UI/PKSEFramebuffer.h"
 #include "UI/ScreenChrome.h"
 #include "UI/SpriteManager.h"
+#include "UI/Dialogs/RibbonEditDialog.h"
 #include "Trainer/Trainer.h"
 #include "Trainer/OriginStamp.h" // originStampLabel -- the Origin row
 #include "Utils/HelperUtilities.h"
@@ -52,18 +53,15 @@ namespace UI
             const int screenWidth = framebuffer.getWidth(), H = framebuffer.getHeight();
             const bool isShiny = p->isShiny(p->id32(), p->species());
             const bool usesAwakeningValues = p->hasAwakeningValues();
-            const int selectedIndex =
-                screen.details.selectedField; // 0-5 stats, 6 shiny, 7 nature, 8 gender, 9 level, 10-13 moves, 14 item
+            const int selectedIndex = screen.details.selectedField; // 0-5 stats, 6 shiny, 7 nature, 8 gender, 9 level, 10-13 moves, 14 item
             const Legality::Report legalityRep = Legality::analyze(*p, p->getGameGroup());
+            const bool hasRibbons = !Names::getRibbonDefinitions(p->getGameGroup()).empty();
 
             screen.touchButtons.clear();
 
             // Full-screen page over a dimmed box screen.
             framebuffer.drawFilledRect(0, 0, screenWidth, H, Color(0, 0, 0, 130));
-            framebuffer.drawVerticalGradient(
-                0, 0, screenWidth, H,
-                Color(Colors::Background.red, Colors::Background.green, Colors::Background.blue, 250),
-                Color(Colors::Background.red, Colors::Background.green, Colors::Background.blue, 255));
+            framebuffer.drawVerticalGradient(0, 0, screenWidth, H, Color(Colors::Background.red, Colors::Background.green, Colors::Background.blue, 250), Color(Colors::Background.red, Colors::Background.green, Colors::Background.blue, 255));
 
             // AN EGG HAS NO NAME, and what a Gen 3 egg stores instead is the Japanese word for egg --
             // stamped on every egg whatever the cartridge, so reading it out loud tells the player
@@ -74,7 +72,7 @@ namespace UI
             // Regional/variant label ABOVE the name ("Combat Breed", "Alolan", "Hisuian", ...), so a
             // variant reads as what it is even when the pokemon is nicknamed. Only drawn when the form has a
             // name; the name drops a row to make space for it.
-            const char *variant = Names::getFormName(p->speciesID(), p->form());
+            const char *variant = Names::getFormName(p->speciesID(), p->form(), p->getGameGroup());
             int nameY = 16;
             if (variant[0] != '\0')
             {
@@ -88,8 +86,7 @@ namespace UI
             const char *g = p->genderSymbol();
             if (g[0] != '\0')
             {
-                framebuffer.drawSymbol(markX, nameY + 6, g,
-                                       (std::string(g) == "\xE2\x99\x82") ? Colors::Blue : Colors::Magenta);
+                framebuffer.drawSymbol(markX, nameY + 6, g, (std::string(g) == "\xE2\x99\x82") ? Colors::Blue : Colors::Magenta);
                 markX += 24;
             }
             if (isShiny)
@@ -134,8 +131,7 @@ namespace UI
             Sprite *sprite = SpriteManager::getSprite(p->speciesID(), p->form(), isShiny);
             if (sprite && sprite->data)
             {
-                framebuffer.drawSpriteIdle(leftColumnX + (Lw - renderSz) / 2, colY + 14, renderSz, renderSz,
-                                  sprite->width, sprite->height, sprite->data, sprite->channels, 0.0f);
+                framebuffer.drawSpriteIdle(leftColumnX + (Lw - renderSz) / 2, colY + 14, renderSz, renderSz, sprite->width, sprite->height, sprite->data, sprite->channels, 0.0f);
             }
             // A Tera badge takes its own line, so the scroll region below has to start lower.
             const int teraBadgeHeight = p->hasTeraType() ? 26 : 0;
@@ -143,30 +139,20 @@ namespace UI
             {
                 Pokemon::TypePair types = Pokemon::getPokemonTypes(p->speciesID(), p->form(), p->getGameGroup());
                 Sprite *firstTypeIcon = SpriteManager::getTypeSprite(types.type1);
-                Sprite *secondTypeIcon =
-                    Pokemon::hasSecondType(types) ? SpriteManager::getTypeSprite(types.type2) : nullptr;
+                Sprite *secondTypeIcon = Pokemon::hasSecondType(types) ? SpriteManager::getTypeSprite(types.type2) : nullptr;
                 const int textHeight = 22;
-                int firstTypeWidth = (firstTypeIcon && firstTypeIcon->data)
-                                         ? (firstTypeIcon->width * textHeight) / firstTypeIcon->height
-                                         : 0;
-                int secondTypeWidth = (secondTypeIcon && secondTypeIcon->data)
-                                          ? (secondTypeIcon->width * textHeight) / secondTypeIcon->height
-                                          : 0;
+                int firstTypeWidth = (firstTypeIcon && firstTypeIcon->data) ? (firstTypeIcon->width * textHeight) / firstTypeIcon->height : 0;
+                int secondTypeWidth = (secondTypeIcon && secondTypeIcon->data) ? (secondTypeIcon->width * textHeight) / secondTypeIcon->height : 0;
                 int typeIconGap = (secondTypeWidth > 0) ? 8 : 0;
-                int ribbonX = leftColumnX + (Lw - (firstTypeWidth + typeIconGap + secondTypeWidth)) / 2,
-                    tyy = colY + 14 + renderSz + 6;
+                int ribbonX = leftColumnX + (Lw - (firstTypeWidth + typeIconGap + secondTypeWidth)) / 2, tyy = colY + 14 + renderSz + 6;
                 if (firstTypeIcon && firstTypeIcon->data)
                 {
-                    framebuffer.drawImageScaled(ribbonX, tyy, firstTypeIcon->width, firstTypeIcon->height,
-                                                firstTypeWidth, textHeight, firstTypeIcon->data,
-                                                firstTypeIcon->channels);
+                    framebuffer.drawImageScaled(ribbonX, tyy, firstTypeIcon->width, firstTypeIcon->height, firstTypeWidth, textHeight, firstTypeIcon->data, firstTypeIcon->channels);
                     ribbonX += firstTypeWidth + typeIconGap;
                 }
                 if (secondTypeIcon && secondTypeIcon->data)
                 {
-                    framebuffer.drawImageScaled(ribbonX, tyy, secondTypeIcon->width, secondTypeIcon->height,
-                                                secondTypeWidth, textHeight, secondTypeIcon->data,
-                                                secondTypeIcon->channels);
+                    framebuffer.drawImageScaled(ribbonX, tyy, secondTypeIcon->width, secondTypeIcon->height, secondTypeWidth, textHeight, secondTypeIcon->data, secondTypeIcon->channels);
                 }
             }
             // TERA BADGE, ON ITS OWN LINE AND LABELLED. Deliberately not beside the type badges: a
@@ -180,20 +166,15 @@ namespace UI
                 Sprite *teraIcon = SpriteManager::getTypeSprite(Pokemon::teraTypeNameIndex(p->teraType()));
                 int teraLabelWidth = 0, teraLabelHeight = 0;
                 framebuffer.measureText("太晶", teraLabelWidth, teraLabelHeight, TextStyle::Caption);
-                const int teraIconWidth = (teraIcon && teraIcon->data)
-                                              ? (teraIcon->width * teraIconHeight) / teraIcon->height
-                                              : 0;
+                const int teraIconWidth = (teraIcon && teraIcon->data) ? (teraIcon->width * teraIconHeight) / teraIcon->height : 0;
                 const int teraGap = (teraIconWidth > 0) ? 8 : 0;
                 int teraX = leftColumnX + (Lw - (teraLabelWidth + teraGap + teraIconWidth)) / 2;
                 const int teraY = colY + 14 + renderSz + 6 + 22 + 4;
-                framebuffer.drawText(teraX, teraY + (teraIconHeight - teraLabelHeight) / 2, "太晶",
-                                     Colors::TextDim, TextStyle::Caption);
+                framebuffer.drawText(teraX, teraY + (teraIconHeight - teraLabelHeight) / 2, "太晶", Colors::TextDim, TextStyle::Caption);
                 teraX += teraLabelWidth + teraGap;
                 if (teraIcon && teraIcon->data)
                 {
-                    framebuffer.drawImageScaled(teraX, teraY, teraIcon->width, teraIcon->height,
-                                                teraIconWidth, teraIconHeight, teraIcon->data,
-                                                teraIcon->channels);
+                    framebuffer.drawImageScaled(teraX, teraY, teraIcon->width, teraIcon->height, teraIconWidth, teraIconHeight, teraIcon->data, teraIcon->channels);
                 }
             }
 
@@ -219,8 +200,7 @@ namespace UI
                     framebuffer.drawText(leftColumnX + 18, rectY + 11, label, Colors::TextDim, TextStyle::Body);
                     int valueWidth, vh;
                     framebuffer.measureText(value, valueWidth, vh, TextStyle::Body);
-                    framebuffer.drawText(leftColumnX + Lw - 18 - valueWidth, rectY + 11, value, Colors::Text,
-                                         TextStyle::Body);
+                    framebuffer.drawText(leftColumnX + Lw - 18 - valueWidth, rectY + 11, value, Colors::Text, TextStyle::Body);
                 }
                 infoRowY += editRowHeight;
             };
@@ -236,17 +216,13 @@ namespace UI
                 {
                     if (isFieldSelected)
                     {
-                        framebuffer.drawFilledRoundedRect(leftColumnX + 8, rectY + 2, Lw - 16, editRowHeight - 6, 8,
-                                                          Colors::Selected);
-                        framebuffer.drawRoundedRect(leftColumnX + 8, rectY + 2, Lw - 16, editRowHeight - 6, 8,
-                                                    Colors::Accent, 2);
+                        framebuffer.drawFilledRoundedRect(leftColumnX + 8, rectY + 2, Lw - 16, editRowHeight - 6, 8, Colors::Selected);
+                        framebuffer.drawRoundedRect(leftColumnX + 8, rectY + 2, Lw - 16, editRowHeight - 6, 8, Colors::Accent, 2);
                     }
-                    framebuffer.drawText(leftColumnX + 18, rectY + 11, label,
-                                         isFieldSelected ? Colors::Text : Colors::TextDim, TextStyle::Body);
+                    framebuffer.drawText(leftColumnX + 18, rectY + 11, label, isFieldSelected ? Colors::Text : Colors::TextDim, TextStyle::Body);
                     int valueWidth, vh;
                     framebuffer.measureText(value, valueWidth, vh, TextStyle::Body);
-                    framebuffer.drawText(leftColumnX + Lw - 18 - valueWidth, rectY + 11, value,
-                                         isFieldSelected ? Colors::Accent : Colors::Text, TextStyle::Body);
+                    framebuffer.drawText(leftColumnX + Lw - 18 - valueWidth, rectY + 11, value, isFieldSelected ? Colors::Accent : Colors::Text, TextStyle::Body);
                     screen.touchButtons.push_back({fieldIdx, leftColumnX + 8, rectY, Lw - 16, editRowHeight});
                 }
                 infoRowY += editRowHeight;
@@ -268,23 +244,19 @@ namespace UI
                     const int buttonX = leftColumnX + 8;
                     const int buttonWidth = Lw - 16;
                     const int buttonHeight = editRowHeight - 6;
-                    framebuffer.drawFilledRoundedRect(buttonX, rectY + 2, buttonWidth, buttonHeight, 10,
-                                                      Colors::Evolve);
+                    framebuffer.drawFilledRoundedRect(buttonX, rectY + 2, buttonWidth, buttonHeight, 10, Colors::Evolve);
                     // The selection ring is the page's own, so a selected button reads the same way
                     // a selected row does.
                     if (isFieldSelected)
-                        framebuffer.drawRoundedRect(buttonX, rectY + 2, buttonWidth, buttonHeight, 10, Colors::Accent,
-                                                    2);
+                        framebuffer.drawRoundedRect(buttonX, rectY + 2, buttonWidth, buttonHeight, 10, Colors::Accent, 2);
 
                     const Color faceColor = Colors::EvolveText;
                     const int iconSize = 20;
-                    framebuffer.drawEvolveArrow(buttonX + 14, rectY + 2 + (buttonHeight - iconSize) / 2, iconSize,
-                                                faceColor);
+                    framebuffer.drawEvolveArrow(buttonX + 14, rectY + 2 + (buttonHeight - iconSize) / 2, iconSize, faceColor);
                     framebuffer.drawText(buttonX + 14 + iconSize + 10, rectY + 11, label, faceColor, TextStyle::Body);
                     int valueWidth, valueHeight;
                     framebuffer.measureText(value, valueWidth, valueHeight, TextStyle::Body);
-                    framebuffer.drawText(buttonX + buttonWidth - 14 - valueWidth, rectY + 11, value, faceColor,
-                                         TextStyle::Body);
+                    framebuffer.drawText(buttonX + buttonWidth - 14 - valueWidth, rectY + 11, value, faceColor, TextStyle::Body);
                     screen.touchButtons.push_back({fieldIdx, buttonX, rectY, buttonWidth, editRowHeight});
                 }
                 infoRowY += editRowHeight;
@@ -338,9 +310,8 @@ namespace UI
                                 continue;
                             const Pokemon::TradeEvolution &becomes = tradeOffer.candidates[candidateIndex];
                             if (!tradeValue.empty())
-                                tradeValue += " or ";
-                            tradeValue += Names::getDisplayName(becomes.destinationSpeciesId, becomes.destinationFormId,
-                                                                Trainer::getSpeciesName(becomes.destinationSpeciesId));
+                                tradeValue += " 或 ";
+                            tradeValue += Names::getDisplayName(becomes.destinationSpeciesId, becomes.destinationFormId, Trainer::getSpeciesName(becomes.destinationSpeciesId));
                         }
                     }
                     evolveButtonRow(tradesInThisGame ? "交换进化" : "进化", tradeValue, 33);
@@ -376,7 +347,7 @@ namespace UI
             // PID-derived, so setForm is a no-op there -> exclude only Gen 3).
             if (notGen3 && Pokemon::getPersonalInfo(p->speciesID(), 0).formCount > 1)
             {
-                const char *fn = Names::getFormName(p->speciesID(), p->form());
+                const char *fn = Names::getFormName(p->speciesID(), p->form(), p->getGameGroup());
                 editRow("形态", (fn[0] != '\0') ? std::string(fn) : std::string("普通形态"), 26);
             }
             // Stat Nature (the mint / effective-stat nature) -- modern formats only.
@@ -407,11 +378,10 @@ namespace UI
                 originalTrainerName += (p->otGender() == 0) ? "（雄）" : "（雌）";
             row("初训家", originalTrainerName);
             // Trainer ID in the format the game shows (six digits for Gen 7+ origins, 16-bit TID otherwise;
-            // a pokemon with no origin falls back to its own format -- only Gen 3 is 16-bit among these games).
+            // a pokemon with no origin falls back to its own format: six digits from Gen 7 on, five before).
             {
                 const uint8_t originVersion = p->originGame();
-                const bool sixDigit = (originVersion != 0) ? Enums::usesSixDigitTrainerID(originVersion)
-                                                 : !Enums::isGen3Group(p->getGameGroup());
+                const bool sixDigit = (originVersion != 0) ? Enums::usesSixDigitTrainerID(originVersion) : Enums::getVersionGeneration(Enums::getGroupRepVersion(p->getGameGroup())) >= 7;
                 if (sixDigit)
                     snprintf(buffer, sizeof(buffer), "%06u", p->id32() % 1000000u);
                 else
@@ -429,8 +399,9 @@ namespace UI
             // the game hands friendship, affection and memories to whichever of OT/HT is active.
             //
             // READ-ONLY. The handler is written by the Trade Evolve action, which is where the choice between
-            // a real save and a generated trainer belongs -- a trade is something you DO to a Pokemon, not a
-            // field you type into.
+            // a real save and a generated trainer belongs, and by a transfer into another game, which makes
+            // the receiving player the handler -- both are something you DO to a Pokemon, not a field you
+            // type into.
             if (p->hasHandler())
             {
                 std::string handlingTrainerName = utf16ToUtf8(p->htName());
@@ -451,8 +422,7 @@ namespace UI
             const uint8_t fmtVer = Enums::getGroupRepVersion(p->getGameGroup());
             if (p->hasMetData())
             {
-                const char *loc = Names::getMetLocationName(Enums::locationTableVersion(p->originGame(), fmtVer, false),
-                                                            p->metLocation());
+                const char *loc = Names::getMetLocationName(Enums::locationTableVersion(p->originGame(), fmtVer, false), p->metLocation());
                 editRow("相遇地点", (loc[0] != '\0') ? std::string(loc) : std::string("（无）"), 25);
             }
             // Met date -- Gens 1, 2 and 3 record none. Year byte is +2000.
@@ -471,15 +441,10 @@ namespace UI
             {
                 // "来自蛋" means a real egg location. BDSP's "无" sentinel is 65535 (Gen 4 numbering,
                 // where 0 is a real place), not 0 -- treat it as no-egg too, so the display matches the game.
-                const bool fromEgg = p->eggLocation() != 0 &&
-                                     !(p->getGameGroup() == Enums::GameVersion::BDSP && p->eggLocation() == 0xFFFF);
+                const bool fromEgg = p->eggLocation() != 0 && !(p->getGameGroup() == Enums::GameVersion::BDSP && p->eggLocation() == 0xFFFF);
                 {
-                    const char *eggLocationName = Names::getMetLocationName(
-                        Enums::locationTableVersion(p->originGame(), fmtVer, true), p->eggLocation());
-                    editRow("蛋获得地点",
-                            (fromEgg && eggLocationName[0] != '\0') ? std::string(eggLocationName)
-                                                                    : std::string("（无）"),
-                            29);
+                    const char *eggLocationName = Names::getMetLocationName(Enums::locationTableVersion(p->originGame(), fmtVer, true), p->eggLocation());
+                    editRow("蛋获得地点", (fromEgg && eggLocationName[0] != '\0') ? std::string(eggLocationName) : std::string("（无）"), 29);
                 }
                 if (fromEgg)
                     snprintf(buffer, sizeof(buffer), "%02u/%02u/%04u", p->eggDay(), p->eggMonth(), 2000 + p->eggYear());
@@ -488,21 +453,19 @@ namespace UI
                 editRow("蛋获得日期", buffer, 30);
             }
             if (p->hasBall())
-                editRow("精灵球", Enums::getBallName(p->ball()), 19);
+                editRow("精灵球", Enums::localizedBallName(p->ball()), 19);
             // The same placeholder: an egg's language byte says Japanese on every cartridge, and the
             // hatch overwrites it with the game's own (the hatched eggs in a real English FireRed save
             // read English). Reporting "Japanese" here was the visible half of that.
             if (p->eggTextIsPlaceholder())
                 row("语言", "（孵化时设置）");
             else
-                editRow("语言", Enums::getLanguageName(p->language()), 20);
+                editRow("语言", Enums::localizedLanguageName(p->language()), 20);
             {
                 // One implementation, three views -- see UI::originStampLabel for why the fallback
                 // is the interesting half. A bank record passes no save: the bank's tag records a
                 // locale, not a title, so it must not borrow the open save's name.
-                const Trainer::Trainer *openSave =
-                    (screen.details.source == TrainerViewScreen::EditSource::Bank) ? nullptr
-                                                                                   : &screen.trainer;
+                const Trainer::Trainer *openSave = (screen.details.source == TrainerViewScreen::EditSource::Bank) ? nullptr : &screen.trainer;
                 if (p->hasOriginGame())
                 {
                     editRow("初训家游戏", Trainer::originStampLabel(*p, openSave), 21);
@@ -515,17 +478,12 @@ namespace UI
                     const int markRowY = infoRowY - scroll;
                     if (rowVisible(markRowY))
                     {
-                        framebuffer.drawText(leftColumnX + 18, markRowY + 11, "初训家游戏", Colors::TextDim,
-                                             TextStyle::Body);
-                        Sprite *markSprite = SpriteManager::getOriginMarkSprite(
-                            Trainer::originMarkFor(*p), Colors::Text);
+                        framebuffer.drawText(leftColumnX + 18, markRowY + 11, "初训家游戏", Colors::TextDim, TextStyle::Body);
+                        Sprite *markSprite = SpriteManager::getOriginMarkSprite(Trainer::originMarkFor(*p), Colors::Text);
                         if (markSprite != nullptr && markSprite->data != nullptr)
                         {
                             const int markSize = 20;
-                            framebuffer.drawImageScaled(leftColumnX + Lw - 18 - markSize, markRowY + 8,
-                                                        markSprite->width, markSprite->height,
-                                                        markSize, markSize, markSprite->data,
-                                                        markSprite->channels);
+                            framebuffer.drawImageScaled(leftColumnX + Lw - 18 - markSize, markRowY + 8, markSprite->width, markSprite->height, markSize, markSize, markSprite->data, markSprite->channels);
                         }
                     }
                     infoRowY += editRowHeight;
@@ -533,26 +491,24 @@ namespace UI
             }
             if (notGen3)
                 editRow("命运的相遇", p->isFatefulEncounter() ? "是" : "否", 31);
+            if (p->hasAlphaFlag())
+                editRow("头目", p->isAlpha() ? "是" : "否", 34);
             {
                 // Pokerus: editable (None -> Infected -> Cured) where the game has it; read-only otherwise.
-                const char *pkrs = p->isPokerusInfected() ? "感染中" : p->isPokerusCured() ? "已痊愈"
-                                                                                             : "无";
+                const char *pkrs = p->isPokerusInfected() ? "感染中" : p->isPokerusCured() ? "已痊愈" : "无";
                 if (p->hasPokerus())
                     editRow("宝可病毒", pkrs, 22);
                 else
                     row("宝可病毒", pkrs);
             }
-            // Ribbons: count only (there can be dozens); Y / tap opens the full list.
+            // Ribbons: count only (there can be dozens); Y / tap opens the editor. Shown with none
+            // owned too, because the editor is also where ribbons are added.
+            if (hasRibbons)
             {
-                auto ribbonList =
-                    Names::getMonRibbons(reinterpret_cast<const uint8_t *>(p->getData().data()), p->getGameGroup());
-                if (!ribbonList.empty())
-                {
-                    const int rectY = infoRowY - scroll;
-                    row("奖章与证章", std::to_string(ribbonList.size()) + "  (Y)"); // advances iy
-                    if (rowVisible(rectY))
-                        screen.touchButtons.push_back({94, leftColumnX + 8, rectY, Lw - 16, editRowHeight});
-                }
+                const int rectY = infoRowY - scroll;
+                row("奖章与证章", std::to_string(Names::getMonRibbons(reinterpret_cast<const uint8_t *>(p->getData().data()), p->getGameGroup()).size()) + "  (Y)"); // advances iy
+                if (rowVisible(rectY))
+                    screen.touchButtons.push_back({94, leftColumnX + 8, rectY, Lw - 16, editRowHeight});
             }
             framebuffer.clearClip();
             screen.details.leftOrder = leftOrder; // hand the nav its draw-order field list
@@ -584,12 +540,10 @@ namespace UI
             {
                 const int legalityRowY = colY + colH - legalityH + 6;
                 const bool clean = legalityRep.ok();
-                std::string label = clean ? "合法性：未发现问题"
-                                          : "合法性：" + std::to_string(legalityRep.problemCount()) + " issue(s)";
+                std::string label = clean ? "合法性：未发现问题" : "合法性：" + std::to_string(legalityRep.problemCount()) + " 个问题";
                 if (!legalityRep.empty())
-                    label += "  -  R / tap to view";
-                framebuffer.drawText(leftColumnX + 18, legalityRowY, label,
-                                     clean ? Colors::LegalityClean : Colors::LegalityProblem, TextStyle::Caption);
+                    label += "  -  按 R／点击查看";
+                framebuffer.drawText(leftColumnX + 18, legalityRowY, label, clean ? Colors::LegalityClean : Colors::LegalityProblem, TextStyle::Caption);
                 if (!legalityRep.empty())
                 {
                     int labelWidth, lh;
@@ -604,15 +558,13 @@ namespace UI
             framebuffer.drawRoundedRect(centreColumnX, colY, Cw, colH, 16, Colors::Border, 1);
             framebuffer.drawText(centreColumnX + 18, colY + 16, "数值", Colors::Text, TextStyle::Heading);
 
-            const int nameX = centreColumnX + 18, cIV = centreColumnX + 120, cEV = centreColumnX + 200,
-                      cStat = centreColumnX + 280;
+            const int nameX = centreColumnX + 18, cIV = centreColumnX + 120, cEV = centreColumnX + 200, cStat = centreColumnX + 280;
             int statRowY = colY + 62;
             // Gen 1/2 store DVs and Stat Experience, not IVs and EVs. Different ranges, different
             // maths, different names -- so the headers ask the format rather than assuming.
             const bool gbStats = (p->maxEV() > 255);
             framebuffer.drawText(cIV, statRowY, (p->maxIV() < 31) ? "DV" : "IV", Colors::TextDim, TextStyle::Caption);
-            framebuffer.drawText(cEV, statRowY, usesAwakeningValues ? "AV" : (gbStats ? "Exp" : "EV"), Colors::TextDim,
-                                 TextStyle::Caption);
+            framebuffer.drawText(cEV, statRowY, usesAwakeningValues ? "AV" : (gbStats ? "经验值" : "EV"), Colors::TextDim, TextStyle::Caption);
             framebuffer.drawText(cStat, statRowY, "能力值", Colors::TextDim, TextStyle::Caption);
             statRowY += 24;
 
@@ -623,26 +575,18 @@ namespace UI
             // stats, and its formula is a different one anyway (single Special, a square-root Stat Exp
             // term, no nature). Computing a modern stat for a Red/Blue Pokemon would be wrong in three
             // ways at once, so the stored value is the only answer used.
-            const bool statIsGG =
-                (p->getGameGroup() == Enums::GameVersion::GG) || (p->getGameGroup() == Enums::GameVersion::RBY);
+            const bool statIsGG = (p->getGameGroup() == Enums::GameVersion::GG) || (p->getGameGroup() == Enums::GameVersion::RBY);
             // THE MON'S OWN GROUP, not a modern table. Computing a fallback stat out of the Gen 8/9 base
             // stats shows a Gen 2 through Gen 7 Pokemon with an unfilled stat tail numbers derived from a
             // table its game never had.
-            const Pokemon::PersonalRecord &record =
-                Pokemon::getPersonalRecord(p->getGameGroup(), p->speciesID(), p->form());
+            const Pokemon::PersonalRecord &record = Pokemon::getPersonalRecord(p->getGameGroup(), p->speciesID(), p->form());
             const Pokemon::PersonalRecord *bstat = (statIsGG || record.hp == 0) ? nullptr : &record;
-            const uint8_t dispLevel = (p->level() != 0)
-                                          ? p->level()
-                                          : Pokemon::getLevelFromExp(p->exp(), Pokemon::getGrowthRate(p->speciesID()));
+            const uint8_t dispLevel = (p->level() != 0) ? p->level() : Pokemon::getLevelFromExp(p->exp(), Pokemon::getGrowthRate(p->speciesID()));
             auto dispStat = [&](int statIndex, uint16_t stored) -> int
             {
                 // party pokemon / LGPE / no base data -> stored value
                 if (stored != 0 || !bstat) return stored;
-                const int base = (statIndex == 0) ? bstat->hp : (statIndex == 1) ? bstat->atk
-                                                      : (statIndex == 2)   ? bstat->def
-                                                      : (statIndex == 3)   ? bstat->spa
-                                                      : (statIndex == 4)   ? bstat->spd
-                                                                     : bstat->spe;
+                const int base = (statIndex == 0) ? bstat->hp : (statIndex == 1) ? bstat->atk : (statIndex == 2) ? bstat->def : (statIndex == 3) ? bstat->spa : (statIndex == 4) ? bstat->spd : bstat->spe;
                 // effectiveIV, not ivXXX: a Hyper Trained stat is played at a maximal IV while the
                 // stored IV stays put, so computing this row from the raw value shows a box Pokemon a
                 // stat lower than the one the game gives it. This row order (HP, Atk, Def, SpA, SpD,
@@ -713,10 +657,8 @@ namespace UI
                 const bool scrollOffset = (selectedIndex == index);
                 if (scrollOffset)
                 {
-                    framebuffer.drawFilledRoundedRect(centreColumnX + 8, statRowY - 6, Cw - 16, statRowH - 6, 10,
-                                                      Colors::Selected);
-                    framebuffer.drawRoundedRect(centreColumnX + 8, statRowY - 6, Cw - 16, statRowH - 6, 10,
-                                                Colors::Accent, 2);
+                    framebuffer.drawFilledRoundedRect(centreColumnX + 8, statRowY - 6, Cw - 16, statRowH - 6, 10, Colors::Selected);
+                    framebuffer.drawRoundedRect(centreColumnX + 8, statRowY - 6, Cw - 16, statRowH - 6, 10, Colors::Accent, 2);
                 }
                 framebuffer.drawText(nameX, statRowY, rows[index].label, scrollOffset ? Colors::Text : Colors::TextDim);
                 framebuffer.drawText(cIV, statRowY, std::to_string(rows[index].ivValue), Colors::Text);
@@ -730,6 +672,11 @@ namespace UI
                 screen.touchButtons.push_back({index, centreColumnX + 8, statRowY - 6, Cw - 16, statRowH - 6});
                 statRowY += statRowH;
             }
+            if (p->isHyperTrained())
+            {
+                framebuffer.drawText(nameX, statRowY - 8, "已极限特训，实际个体值为 " + std::to_string(p->maxIV()), Colors::TextDim, TextStyle::Caption);
+                statRowY += 14;
+            }
 
             // Shiny toggle row (selectable index 6).
             statRowY += 10;
@@ -737,10 +684,8 @@ namespace UI
                 const bool scrollOffset = (selectedIndex == 6);
                 if (scrollOffset)
                 {
-                    framebuffer.drawFilledRoundedRect(centreColumnX + 8, statRowY - 6, Cw - 16, statRowH - 6, 10,
-                                                      Colors::Selected);
-                    framebuffer.drawRoundedRect(centreColumnX + 8, statRowY - 6, Cw - 16, statRowH - 6, 10,
-                                                Colors::Accent, 2);
+                    framebuffer.drawFilledRoundedRect(centreColumnX + 8, statRowY - 6, Cw - 16, statRowH - 6, 10, Colors::Selected);
+                    framebuffer.drawRoundedRect(centreColumnX + 8, statRowY - 6, Cw - 16, statRowH - 6, 10, Colors::Accent, 2);
                 }
                 framebuffer.drawText(nameX, statRowY, "异色", scrollOffset ? Colors::Text : Colors::TextDim);
                 // Right-aligned to the panel edge, flush with Nature/Gender/Level below it.
@@ -748,8 +693,7 @@ namespace UI
                     const char *sv = isShiny ? "是" : "否";
                     int statTextWidth, sh;
                     framebuffer.measureText(sv, statTextWidth, sh);
-                    framebuffer.drawText(centreColumnX + Cw - 18 - statTextWidth, statRowY, sv,
-                                         isShiny ? Colors::ShinyStar : Colors::Text);
+                    framebuffer.drawText(centreColumnX + Cw - 18 - statTextWidth, statRowY, sv, isShiny ? Colors::ShinyStar : Colors::Text);
                 }
                 screen.touchButtons.push_back({6, centreColumnX + 8, statRowY - 6, Cw - 16, statRowH - 6});
                 statRowY += statRowH;
@@ -763,10 +707,8 @@ namespace UI
                 const bool scrollOffset = (selectedIndex == 7);
                 if (scrollOffset)
                 {
-                    framebuffer.drawFilledRoundedRect(centreColumnX + 8, statRowY - 6, Cw - 16, statRowH - 6, 10,
-                                                      Colors::Selected);
-                    framebuffer.drawRoundedRect(centreColumnX + 8, statRowY - 6, Cw - 16, statRowH - 6, 10,
-                                                Colors::Accent, 2);
+                    framebuffer.drawFilledRoundedRect(centreColumnX + 8, statRowY - 6, Cw - 16, statRowH - 6, 10, Colors::Selected);
+                    framebuffer.drawRoundedRect(centreColumnX + 8, statRowY - 6, Cw - 16, statRowH - 6, 10, Colors::Accent, 2);
                 }
                 framebuffer.drawText(nameX, statRowY, "性格", scrollOffset ? Colors::Text : Colors::TextDim);
                 std::string natureName = getNatureName(p->nature());
@@ -787,17 +729,13 @@ namespace UI
                 const bool scrollOffset = editable && (selectedIndex == 8);
                 if (scrollOffset)
                 {
-                    framebuffer.drawFilledRoundedRect(centreColumnX + 8, statRowY - 6, Cw - 16, statRowH - 6, 10,
-                                                      Colors::Selected);
-                    framebuffer.drawRoundedRect(centreColumnX + 8, statRowY - 6, Cw - 16, statRowH - 6, 10,
-                                                Colors::Accent, 2);
+                    framebuffer.drawFilledRoundedRect(centreColumnX + 8, statRowY - 6, Cw - 16, statRowH - 6, 10, Colors::Selected);
+                    framebuffer.drawRoundedRect(centreColumnX + 8, statRowY - 6, Cw - 16, statRowH - 6, 10, Colors::Accent, 2);
                 }
                 framebuffer.drawText(nameX, statRowY, "性别", scrollOffset ? Colors::Text : Colors::TextDim);
                 const uint8_t genderValue = p->gender();
-                const char *gname = (genderValue == 0) ? "雄性" : (genderValue == 1) ? "雌性"
-                                                                   : "无性别";
-                const Color genderColor = (genderValue == 0) ? Colors::Blue : (genderValue == 1) ? Colors::Magenta
-                                                                      : Colors::Text;
+                const char *gname = (genderValue == 0) ? "雄性" : (genderValue == 1) ? "雌性" : "无性别";
+                const Color genderColor = (genderValue == 0) ? Colors::Blue : (genderValue == 1) ? Colors::Magenta : Colors::Text;
                 int genderTextWidth, gh;
                 framebuffer.measureText(gname, genderTextWidth, gh);
                 framebuffer.drawText(centreColumnX + Cw - 18 - genderTextWidth, statRowY, gname, genderColor);
@@ -812,10 +750,8 @@ namespace UI
                 const bool scrollOffset = (selectedIndex == 9);
                 if (scrollOffset)
                 {
-                    framebuffer.drawFilledRoundedRect(centreColumnX + 8, statRowY - 6, Cw - 16, statRowH - 6, 10,
-                                                      Colors::Selected);
-                    framebuffer.drawRoundedRect(centreColumnX + 8, statRowY - 6, Cw - 16, statRowH - 6, 10,
-                                                Colors::Accent, 2);
+                    framebuffer.drawFilledRoundedRect(centreColumnX + 8, statRowY - 6, Cw - 16, statRowH - 6, 10, Colors::Selected);
+                    framebuffer.drawRoundedRect(centreColumnX + 8, statRowY - 6, Cw - 16, statRowH - 6, 10, Colors::Accent, 2);
                 }
                 framebuffer.drawText(nameX, statRowY, "等级", scrollOffset ? Colors::Text : Colors::TextDim);
                 const std::string lvlStr = std::to_string(dispLevel);
@@ -840,20 +776,17 @@ namespace UI
                 const bool scrollOffset = (selectedIndex == 10 + moveIndex);
                 if (scrollOffset)
                 {
-                    framebuffer.drawFilledRoundedRect(rightColumnX + 14, infoRowY - 8, Rw - 28, 38, 10,
-                                                      Colors::Selected);
+                    framebuffer.drawFilledRoundedRect(rightColumnX + 14, infoRowY - 8, Rw - 28, 38, 10, Colors::Selected);
                     framebuffer.drawRoundedRect(rightColumnX + 14, infoRowY - 8, Rw - 28, 38, 10, Colors::Accent, 2);
                 }
                 const std::string moveName = moveId ? std::string(Names::getMoveName(moveId)) : std::string("-");
-                framebuffer.drawText(rightColumnX + 24, infoRowY, moveName,
-                                     (moveId || scrollOffset) ? Colors::Text : Colors::TextDim, TextStyle::Body);
+                framebuffer.drawText(rightColumnX + 24, infoRowY, moveName, (moveId || scrollOffset) ? Colors::Text : Colors::TextDim, TextStyle::Body);
                 if (moveId)
                 {
                     const std::string ppFieldName = "PP " + std::to_string(p->movePP(moveIndex));
                     int valueWidth, vh;
                     framebuffer.measureText(ppFieldName, valueWidth, vh, TextStyle::Caption);
-                    framebuffer.drawText(rightColumnX + Rw - 20 - valueWidth, infoRowY + 3, ppFieldName,
-                                         Colors::TextDim, TextStyle::Caption);
+                    framebuffer.drawText(rightColumnX + Rw - 20 - valueWidth, infoRowY + 3, ppFieldName, Colors::TextDim, TextStyle::Caption);
                 }
                 screen.touchButtons.push_back({10 + moveIndex, rightColumnX + 14, infoRowY - 8, Rw - 28, 38});
                 infoRowY += 52;
@@ -867,18 +800,12 @@ namespace UI
                 const bool scrollOffset = (selectedIndex == 14);
                 if (scrollOffset)
                 {
-                    framebuffer.drawFilledRoundedRect(rightColumnX + 14, infoRowY - 8, Rw - 28, 38, 10,
-                                                      Colors::Selected);
+                    framebuffer.drawFilledRoundedRect(rightColumnX + 14, infoRowY - 8, Rw - 28, 38, 10, Colors::Selected);
                     framebuffer.drawRoundedRect(rightColumnX + 14, infoRowY - 8, Rw - 28, 38, 10, Colors::Accent, 2);
                 }
                 const uint16_t heldItemId = p->hasHeldItem() ? p->heldItem() : 0;
-                const std::string iname = heldItemId
-                                              ? std::string(Enums::isGen3Group(p->getGameGroup())
-                                                                ? Names::getItemNameG3(heldItemId)
-                                                                : getItemName(heldItemId))
-                                              : std::string("无");
-                framebuffer.drawText(rightColumnX + 24, infoRowY, p->hasHeldItem() ? iname : std::string("--"),
-                            heldItemId ? Colors::Text : Colors::TextDim, TextStyle::Body);
+                const std::string iname = heldItemId ? std::string(Names::getItemNameFor(p->getGameGroup(), heldItemId)) : std::string("无");
+                framebuffer.drawText(rightColumnX + 24, infoRowY, p->hasHeldItem() ? iname : std::string("--"), heldItemId ? Colors::Text : Colors::TextDim, TextStyle::Body);
                 // Only offer the row as a touch target where the format can actually hold an item;
                 // Gen 1 has no held-item field, so tapping it would open an editor over nothing.
                 if (p->hasHeldItem())
@@ -887,38 +814,34 @@ namespace UI
 
             // Bottom nav bar -- the SAME badge guide as the rest of the app. This is a full-screen page, so
             // it gets a real nav bar. The context depends on which column is focused (values / details /
-            // moves). Drawn before the overlays so an open legality or ribbon popup dims it like everything
+            // moves). Drawn before the overlays so an open legality popup dims it like everything
             // else behind them.
             {
                 // An overlay drawn OVER this page owns input, so it names the keys -- this page's own
                 // controls do nothing while a picker or a confirm is up, and printing them anyway is
-                // what made the picker carry a second hint strip inside its card.
+                // what made the picker carry a second hint strip inside its card. The screen draws that
+                // bar itself, after the overlay, so the overlay's scrim does not dim it.
                 std::string navHint = screen.overlayNavHint();
-                if (!navHint.empty())
-                {
-                    drawNavBar(framebuffer, navHint);
-                }
-                else
+                if (navHint.empty())
                 {
                 // Y opens ribbons; R opens the legality list -- but only when there is something to read,
                 // so a pokemon with an empty report simply omits R: Legality (nothing to view).
-                const std::string legalSeg = legalityRep.empty() ? "" : "R：合法性  |  ";
+                const std::string legalSeg = legalityRep.empty() ? "" : "R: 合法性  |  ";
                 // A freshly-created pokemon has no "保存" -- every field is an unsaved edit until committed, so
                 // X reads KEEP (commit + close); Discard still lives on the B Keep/Discard prompt.
-                const std::string saveSeg = screen.creator.editing ? "X：保留" : "X：保存";
+                const std::string saveSeg = screen.creator.editing ? "X: 保留" : "X: 保存";
                 // B always reads "关闭": with unsaved edits it raises the Save/Discard/Back prompt rather
                 // than discarding on the spot, so "放弃" would be a promise it does not keep. Dirtiness
                 // is already signalled by the top-bar "未保存的更改" marker.
-                const std::string backSeg = "B：关闭";
+                const std::string backSeg = "B: 关闭";
+                // Gen 1 and Gen 2 store no ribbons, so Y has nothing to open there.
+                const std::string ribbonSeg = hasRibbons ? "Y: 奖章/证章  |  " : "";
                 if (selectedIndex >= 15)
-                    navHint = "A：编辑  |  Y：奖章  |  L：随机个体值  |  " + legalSeg + "右：数值  |  " +
-                              saveSeg + "  |  " + backSeg;
+                    navHint = "A: 编辑  |  " + ribbonSeg + "L: 随机个体值  |  " + legalSeg + "Right: 数值  |  " + saveSeg + "  |  " + backSeg;
                 else if (selectedIndex >= 10)
-                    navHint = "A：编辑  |  Y：奖章  |  L：随机个体值  |  " + legalSeg + "左：数值  |  " +
-                              saveSeg + "  |  " + backSeg;
+                    navHint = "A: 编辑  |  " + ribbonSeg + "L: 随机个体值  |  " + legalSeg + "Left: 数值  |  " + saveSeg + "  |  " + backSeg;
                 else
-                    navHint = "A：编辑  |  Y：奖章  |  L：随机个体值  |  " + legalSeg +
-                              "左：详情  |  右：招式  |  " + saveSeg + "  |  " + backSeg;
+                    navHint = "A: 编辑  |  " + ribbonSeg + "L: 随机个体值  |  " + legalSeg + "Left: 详情  |  Right: 招式  |  " + saveSeg + "  |  " + backSeg;
                 drawNavBar(framebuffer, navHint);
                 }
             }
@@ -941,7 +864,7 @@ namespace UI
                 // line each they ran straight out of the card's right edge. The severity tag keeps a
                 // column of its own, as wide as the widest tag, so every message starts at the same x
                 // and a continuation line sits under the text it continues rather than under the tag.
-                constexpr const char *noteTag = "[note]", *warningTag = "[warning]", *illegalTag = "[illegal]";
+                constexpr const char *noteTag = "[提示]", *warningTag = "[警告]", *illegalTag = "[非法]";
                 int tagColumnWidth = 0;
                 for (const char *tag : {noteTag, warningTag, illegalTag})
                 {
@@ -984,8 +907,7 @@ namespace UI
                     issueLayouts.push_back(std::move(layout));
                 }
 
-                const int overlayHeight =
-                    std::min(H - 60, headerHeight + std::max(contentHeight, headlineHeight) + footerPadding);
+                const int overlayHeight = std::min(H - 60, headerHeight + std::max(contentHeight, headlineHeight) + footerPadding);
                 const int overlayY = (H - overlayHeight) / 2;
                 framebuffer.drawFilledRoundedRect(overlayX, overlayY, overlayWidth, overlayHeight, 16, Colors::Panel);
                 framebuffer.drawRoundedRect(overlayX, overlayY, overlayWidth, overlayHeight, 16, Colors::Border, 1);
@@ -994,8 +916,7 @@ namespace UI
                     const char *closeHint = "B／点击：关闭";
                     int closeHintWidth = 0, closeHintHeight = 0;
                     framebuffer.measureText(closeHint, closeHintWidth, closeHintHeight, TextStyle::Caption);
-                    framebuffer.drawText(overlayX + overlayWidth - 24 - closeHintWidth, overlayY + 28, closeHint,
-                                         Colors::TextDim, TextStyle::Caption);
+                    framebuffer.drawText(overlayX + overlayWidth - 24 - closeHintWidth, overlayY + 28, closeHint, Colors::TextDim, TextStyle::Caption);
                 }
 
                 int lineY = overlayY + headerHeight;
@@ -1017,8 +938,7 @@ namespace UI
                     const int roomForHiddenCount = isLastIssue ? 0 : issueGap + captionLineHeight;
                     if (lineY + issueHeight + roomForHiddenCount > contentBottom)
                     {
-                        const std::string hiddenCount =
-                            "+" + std::to_string(issueLayouts.size() - issueIndex) + " more not shown";
+                        const std::string hiddenCount = "+" + std::to_string(issueLayouts.size() - issueIndex) + " 个问题未显示";
                         framebuffer.drawText(messageX, lineY, hiddenCount, Colors::TextDim, TextStyle::Caption);
                         break;
                     }
@@ -1035,43 +955,10 @@ namespace UI
                 screen.touchButtons.push_back({96, 0, 0, screenWidth, H - NAV_BAR_HEIGHT});
             }
 
-            // Ribbon list overlay — opened by tapping the Ribbons row; any tap / B closes.
-            // Two columns, because a fully-decorated Gen 8/9 pokemon can carry dozens of ribbons and marks.
+            // The ribbon editor, opened by Y or by tapping the Ribbons row. It owns input and names
+            // its own keys through overlayNavHint().
             if (screen.details.ribbonOverlay)
-            {
-                const auto ribbonList = Names::getMonRibbons(reinterpret_cast<const uint8_t *>(p->getData().data()),
-                                                     p->getGameGroup());
-                framebuffer.drawFilledRect(0, 0, screenWidth, H, Color(0, 0, 0, 170));
-                const int cols = (ribbonList.size() > 12) ? 2 : 1;
-                const int perCol = (static_cast<int>(ribbonList.size()) + cols - 1) / std::max(1, cols);
-                const int overlayWidth = (cols == 2) ? 860 : 560;
-                const int overlayHeight = std::min(H - 60, 96 + std::max(1, perCol) * 28);
-                const int overlayX = (screenWidth - overlayWidth) / 2, oy = (H - overlayHeight) / 2;
-                framebuffer.drawFilledRoundedRect(overlayX, oy, overlayWidth, overlayHeight, 16, Colors::Panel);
-                framebuffer.drawRoundedRect(overlayX, oy, overlayWidth, overlayHeight, 16, Colors::Border, 1);
-                framebuffer.drawText(overlayX + 24, oy + 20, "奖章与证章", Colors::Text, TextStyle::Heading);
-                {
-                    const char *h = "B／点击：关闭";
-                    int headingWidth, hh;
-                    framebuffer.measureText(h, headingWidth, hh, TextStyle::Caption);
-                    framebuffer.drawText(overlayX + overlayWidth - 24 - headingWidth, oy + 28, h, Colors::TextDim,
-                                         TextStyle::Caption);
-                }
-                const int colW = (overlayWidth - 56) / std::max(1, cols);
-                for (size_t rbIndex = 0; rbIndex < ribbonList.size(); ++rbIndex)
-                {
-                    const int color = static_cast<int>(rbIndex) / std::max(1, perCol);
-                    const int ribbonRowIndex = static_cast<int>(rbIndex) % std::max(1, perCol);
-                    const int ribbonX = overlayX + 28 + color * colW;
-                    const int statRowY = oy + 66 + ribbonRowIndex * 28;
-                    if (statRowY > oy + overlayHeight - 26)
-                        continue;
-                    framebuffer.drawText(ribbonX, statRowY, ribbonList[rbIndex], Colors::Text, TextStyle::Caption);
-                }
-                // id 96: tap anywhere closes -- but NOT over the nav bar, whose badges are themselves
-                // tappable. Overlapping them would fire both the badge's button and this close.
-                screen.touchButtons.push_back({96, 0, 0, screenWidth, H - NAV_BAR_HEIGHT});
-            }
+                Dialogs::drawRibbonEditDialog(screen, framebuffer);
         }
     }
 }

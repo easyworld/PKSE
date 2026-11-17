@@ -11,7 +11,7 @@
 #include "Globals.h"
 #include "Save/Block.h"
 #include "Save/GetSaveFileContents.h"
-#include "Save/RtcFooter.h" // stripRtcFooter -- the rule lives there so it can be tested off-console
+#include "Save/SaveEnvelope.h" // the rules live there so they can be tested off-console
 #include "Utils/FileUtilities.h"
 #include "Utils/Logger.h"
 #include "Utils/HelperUtilities.h"
@@ -48,10 +48,8 @@ namespace Save
         int movedCount = 0;
         for (const InstalledTitle &title : titles)
         {
-            const std::string legacyPath =
-                BASE_SAVE_DIRECTORY + "/" + legacyTitleFolderName(title.gameVersion);
-            const std::string targetPath =
-                BASE_SAVE_DIRECTORY + "/" + titleFolderName(title.titleId, title.gameVersion);
+            const std::string legacyPath = BASE_SAVE_DIRECTORY + "/" + legacyTitleFolderName(title.gameVersion);
+            const std::string targetPath = BASE_SAVE_DIRECTORY + "/" + titleFolderName(title.titleId, title.gameVersion);
             // cannot happen while the folder carries the id, but say so rather than assume
             if (legacyPath == targetPath) continue;
             // nothing left behind for this title -- the normal case after the first run
@@ -60,8 +58,7 @@ namespace Save
             {
                 // NEVER MERGE. The new folder already holds backups made since the rename, and
                 // pouring an older tree into it would mix two histories that are the same format.
-                Utils::logInfoToFile("Legacy backup folder left alone, its new folder already exists",
-                                     legacyPath.c_str());
+                Utils::logInfoToFile("Legacy backup folder left alone, its new folder already exists", legacyPath.c_str());
                 continue;
             }
 
@@ -69,9 +66,7 @@ namespace Save
             // pure, so it can be tested without a console.
             if (legacyFolderIsAmbiguous(title, titles))
             {
-                Utils::logInfoToFile("Legacy backup folder is ambiguous and was NOT moved -- more than "
-                                     "one installed title could have made it",
-                                     legacyPath.c_str());
+                Utils::logInfoToFile("Legacy backup folder is ambiguous and was NOT moved -- more than one installed title could have made it", legacyPath.c_str());
                 continue;
             }
 
@@ -103,8 +98,7 @@ namespace Save
                 // The copy is good, so nothing is lost -- but the old folder is still there and
                 // would be copied again next launch. It cannot be: the target now exists, which the
                 // merge guard above refuses. Worth a line so the duplicate is explainable.
-                Utils::logErrorToFile("Copied legacy backup folder but could not remove the original",
-                                      legacyPath.c_str());
+                Utils::logErrorToFile("Copied legacy backup folder but could not remove the original", legacyPath.c_str());
                 ++movedCount;
             }
         }
@@ -122,10 +116,11 @@ namespace Save
         TrainerVariant variant = readTrainerInfo(backupDir, titleId);
         // The variant holds a VALUE, and the trainer classes are movable but not copyable, so the
         // chosen alternative is moved onto the heap rather than copied out.
-        return std::visit(
-            [](auto &trainer) -> std::unique_ptr<Trainer::Trainer>
-            { return std::make_unique<std::decay_t<decltype(trainer)>>(std::move(trainer)); },
-            variant);
+        std::unique_ptr<Trainer::Trainer> trainer = std::visit([](auto &loadedTrainer) -> std::unique_ptr<Trainer::Trainer>
+            { return std::make_unique<std::decay_t<decltype(loadedTrainer)>>(std::move(loadedTrainer)); }, variant);
+        if (!trainer->isValid())
+            return nullptr;
+        return trainer;
     }
 
     TrainerVariant readTrainerInfo(const char *backupDir, u64 titleId)
@@ -137,8 +132,7 @@ namespace Save
         if (group == GameVersion::Invalid) group = detectGroupInDirectory(backupDir);
 
         char buffer[512];
-        snprintf(buffer, sizeof(buffer), "Detected game: %s (Group: %s)",
-                 getGameVersionName(version).c_str(), getGameVersionName(group).c_str());
+        snprintf(buffer, sizeof(buffer), "Detected game: %s (Group: %s)", getGameVersionName(version).c_str(), getGameVersionName(group).c_str());
         Utils::logInfoToFile(buffer);
 
         switch (group)
@@ -200,13 +194,25 @@ namespace Save
         }
     }
 
-    bool saveTrainerInfo(Trainer::Trainer &trainer, const char *backupDir, u64 titleId, AccountUid userUid,
-                         bool injectToTitle)
+    bool saveTrainerInfo(Trainer::Trainer &trainer, const char *backupDir, u64 titleId, AccountUid userUid, bool injectToTitle)
     {
         /**
          * Auto-detects the game version and calls the appropriate saving function.
          * Uses virtual getGameGroup() method to determine concrete type without RTTI.
          */
+
+        // A save that never loaded (missing, truncated or damaged file) has nothing to write back,
+        // and writing it would replace the user's file with an empty or partial one.
+        if (!trainer.isValid())
+        {
+            logErrorToFile("Refusing to save: this save did not load", backupDir);
+            return false;
+        }
+
+        // A file the user browsed to has no title id, and `backupDir` is that FILE. The session decides
+        // the writer, not the group: FireRed/LeafGreen arrive both as an installed title and as a file.
+        if (titleId == 0)
+            return saveExternalSave(trainer, backupDir);
 
         GameVersion version = getGameVersion(titleId);
         GameVersion group = getGameGroup(version);
@@ -214,8 +220,7 @@ namespace Save
         if (group == GameVersion::Invalid) group = detectGroupInDirectory(backupDir);
 
         char buffer[512];
-        snprintf(buffer, sizeof(buffer), "Saving for game: %s (Group: %s)",
-                 getGameVersionName(version).c_str(), getGameVersionName(group).c_str());
+        snprintf(buffer, sizeof(buffer), "Saving for game: %s (Group: %s)", getGameVersionName(version).c_str(), getGameVersionName(group).c_str());
         Utils::logInfoToFile(buffer);
 
         GameVersion trainerGroup = trainer.getGameGroup();
@@ -224,19 +229,16 @@ namespace Save
         if (trainerGroup == GameVersion::GG)
         {
             // Let's Go - cast is safe because we checked the type via virtual method
-            passed = saveTrainerInfoLetsGo(static_cast<Trainer::Trainer7LGPE &>(trainer), backupDir, titleId, userUid,
-                                           injectToTitle);
+            passed = saveTrainerInfoLetsGo(static_cast<Trainer::Trainer7LGPE &>(trainer), backupDir, titleId, userUid, injectToTitle);
         }
         else if (trainerGroup == GameVersion::SWSH)
         {
             // Sword/Shield - cast is safe because we checked the type via virtual method
-            passed = saveTrainerInfoSwSh(static_cast<Trainer::Trainer8SWSH &>(trainer), backupDir, titleId, userUid,
-                                         injectToTitle);
+            passed = saveTrainerInfoSwSh(static_cast<Trainer::Trainer8SWSH &>(trainer), backupDir, titleId, userUid, injectToTitle);
         }
         else if (trainerGroup == GameVersion::ZA)
         {
-            passed =
-                saveTrainerInfoLZA(static_cast<Trainer9LZA &>(trainer), backupDir, titleId, userUid, injectToTitle);
+            passed = saveTrainerInfoLZA(static_cast<Trainer9LZA &>(trainer), backupDir, titleId, userUid, injectToTitle);
         }
         else if (trainerGroup == GameVersion::SV)
         {
@@ -246,22 +248,13 @@ namespace Save
         {
             passed = saveTrainerInfoLA(static_cast<Trainer8LA &>(trainer), backupDir, titleId, userUid, injectToTitle);
         }
-        else if (isLooseSaveGroup(trainerGroup))
-        {
-            // Gens 1, 2 and 4-7 ignore titleId / userUid / injectToTitle entirely: there is no
-            // installed title behind these saves. `backupDir` carries the FILE PATH the user
-            // opened.
-            passed = saveExternalSave(trainer, backupDir);
-        }
         else if (trainerGroup == GameVersion::BDSP)
         {
-            passed =
-                saveTrainerInfoBDSP(static_cast<Trainer8BDSP &>(trainer), backupDir, titleId, userUid, injectToTitle);
+            passed = saveTrainerInfoBDSP(static_cast<Trainer8BDSP &>(trainer), backupDir, titleId, userUid, injectToTitle);
         }
         else if (trainerGroup == GameVersion::FRLG)
         {
-            passed =
-                saveTrainerInfoFRLG(static_cast<Trainer3FRLG &>(trainer), backupDir, titleId, userUid, injectToTitle);
+            passed = saveTrainerInfoFRLG(static_cast<Trainer3FRLG &>(trainer), backupDir, titleId, userUid, injectToTitle);
         }
         else
         {
@@ -330,8 +323,7 @@ namespace Save
         return trainer;
     }
 
-    bool saveTrainerInfoLetsGo(Trainer7LGPE &trainer, const char *backupDir, u64 titleId, AccountUid userUid,
-                               bool injectToTitle)
+    bool saveTrainerInfoLetsGo(Trainer7LGPE &trainer, const char *backupDir, u64 titleId, AccountUid userUid, bool injectToTitle)
     {
         /**
          * Saves a Pokemon Let's Go Pikachu/Eevee save.
@@ -382,8 +374,8 @@ namespace Save
             return false;
         }
         size_t written = fwrite(raw.data(), 1, raw.size(), outFile);
-        fclose(outFile);
-        if (written != raw.size())
+        const bool fileClosed = fclose(outFile) == 0;
+        if (written != raw.size() || !fileClosed)
         {
             logErrorToFile("Failed to write complete save file", savePath);
             return false;
@@ -432,8 +424,7 @@ namespace Save
         return trainer;
     }
 
-    bool saveTrainerInfoSwSh(Trainer8SWSH &trainer, const char *backupDir, u64 titleId, AccountUid userUid,
-                             bool injectToTitle)
+    bool saveTrainerInfoSwSh(Trainer8SWSH &trainer, const char *backupDir, u64 titleId, AccountUid userUid, bool injectToTitle)
     {
         trainer.updateItemBlock();
 
@@ -458,9 +449,9 @@ namespace Save
         }
 
         size_t written = fwrite(encryptedData.data(), 1, encryptedData.size(), outFile);
-        fclose(outFile);
+        const bool fileClosed = fclose(outFile) == 0;
 
-        if (written != encryptedData.size())
+        if (written != encryptedData.size() || !fileClosed)
         {
             logErrorToFile("Failed to write complete save file", savePath);
             return false;
@@ -564,8 +555,7 @@ namespace Save
         return trainer;
     }
 
-    bool saveTrainerInfoBDSP(Trainer8BDSP &trainer, const char *backupDir, u64 titleId, AccountUid userUid,
-                             bool injectToTitle)
+    bool saveTrainerInfoBDSP(Trainer8BDSP &trainer, const char *backupDir, u64 titleId, AccountUid userUid, bool injectToTitle)
     {
         // BDSP is a FLAT blob (no SwishCrypto). Re-serialize party + box into the buffer, then
         // recompute the whole-file MD5 — after which getSaveData() IS the final on-disk save. Write
@@ -592,8 +582,8 @@ namespace Save
                 return false;
             }
             size_t written = fwrite(saveData.data(), 1, saveData.size(), outFile);
-            fclose(outFile);
-            if (written != saveData.size())
+            const bool fileClosed = fclose(outFile) == 0;
+            if (written != saveData.size() || !fileClosed)
             {
                 logErrorToFile("Failed to write complete save file", savePath);
                 return false;
@@ -617,8 +607,7 @@ namespace Save
         return true;
     }
 
-    bool saveTrainerInfoLA(Trainer8LA &trainer, const char *backupDir, u64 titleId, AccountUid userUid,
-                           bool injectToTitle)
+    bool saveTrainerInfoLA(Trainer8LA &trainer, const char *backupDir, u64 titleId, AccountUid userUid, bool injectToTitle)
     {
         // Re-serialize the edited party + box blocks, then encrypt (hash is computed inside).
         // updateItemBlock is a no-op stub for LA (item write deferred).
@@ -642,9 +631,9 @@ namespace Save
         }
 
         size_t written = fwrite(encryptedData.data(), 1, encryptedData.size(), outFile);
-        fclose(outFile);
+        const bool fileClosed = fclose(outFile) == 0;
 
-        if (written != encryptedData.size())
+        if (written != encryptedData.size() || !fileClosed)
         {
             logErrorToFile("Failed to write complete save file", savePath);
             return false;
@@ -674,8 +663,7 @@ namespace Save
         return true;
     }
 
-    bool saveTrainerInfoLZA(Trainer9LZA &trainer, const char *backupDir, u64 titleId, AccountUid userUid,
-                            bool injectToTitle)
+    bool saveTrainerInfoLZA(Trainer9LZA &trainer, const char *backupDir, u64 titleId, AccountUid userUid, bool injectToTitle)
     {
         trainer.updateItemBlock();
 
@@ -700,9 +688,9 @@ namespace Save
         }
 
         size_t written = fwrite(encryptedData.data(), 1, encryptedData.size(), outFile);
-        fclose(outFile);
+        const bool fileClosed = fclose(outFile) == 0;
 
-        if (written != encryptedData.size())
+        if (written != encryptedData.size() || !fileClosed)
         {
             logErrorToFile("Failed to write complete save file", savePath);
             return false;
@@ -732,8 +720,7 @@ namespace Save
         return true;
     }
 
-    bool saveTrainerInfoSV(Trainer9SV &trainer, const char *backupDir, u64 titleId, AccountUid userUid,
-                           bool injectToTitle)
+    bool saveTrainerInfoSV(Trainer9SV &trainer, const char *backupDir, u64 titleId, AccountUid userUid, bool injectToTitle)
     {
         // Re-serialize the edited blocks (item, party, box), then encrypt (hash is computed inside).
         trainer.updateItemBlock();
@@ -756,9 +743,9 @@ namespace Save
         }
 
         size_t written = fwrite(encryptedData.data(), 1, encryptedData.size(), outFile);
-        fclose(outFile);
+        const bool fileClosed = fclose(outFile) == 0;
 
-        if (written != encryptedData.size())
+        if (written != encryptedData.size() || !fileClosed)
         {
             logErrorToFile("Failed to write complete save file", savePath);
             return false;
@@ -871,24 +858,14 @@ namespace Save
         return Trainer3FRLG(std::move(data), fileName);
     }
 
-    bool saveTrainerInfoFRLG(Trainer3FRLG &trainer, const char *backupDir, u64 titleId, AccountUid userUid,
-                             bool injectToTitle)
+    bool saveTrainerInfoFRLG(Trainer3FRLG &trainer, const char *backupDir, u64 titleId, AccountUid userUid, bool injectToTitle)
     {
-        // Apply edits into the raw save, then recompute every sector checksum.
-        trainer.updateItemBlock();
-        trainer.updateBoxBlock();
-        trainer.updateBoxNameBlock(); // must precede this game's checksum/hash pass
-        trainer.updateCurrentBoxBlock();
-        trainer.updatePartyBlock();
-        trainer.updatePokedexBlock();     // seen/caught for everything now in storage; before the checksums
-        trainer.updateTrainerInfoBlock(); // money / OT name; before the sector checksums
-        trainer.finalizeChecksums();
+        const std::vector<uint8_t> &raw = trainer.serialize();
 
         const std::string name = trainer.fileName().empty() ? std::string("save.sav") : trainer.fileName();
         char savePath[1024];
         snprintf(savePath, sizeof(savePath), "%s/%s", backupDir, name.c_str());
 
-        const std::vector<uint8_t> &raw = trainer.getSaveData();
         FILE *outFile = fopen(savePath, "wb");
         if (!outFile)
         {
@@ -896,8 +873,8 @@ namespace Save
             return false;
         }
         const size_t written = fwrite(raw.data(), 1, raw.size(), outFile);
-        fclose(outFile);
-        if (written != raw.size())
+        const bool fileClosed = fclose(outFile) == 0;
+        if (written != raw.size() || !fileClosed)
         {
             logErrorToFile("Failed to write complete FRLG save file", savePath);
             return false;
@@ -921,14 +898,14 @@ namespace Save
         return true;
     }
 
-    void backupOriginalFile(const char *savePath)
+    bool backupOriginalFile(const char *savePath)
     {
         size_t length = 0;
         uint8_t *original = Utils::readAllBytes(savePath, &length);
         if (!original)
         {
             logErrorToFile("Could not read the save to back it up", savePath);
-            return;
+            return false;
         }
 
         const char *slash = strrchr(savePath, '/');
@@ -938,18 +915,20 @@ namespace Save
         mkdir(directory.c_str(), 0777);
 
         time_t nowSeconds = time(nullptr);
-        struct tm *t = localtime(&nowSeconds);
+        struct tm *localTime = localtime(&nowSeconds);
         char stamp[32] = "unknown";
-        if (t)
-            strftime(stamp, sizeof(stamp), "%Y%m%d_%H%M%S", t);
+        if (localTime)
+            strftime(stamp, sizeof(stamp), "%Y%m%d_%H%M%S", localTime);
 
         const std::string destination = directory + "/" + stamp + "_" + base;
-        FILE *bf = fopen(destination.c_str(), "wb");
-        if (bf)
+        bool backedUp = false;
+        FILE *backupFile = fopen(destination.c_str(), "wb");
+        if (backupFile)
         {
-            const size_t dialogWidth = fwrite(original, 1, length, bf);
-            fclose(bf);
-            if (dialogWidth == length)
+            const size_t writtenLength = fwrite(original, 1, length, backupFile);
+            const bool fileClosed = fclose(backupFile) == 0;
+            backedUp = writtenLength == length && fileClosed;
+            if (backedUp)
                 logInfoToFile("Save backed up to", destination.c_str());
             else
                 logErrorToFile("The backup was short", destination.c_str());
@@ -959,28 +938,39 @@ namespace Save
             logErrorToFile("Could not write the backup", destination.c_str());
         }
         delete[] original;
+        return backedUp;
     }
 
-    bool isLooseSaveGroup(GameVersion gameVersion) noexcept
+    bool replaceFileContents(const char *filePath, const std::vector<uint8_t> &fileBytes)
     {
-        switch (gameVersion)
+        const std::string temporaryPath = std::string(filePath) + ".tmp";
+        FILE *temporaryFile = fopen(temporaryPath.c_str(), "wb");
+        if (!temporaryFile)
         {
-        case GameVersion::RBY:
-        case GameVersion::GSC:
-        case GameVersion::RSE:
-        case GameVersion::DP:
-        case GameVersion::PT:
-        case GameVersion::HGSS:
-        case GameVersion::BW:
-        case GameVersion::B2W2:
-        case GameVersion::XY:
-        case GameVersion::ORAS:
-        case GameVersion::SM:
-        case GameVersion::USUM:
-            return true;
-        default:
+            logErrorToFile("Failed to open the save for writing", temporaryPath.c_str());
             return false;
         }
+        const size_t writtenLength = fwrite(fileBytes.data(), 1, fileBytes.size(), temporaryFile);
+        const bool fileClosed = fclose(temporaryFile) == 0;
+        if (writtenLength != fileBytes.size() || !fileClosed)
+        {
+            logErrorToFile("Failed to write the complete save; the original is untouched", filePath);
+            remove(temporaryPath.c_str());
+            return false;
+        }
+        // The Switch's SD filesystem will not rename onto an existing file, so the original goes
+        // first. Its replacement is already complete on disk, and was backed up before this call.
+        if (remove(filePath) != 0 && errno != ENOENT)
+        {
+            logErrorToFile("Could not replace the save; the new bytes are left beside it", temporaryPath.c_str());
+            return false;
+        }
+        if (rename(temporaryPath.c_str(), filePath) != 0)
+        {
+            logErrorToFile("Could not move the new save into place; it is left at", temporaryPath.c_str());
+            return false;
+        }
+        return true;
     }
 
     namespace
@@ -1017,12 +1007,11 @@ namespace Save
         const LooseFormat LOOSE_FORMATS[] = {
             {detectRBY, makeLoose<Trainer::Trainer1RBY>, GameVersion::RBY},
             {detectGSC, makeLoose<Trainer::Trainer2GSC>, GameVersion::GSC},
-            // Gen 3 goes here, between Gen 2 and Gen 4, because that is PKHeX's order. Only
-            // Ruby/Sapphire/Emerald are in the chain: FireRed/LeafGreen are a Switch title and
-            // always arrive with a title id, so there is no loose FR/LG row to be ordered against.
-            // Trainer3RSE::detect still refuses an FR/LG file outright rather than opening one with
-            // Hoenn's offsets -- the two share this container and only Small+0xAC tells them apart.
+            // Gen 3 goes here, between Gen 2 and Gen 4, because that is PKHeX's order. The two Gen 3
+            // rows cannot both match: they share a container and only Small+0xAC tells them apart, and
+            // each detect() refuses the other's file rather than open it with the wrong offsets.
             {Trainer::Trainer3RSE::detect, makeLoose<Trainer::Trainer3RSE>, GameVersion::RSE},
+            {Trainer::Trainer3FRLG::detect, makeLoose<Trainer::Trainer3FRLG>, GameVersion::FRLG},
             {Trainer::Trainer4DP::detect, makeLoose<Trainer::Trainer4DP>, GameVersion::DP},
             {Trainer::Trainer4PT::detect, makeLoose<Trainer::Trainer4PT>, GameVersion::PT},
             {Trainer::Trainer4HGSS::detect, makeLoose<Trainer::Trainer4HGSS>, GameVersion::HGSS},
@@ -1033,6 +1022,18 @@ namespace Save
             {Trainer::Trainer7SM::detect, makeLoose<Trainer::Trainer7SM>, GameVersion::SM},
             {Trainer::Trainer7USUM::detect, makeLoose<Trainer::Trainer7USUM>, GameVersion::USUM},
         };
+
+        const LooseFormat *findLooseFormat(const std::vector<uint8_t> &saveImage)
+        {
+            for (const LooseFormat &format : LOOSE_FORMATS)
+            {
+                if (format.detect(saveImage))
+                    return &format;
+            }
+            return nullptr;
+        }
+
+        bool isLooseSaveImage(const std::vector<uint8_t> &saveImage) { return findLooseFormat(saveImage) != nullptr; }
     }
 
     bool groupOpensFromFile(GameVersion group) noexcept
@@ -1045,51 +1046,42 @@ namespace Save
         return false;
     }
 
-    bool isExternalSave(const std::vector<uint8_t> &bytes)
+    bool findExternalSaveEnvelope(const std::vector<uint8_t> &fileBytes, SaveEnvelope &envelope, std::vector<uint8_t> &saveImage)
     {
-        for (const LooseFormat &f : LOOSE_FORMATS)
-            if (f.detect(bytes))
-                return true;
-        // Same second chance openExternalSave gives it, or the picker would refuse a file it is
-        // about to be able to open.
-        std::vector<uint8_t> trimmed = bytes;
-        if (!stripRtcFooter(trimmed))
-            return false;
-        for (const LooseFormat &f : LOOSE_FORMATS)
-            if (f.detect(trimmed))
-                return true;
-        return false;
+        return findSaveEnvelope(fileBytes, isLooseSaveImage, envelope, saveImage);
     }
 
-    std::unique_ptr<Trainer::Trainer> openExternalSave(std::vector<uint8_t> bytes,
-                                                       const std::string &path,
-                                                       std::string *label)
+    std::unique_ptr<Trainer::Trainer> openExternalSave(std::vector<uint8_t> bytes, const std::string &path, std::string *label, std::string *refusalText)
     {
-        // Only when nothing recognised the file as it stands. A save that already matches a size
-        // exactly is never trimmed, so this can neither shorten a good file nor change the probe
-        // order -- it just gives an RTC-footered Game Boy save the same chance as a bare one.
-        bool recognised = false;
-        for (const LooseFormat &f : LOOSE_FORMATS)
-            recognised = recognised || f.detect(bytes);
-        if (!recognised && stripRtcFooter(bytes))
-            logInfoToFile("Stripped an RTC footer from a loose save", path.c_str());
-
-        for (const LooseFormat &f : LOOSE_FORMATS)
+        SaveEnvelope envelope;
+        std::vector<uint8_t> saveImage;
+        if (!findExternalSaveEnvelope(bytes, envelope, saveImage))
         {
-            if (!f.detect(bytes))
-                continue;
-            auto looseTrainer = f.make(std::move(bytes), path);
-            if (!looseTrainer)
-            {
-                logErrorToFile("A loose save was detected but failed to parse", path.c_str());
-                return nullptr;
-            }
-            if (label)
-                *label = externalSaveLabel(*looseTrainer);
-            logInfoToFile("Opened loose save", label ? label->c_str() : path.c_str());
-            return looseTrainer;
+            // A container PKSE recognises but cannot read says what to change; anything else gives its
+            // size, the one fact a user can check against what their emulator should have written.
+            const char *containerReason = describeUnreadableSaveContainer(bytes);
+            if (refusalText)
+                *refusalText = containerReason ? std::string(containerReason) : "不是 PKSE 支持的存档（" + std::to_string(bytes.size()) + " 字节）";
+            return nullptr;
         }
-        return nullptr;
+        if (envelope.kind != SaveEnvelopeKind::None)
+            logInfoToFile((std::string("The loose save is inside ") + saveEnvelopeName(envelope.kind)).c_str(), path.c_str());
+        if (!envelope.paddingBytes.empty())
+            logInfoToFile(("The loose save is followed by " + std::to_string(envelope.paddingBytes.size()) + " bytes of padding").c_str(), path.c_str());
+
+        const LooseFormat *format = findLooseFormat(saveImage);
+        std::unique_ptr<Trainer::Trainer> looseTrainer = format->make(std::move(saveImage), path);
+        if (!looseTrainer)
+        {
+            logErrorToFile("A loose save was detected but failed to parse", path.c_str());
+            if (refusalText)
+                *refusalText = "看起来是《宝可梦 " + localizedGameVersionName(format->group) + "》的存档，但无法读取";
+            return nullptr;
+        }
+        if (label)
+            *label = externalSaveLabel(*looseTrainer);
+        logInfoToFile("Opened loose save", label ? label->c_str() : path.c_str());
+        return looseTrainer;
     }
 
     std::string externalSaveLabel(const Trainer::Trainer &trainer)
@@ -1099,12 +1091,12 @@ namespace Save
         if (gameVersion == GameVersion::RBY)
         {
             const auto &r = static_cast<const Trainer::Trainer1RBY &>(trainer);
-            return "Pokemon " + std::string(r.gameTitle()) + (r.japanese() ? " (JP)" : "");
+            return "宝可梦 " + std::string(r.gameTitle()) + (r.japanese() ? "（日版）" : "");
         }
         if (gameVersion == GameVersion::GSC)
         {
             const auto &r = static_cast<const Trainer::Trainer2GSC &>(trainer);
-            return r.gameTitle() + std::string(r.japanese() ? " (JP)" : "");
+            return "宝可梦 " + r.gameTitle() + (r.japanese() ? "（日版）" : "");
         }
         if (gameVersion == GameVersion::RSE)
         {
@@ -1112,9 +1104,9 @@ namespace Save
             // it is named outright. Ruby and Sapphire are byte-identical with nothing in the file
             // to separate them, exactly like Red/Blue, so the pair is named instead of guessing.
             const auto &hoenn = static_cast<const Trainer::Trainer3RSE &>(trainer);
-            return hoenn.getGameVersion() == GameVersion::EM ? "Pokemon Emerald" : "Pokemon Ruby/Sapphire";
+            return hoenn.getGameVersion() == GameVersion::EM ? "宝可梦 绿宝石" : "宝可梦 红宝石／蓝宝石";
         }
-        return "Pokemon " + std::string(getGameVersionName(gameVersion));
+        return "宝可梦 " + localizedGameVersionName(gameVersion);
     }
 
     bool saveExternalSave(Trainer::Trainer &trainer, const char *savePath, bool backupOriginal)
@@ -1129,8 +1121,11 @@ namespace Save
         // the user pointed at their own save, quite possibly the only copy of it -- so the backup
         // has to be of what is on disk now, taken before the write. A caller writing to a scratch
         // copy of its own opts out: a backup per write would leave megabytes behind.
-        if (backupOriginal)
-            backupOriginalFile(savePath);
+        if (backupOriginal && !backupOriginalFile(savePath))
+        {
+            logErrorToFile("Refusing to write a save whose original could not be backed up", savePath);
+            return false;
+        }
 
         // serialize() applies every block and refreshes the checksums last. It is not virtual on
         // the base -- each generation returns its own image -- so this dispatches on the group,
@@ -1146,6 +1141,9 @@ namespace Save
             break;
         case GameVersion::RSE:
             raw = &static_cast<Trainer::Trainer3RSE &>(trainer).serialize();
+            break;
+        case GameVersion::FRLG:
+            raw = &static_cast<Trainer::Trainer3FRLG &>(trainer).serialize();
             break;
         case GameVersion::DP:
             raw = &static_cast<Trainer::Trainer4DP &>(trainer).serialize();
@@ -1179,76 +1177,37 @@ namespace Save
             return false;
         }
 
-        // AN RTC FOOTER MUST SURVIVE THE ROUND TRIP. Emulators, flashcarts and dumpers append the
-        // real-time clock's state after a Game Boy or GBA save, and openExternalSave trims it so the
-        // exact size checks can recognise the file. Writing back without it silently deletes that
-        // clock -- which in Ruby/Sapphire/Emerald is berry growth and the tides, not a curiosity.
-        //
-        // It is re-read from the file on disk rather than carried on the trainer: the footer belongs
-        // to the FILE, no save format has a field for it, and this is the only place that writes one.
-        // It is kept only when the file's trimmed length is exactly the image we are about to write,
-        // so a path that turns out to hold something else is left alone rather than glued onto.
-        std::vector<uint8_t> footer;
+        // THE ENVELOPE GOES BACK ON. openExternalSave takes off whatever an emulator, a dumper or an
+        // online service wrapped around the save, and the file has to come back in that shape or the
+        // program that wrote it cannot read it: an RTC footer is Ruby's berry growth and tides, and VBA
+        // Next expects its 136 KiB .srm. It is found again in the file on disk, by the same rule that
+        // opened it, rather than carried on the trainer: it belongs to the FILE and no save format has
+        // a field for it. It is kept only around a save the size of the one being written, so a path
+        // that turns out to hold something else is left alone rather than glued onto.
+        std::vector<uint8_t> fileBytes = *raw;
         {
             size_t existingSize = 0;
             if (uint8_t *existing = readAllBytes(savePath, &existingSize))
             {
-                const size_t footerSize = rtcFooterLength(existingSize);
-                if (footerSize != 0 && existingSize - footerSize == raw->size())
-                {
-                    footer.assign(existing + existingSize - footerSize, existing + existingSize);
-                    logInfoToFile("Preserving an RTC footer on write-back", savePath);
-                }
+                const std::vector<uint8_t> existingBytes(existing, existing + existingSize);
                 delete[] existing;
+                SaveEnvelope envelope;
+                std::vector<uint8_t> existingImage;
+                if (findExternalSaveEnvelope(existingBytes, envelope, existingImage) && !isBareSave(envelope) && existingImage.size() == raw->size())
+                {
+                    fileBytes = joinSaveEnvelope(envelope, *raw);
+                    std::string keptMessage = std::string("Keeping ") + saveEnvelopeName(envelope.kind);
+                    if (!envelope.paddingBytes.empty())
+                        keptMessage += " and " + std::to_string(envelope.paddingBytes.size()) + " bytes of padding";
+                    keptMessage += " on write-back";
+                    logInfoToFile(keptMessage.c_str(), savePath);
+                }
             }
         }
 
-        FILE *f = fopen(savePath, "wb");
-        if (!f)
-        {
-            logErrorToFile("Failed to open the save for writing", savePath);
+        if (!replaceFileContents(savePath, fileBytes))
             return false;
-        }
-        const size_t written = fwrite(raw->data(), 1, raw->size(), f);
-        const size_t footerWritten = footer.empty() ? 0 : fwrite(footer.data(), 1, footer.size(), f);
-        fclose(f);
-        if (written != raw->size() || footerWritten != footer.size())
-        {
-            logErrorToFile("Failed to write the complete save", savePath);
-            return false;
-        }
         logInfoToFile("Loose save written", savePath);
-        return true;
-    }
-
-    bool saveTrainerInfoRBY(Trainer::Trainer1RBY &trainer, const char *savePath)
-    {
-        if (!savePath || !*savePath)
-        {
-            logErrorToFile("Gen 1 save: no path to write to");
-            return false;
-        }
-
-        backupOriginalFile(savePath);
-
-        // serialize() applies every block and refreshes the one-byte checksum last.
-        const std::vector<uint8_t> &raw = trainer.serialize();
-        FILE *f = fopen(savePath, "wb");
-        if (!f)
-        {
-            logErrorToFile("Failed to open Gen 1 save for writing", savePath);
-            return false;
-        }
-        const size_t written = fwrite(raw.data(), 1, raw.size(), f);
-        fclose(f);
-        if (written != raw.size())
-        {
-            logErrorToFile("Failed to write the complete Gen 1 save", savePath);
-            return false;
-        }
-        logInfoToFile("Successfully wrote Gen 1 save", savePath);
-        Utils::logEventToFile("SAVE gen=1 file=\"" + std::string(savePath) + "\" bytes=" +
-                              std::to_string(written) + " result=OK");
         return true;
     }
 }

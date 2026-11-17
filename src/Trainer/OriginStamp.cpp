@@ -1,6 +1,6 @@
 #include "Trainer/OriginStamp.h"
 
-#include "Enums/GameVersion.h"
+#include "Save/TitleFolder.h"
 #include "Pokemon/Pokemon.h"
 #include "Trainer/Trainer.h"
 #include "Trainer/Trainer1RBY.h" // gameTitle() -- a PK1 has no version byte of its own
@@ -11,7 +11,7 @@ namespace Trainer
     std::string originStampLabel(const Pokemon::Pokemon &entity, const Trainer *openSave)
     {
         if (entity.hasOriginGame())
-            return Enums::getOriginGameName(entity.originGame());
+            return Save::localizedOriginGameName(entity.originGame());
 
         // ASK THE ENTITY FOR ITS GROUP -- not the open save, and not a constant. Gen 1 and Gen 2
         // BOTH lack the version byte, so the hardcoded "Gen 1" this replaced stamped every Gold,
@@ -28,7 +28,7 @@ namespace Trainer
                 return static_cast<const Trainer2GSC *>(openSave)->gameTitle();
         }
         // No save context: stop at the generation rather than naming a title we cannot know.
-        return (group == Enums::GameVersion::GSC) ? "Gen 2" : "Gen 1";
+        return (group == Enums::GameVersion::GSC) ? "第二世代" : "第一世代";
     }
 
     OriginMark originMarkFor(const Pokemon::Pokemon &entity)
@@ -38,9 +38,7 @@ namespace Trainer
         if (!entity.hasOriginGame())
         {
             const Enums::GameVersion group = entity.getGameGroup();
-            return (group == Enums::GameVersion::RBY || group == Enums::GameVersion::GSC)
-                       ? OriginMark::GameBoy
-                       : OriginMark::None;
+            return (group == Enums::GameVersion::RBY || group == Enums::GameVersion::GSC) ? OriginMark::GameBoy : OriginMark::None;
         }
 
         // PKHeX OriginMarkUtil.GetOriginMark, and THE ORDER IS LOAD-BEARING. A Virtual Console, GO
@@ -50,6 +48,8 @@ namespace Trainer
         const uint8_t version = entity.originGame();
         if (version >= 35 && version <= 41)
             return OriginMark::GameBoy; // Red, Blue, Blue (JP), Yellow, Gold, Silver, Crystal
+        if (version == 56 || version == 57)
+            return OriginMark::GameBoyAdvance; // FireRed / LeafGreen (Switch)
         if (version == 34)
             return OriginMark::GO;
         if (version == 42 || version == 43)
@@ -69,8 +69,8 @@ namespace Trainer
         if (version == 52)
             return OriginMark::Gen9ZA; // Legends: Z-A
 
-        // Gen 3, Gen 4, Gen 5, the GameCube titles and anything newer than PKHeX's mark set. The
-        // games stamp nothing, so neither does PKSE -- the text label carries those.
+        // Gen 3 cartridges, Gen 4, Gen 5, the GameCube titles and anything newer than PKHeX's mark
+        // set. The games stamp nothing, so neither does PKSE -- the text label carries those.
         return OriginMark::None;
     }
 
@@ -88,6 +88,7 @@ namespace Trainer
         case OriginMark::Gen9Paldea:   return "sv";
         case OriginMark::Gen9ZA:       return "za";
         case OriginMark::GO:           return "go";
+        case OriginMark::GameBoyAdvance: return "gba";
         default:                       return nullptr;
         }
     }

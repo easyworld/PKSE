@@ -6,6 +6,88 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 
 TRANSLATIONS = {
+    "Auto-Legalize Unsupported Transfers": "跨游戏传送时自动修正无正式途径的宝可梦",
+    " Pokemon couldn't be put back - there is no free slot. Still in hand.": " 只宝可梦因没有空位未能放回，仍在手中。",
+    "Only a ribbon the Pokemon owns can be affixed.": "只能佩戴这只宝可梦已有的奖章或证章。",
+    "Import Pokemon / PKSM Bank": "导入宝可梦文件或 PKSM 银行",
+    "Pokemon or bank files": "宝可梦或银行文件",
+    "Save files": "存档文件",
+    "Couldn't read that file from the SD card.": "无法从 SD 卡读取该文件。",
+    " Pokemon imported - choose Save when you leave Storage.": " 只宝可梦已导入。离开存储界面时请选择保存。",
+    "Pokemon imported - choose Save when you leave Storage.": "宝可梦已导入。离开存储界面时请选择保存。",
+    "the Bank is not loaded": "银行尚未载入",
+    "Import failed: ": "导入失败：",
+    "Boxes": "盒子",
+    " locked slot(s) stayed behind.": " 个锁定槽位未移动。",
+    " couldn't land on a locked slot - still in hand": " 只宝可梦无法放入锁定槽位，仍在手中。",
+    "Couldn't make a working copy beside the pre-edit backup, so nothing was written. Check SD card space.": "无法在原始备份旁创建副本。请检查 SD 卡空间。",
+    "That name has no usable characters. Use letters, numbers, spaces or -.": "名称没有可用字符。请使用字母、数字、空格或 -。",
+    "Couldn't create that backup folder. Check SD card space.": "无法创建备份文件夹。请检查 SD 卡空间。",
+    "Added or topped up ": "已添加或补充 ",
+    " item.": " 种道具。",
+    " items.": " 种道具。",
+    "Every item is already at its limit.": "所有道具均已达到上限。",
+    " item did not fit.": " 种道具因口袋已满而未能添加。",
+    " items did not fit.": " 种道具因口袋已满而未能添加。",
+    "no free file name in ": "以下目录中没有可用文件名：",
+    "Exported ": "已导出",
+    "Export failed: ": "导出失败：",
+    "That slot is in a battle team, so it stays where it is.": "该槽位属于对战队伍，无法移动。",
+    "That slot holds an unknown species, so it stays where it is.": "该槽位中有未知种类的宝可梦，无法移动。",
+    "Transfers with no official route will be rebuilt as legal natives.": "没有正式传送途径时，将按目标游戏重新生成合法的宝可梦。",
+    "Transfers will be left as-is for you to correct by hand.": "保留传送后的数据，供手动修正。",
+    "Lossy bank transfers will ask before converting.": "银行传送可能丢失数据时会先询问。",
+    "Lossy bank transfers will convert without asking.": "银行传送时直接转换格式。",
+    "Alpha": "头目",
+    " issue(s)": " 个问题",
+    "  -  R / tap to view": "  -  按 R／点击查看",
+    "Exp": "经验值",
+    "HT: Hyper Trained, plays as ": "已极限特训，实际个体值为 ",
+    "[note]  ": "[提示]  ",
+    "[note]": "[提示]",
+    "[warning]": "[警告]",
+    "[illegal]": "[非法]",
+    " more not shown": " 个问题未显示",
+    "That folder isn't on the SD card. ZR removes it from your favorites.": "SD 卡上找不到此文件夹。按 ZR 取消收藏。",
+    "Favorite folders": "收藏的文件夹",
+    "Favorites": "收藏",
+    "No favorite folders yet.": "还没有收藏文件夹。",
+    "Open a folder and press ZR to add it here.": "打开文件夹后按 ZR 收藏。",
+    "..  (up one folder)": "..（上一级）",
+    "Space": "空格",
+    "Clear": "清空",
+    "Not won": "未获得",
+    "Rank ": "等级 ",
+    "Count ": "数量 ",
+    "Owned": "已获得",
+    "Not owned": "未获得",
+    " owned": " 枚已获得",
+    "This format stores no ribbons.": "此格式没有奖章或证章数据。",
+    "max ": "上限 ",
+    "Add All Items": "批量添加道具",
+    "AMOUNT TO ADD TO EACH ITEM": "每种道具添加数量",
+    "Each item stops at the most the game allows.": "每种道具均按游戏中的持有上限添加。",
+    "Include Key Items": "包括重要道具",
+    "Key items given early can skip or break story events.": "提前获得重要道具可能跳过剧情或导致剧情无法继续。",
+    "Key items are left out.": "本次跳过重要道具。",
+    "Add": "添加",
+    "Not available": "无法特训",
+    "Needs Lv. ": "所需等级 ",
+    "IV is already ": "个体值已达到 ",
+    "Hyper Trained": "极限特训",
+    "Plays as ": "实际个体值为 ",
+    "DEVELOPMENT": "开发版",
+    "   No. ": "   编号 ",
+    " - kept as it is, can't be moved": "，已保留，无法移动",
+    "Its game records the other trainer, so PKSE needs one.": "此游戏会记录交换对象，请选择一名训练家。",
+    "A save you own is a real trainer. Generated invents one.": "可从存档读取训练家，也可自动生成。",
+    " (Hisui)": "（洗翠）",
+    "Change its amount from the pocket's list instead.": "可在口袋列表中修改其数量。",
+    "Items already in this pocket aren't listed here.": "列表仅显示此口袋中尚未持有的道具。",
+    "   import": "   可导入",
+    "   no PKSE format": "   PKSE 不支持",
+    "Unknown species": "未知种类",
+    "  |  Affixed": "  |  已佩戴",
     "      Page ": "      第 ",
     "     No. ": "     编号 ",
     "    No. ": "    编号 ",
@@ -132,12 +214,10 @@ TRANSLATIONS = {
     "Nothing records which title it came from, so": "没有任何信息记录它来自哪款游戏，因此",
     "its origin is set to ": "初训家游戏将设为",
     "This replaces ": "这将替换",
-    "write back to ": "写回",
     "REPLACES your live save with this backup": "用此备份替换当前游戏存档",
     " (a copy is kept first)": "（会先保留一份副本）",
     "write back to ": "写回",
     "Names now shown in ": "名称现在显示为",
-    "No Pokemon here match that search.": "没有宝可梦符合此搜索条件。",
     "No other save on this console can trade with it.": "这台主机上没有其他存档可以与它交换。",
     "Nothing here matches that search.": "此处没有符合搜索条件的内容。",
     "Nothing matches that search.": "没有符合搜索条件的内容。",
@@ -457,6 +537,39 @@ TRANSLATIONS = {
 }
 
 NAV_TRANSLATIONS = {
+    "A: OK": "A: 确定",
+    "A: Import  |  B: Cancel": "A: 导入  |  B: 取消",
+    "Up/Down: Move  |  A: Go to Folder  |  ZR: Remove Favorite  |  B: Back": "Up/Down: 移动  |  A: 打开文件夹  |  ZR: 取消收藏  |  B: 返回",
+    "Up/Down: Move  |  L/R: Page  |  A: Open  |  X: All Files  |  ZL: Favorites  |  ZR: Unfavorite  |  B: Up / Close": "Up/Down: 移动  |  L/R: 翻页  |  A: 打开  |  X: 全部文件  |  ZL: 收藏夹  |  ZR: 取消收藏  |  B: 返回",
+    "Up/Down: Move  |  L/R: Page  |  A: Open  |  X: All Files  |  ZL: Favorites  |  ZR: Add Favorite  |  B: Up / Close": "Up/Down: 移动  |  L/R: 翻页  |  A: 打开  |  X: 全部文件  |  ZL: 收藏夹  |  ZR: 收藏  |  B: 返回",
+    "Up/Down: Move  |  L/R: Page  |  A: Open  |  Y: Search  |  X: All Files  |  ZL: Favorites  |  ZR: Unfavorite  |  B: Up / Close": "Up/Down: 移动  |  L/R: 翻页  |  A: 打开  |  Y: 搜索  |  X: 全部文件  |  ZL: 收藏夹  |  ZR: 取消收藏  |  B: 返回",
+    "Up/Down: Move  |  L/R: Page  |  A: Open  |  Y: Search  |  X: All Files  |  ZL: Favorites  |  ZR: Add Favorite  |  B: Up / Close": "Up/Down: 移动  |  L/R: 翻页  |  A: 打开  |  Y: 搜索  |  X: 全部文件  |  ZL: 收藏夹  |  ZR: 收藏  |  B: 返回",
+    "Up/Down: Move  |  L/R: Page  |  A: Select  |  Y: Search  |  B: Cancel": "Up/Down: 移动  |  L/R: 翻页  |  A: 选择  |  Y: 搜索  |  B: 取消",
+    "A: Discard & Exit  |  B: Cancel": "A: 放弃并退出  |  B: 取消",
+    "Up/Down: Row  |  Left/Right: Toggle Hyper Training  |  A: Confirm  |  B: Cancel": "Up/Down: 选择  |  Left/Right: 切换极限特训  |  A: 确认  |  B: 取消",
+    "Left/Right: +/-1  |  L/R: +/-10  |  ZL/ZR: +/-100  |  X: Key Items  |  A: Add  |  B: Cancel": "Left/Right: ±1  |  L/R: ±10  |  ZL/ZR: ±100  |  X: 重要道具  |  A: 添加  |  B: 取消",
+    "A: Continue  |  B: Cancel": "A: 继续  |  B: 取消",
+    "A: Keep  |  Y: Discard  |  B: Back": "A: 保留  |  Y: 放弃  |  B: 返回",
+    "A: Save  |  Y: Discard  |  B: Back": "A: 保存  |  Y: 放弃  |  B: 返回",
+    "A: Choose  |  B: Cancel": "A: 选择  |  B: 取消",
+    "A: Use a save  |  Y: Generate  |  B: Cancel": "A: 使用存档  |  Y: 生成  |  B: 取消",
+    "Arrows: Move  |  A: Toggle  |  L/R: -/+1  |  X: Affix  |  ZL: Remove All  |  ZR: Give All  |  B: Back": "Arrows: 移动  |  A: 切换  |  L/R: −/+1  |  X: 佩戴  |  ZL: 全部移除  |  ZR: 全部获得  |  B: 返回",
+    "Arrows: Move  |  A: Toggle  |  L/R: -/+1  |  ZL: Remove All  |  ZR: Give All  |  B: Back": "Arrows: 移动  |  A: 切换  |  L/R: −/+1  |  ZL: 全部移除  |  ZR: 全部获得  |  B: 返回",
+    "Up/Down: Select  |  A: Edit Amount  |  Y: Search  |  -: Add Item  |  ZR: Add All  |  X: Remove Item  |  Left/Right: Page  |  L/R: Category  |  B: Back": "Up/Down: 选择  |  A: 数量  |  Y: 搜索  |  -: 添加  |  ZR: 批量添加  |  X: 移除  |  Left/Right: 翻页  |  L/R: 口袋  |  B: 返回",
+    "L/R: Box  |  A: Rename  |  X: Sort/Search  |  B: Back": "L/R: 换盒  |  A: 重命名  |  X: 排序/搜索  |  B: 返回",
+    "Arrows: Navigate  |  L/R: Box  |  A: Details  |  Y: Menu  |  X: Sort/Search  |  B: Back": "Arrows: 移动  |  L/R: 换盒  |  A: 详情  |  Y: 菜单  |  X: 排序/搜索  |  B: 返回",
+    "Arrows: Navigate  |  L/R: Box  |  A: Create  |  X: Sort/Search  |  B: Back": "Arrows: 移动  |  L/R: 换盒  |  A: 新建  |  X: 排序/搜索  |  B: 返回",
+    "Arrows: Move  |  L/R: Box  |  ZL/ZR: +/-10  |  Y: Mode (Menu)  |  A: Menu  |  X: Sort/Search  |  Minus: Import  |  B: Back": "Arrows: 移动  |  L/R: 换盒  |  ZL/ZR: ±10  |  Y: 模式  |  A: 菜单  |  X: 排序/搜索  |  -: 导入  |  B: 返回",
+    "Arrows: Move  |  L/R: Box  |  ZL/ZR: +/-10  |  Y: Mode (Move)  |  A: Pick Up  |  X: Sort/Search  |  Minus: Import  |  B: Back": "Arrows: 移动  |  L/R: 换盒  |  ZL/ZR: ±10  |  Y: 模式  |  A: 拿起  |  X: 排序/搜索  |  -: 导入  |  B: 返回",
+    "Arrows: Move  |  L/R: Box  |  ZL/ZR: +/-10  |  Y: Mode (Multi)  |  A: Select  |  X: Sort/Search  |  Minus: Import  |  B: Back": "Arrows: 移动  |  L/R: 换盒  |  ZL/ZR: ±10  |  Y: 模式  |  A: 多选  |  X: 排序/搜索  |  -: 导入  |  B: 返回",
+    "A: Select  |  L/R: Switch User  |  Y: Open Save File  |  -: Self Test  |  +: Exit": "A: 选择  |  L/R: 切换用户  |  Y: 打开存档  |  -: 自检  |  +: 退出",
+    "A: Select  |  Y: Open Save File  |  -: Self Test  |  +: Exit": "A: 选择  |  Y: 打开存档  |  -: 自检  |  +: 退出",
+    "Arrows: Move  |  A: Type  |  B: Delete  |  L/R: Cursor  |  +: OK  |  -: Cancel": "Arrows: 移动  |  A: 输入  |  B: 删除  |  L/R: 光标  |  +: 确定  |  -: 取消",
+    "Arrows: Move  |  A: Type  |  B: Delete  |  Y: Space  |  L/R: Cursor  |  ZL/ZR: Layout  |  +: OK  |  -: Cancel": "Arrows: 移动  |  A: 输入  |  B: 删除  |  Y: 空格  |  L/R: 光标  |  ZL/ZR: 布局  |  +: 确定  |  -: 取消",
+    "Arrows: Move  |  A: Type  |  B: Delete  |  Y: Space  |  X: Shift  |  L/R: Cursor  |  ZL/ZR: Layout  |  +: OK  |  -: Cancel": "Arrows: 移动  |  A: 输入  |  B: 删除  |  Y: 空格  |  X: 大小写  |  L/R: 光标  |  ZL/ZR: 布局  |  +: 确定  |  -: 取消",
+    "Y: Ribbons  |  ": "Y: 奖章/证章  |  ",
+    "A: Edit  |  ": "A: 编辑  |  ",
+    "L: Randomize IVs  |  ": "L: 随机个体值  |  ",
     "Up/Down: Move  |  L/R: Page  |  A: Open  |  Y: Search  |  X: All Files  |  B: Up / Close": "上／下：移动  |  L/R：翻页  |  A：打开  |  Y：搜索  |  X：全部文件  |  B：返回／关闭",
     "A: Select  |  L/R: Switch User  |  Y: Open Save File  |  +: Exit": "A：选择  |  L/R：切换用户  |  Y：打开存档文件  |  +：退出",
     "A: Select  |  Y: Open Save File  |  +: Exit": "A：选择  |  Y：打开存档文件  |  +：退出",
@@ -515,7 +628,9 @@ REVISION_PATHS = (
 # after applying the literal table above.
 TRACE_RESTORATIONS = {
     'Utils::logField("保存", label)':
-        'Utils::logField("title", label)',
+        'Utils::logField("save", label)',
+    'Utils::logField("保存", entry.label)':
+        'Utils::logField("title", entry.label)',
     '" result=" + (passed ? "确定" : "REJECTED")':
         '" result=" + (passed ? "OK" : "REJECTED")',
     '" result=" + (passed ? "确定" : "FAILED")':
@@ -545,6 +660,29 @@ TRACE_RESTORATIONS = {
 }
 
 
+# The controller names and colon are parsed by ScreenChrome before drawing the badges.
+BUTTON_TOKENS = {
+    "Arrows": ("方向键",), "D-Pad": (),
+    "Up/Down": ("上/下", "上／下"), "Left/Right": ("左/右", "左／右"),
+    "Up": ("上",), "Down": ("下",), "Left": ("左",), "Right": ("右",),
+    "Plus": ("加号键",), "Minus": ("减号键",),
+    **{button: (button,) for button in ("A", "B", "X", "Y", "L", "R", "L/R", "ZL", "ZR", "ZL/ZR", "+", "-")},
+}
+
+
+def nav_button_tokens(text):
+    segments = text.split("|")
+    for index, segment in enumerate(segments):
+        token, colon, label = segment.partition("：")
+        if not colon:
+            continue
+        button = next((name for name, translations in BUTTON_TOKENS.items() if token.strip() in translations), None)
+        if button is not None:
+            leading_space = token[:len(token) - len(token.lstrip())]
+            segments[index] = leading_space + button + ": " + label.lstrip()
+    return "|".join(segments)
+
+
 def cpp_literal(value):
     return '"' + value.replace("\\", "\\\\").replace('"', '\\"') + '"'
 
@@ -558,7 +696,9 @@ def main():
         text = path.read_text(encoding="utf-8")
         original = text
         for english, chinese in mapping.items():
-            text = text.replace(cpp_literal(english), cpp_literal(chinese))
+            if path.name == "ScreenChrome.h" and english in BUTTON_TOKENS:
+                continue
+            text = text.replace(cpp_literal(english), cpp_literal(nav_button_tokens(chinese)))
         if path.name == "TrainerViewScreen.cpp":
             for localized, protocol in TRACE_RESTORATIONS.items():
                 text = text.replace(localized, protocol)

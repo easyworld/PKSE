@@ -27,7 +27,9 @@ int main()
     // means either losing exactly the init diagnostics a bug report needs or writing a file the
     // user switched off. Safe this early: loadSettings only fopen()s sdmc:/PKSE/settings.cfg
     // (libnx mounts sdmc before main), applyTheme just swaps colour globals, and nothing in it
-    // logs. It needs no service, no ROMFS and no SDL, none of which exist yet.
+    // logs. It needs no ROMFS and no SDL, neither of which exists yet; the one service it can
+    // reach -- settings, for the system-language default -- Names::systemLanguageIndex opens and
+    // closes itself.
     Utils::loadSettings();
 
     logInfoToFile("Initializing PKSE...");
@@ -103,10 +105,7 @@ int main()
     UI::Sprite *testSprite = UI::SpriteManager::getSprite(25, false); // Pikachu
     if (testSprite && testSprite->data)
     {
-        logInfoToFile(("SUCCESS: Test sprite loaded! (" +
-                       std::to_string(testSprite->width) + "x" +
-                       std::to_string(testSprite->height) + ")")
-                          .c_str());
+        logInfoToFile(("SUCCESS: Test sprite loaded! (" + std::to_string(testSprite->width) + "x" + std::to_string(testSprite->height) + ")").c_str());
     }
     else
     {

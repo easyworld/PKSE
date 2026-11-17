@@ -64,6 +64,10 @@ namespace UI
          */
         static Sprite *getOriginMarkSprite(Trainer::OriginMark mark, Color markColor);
 
+        /// A ribbon or mark image, by its sprite stem (Names::getRibbonSpriteStem). Drawn as-is: the
+        /// art is full colour, not a silhouette. Returns nullptr if the file is missing.
+        static Sprite *getRibbonSprite(const std::string &spriteStem);
+
         // Called just before a sprite's pixel buffer is freed. The renderer caches the texture it
         // built from that buffer under the buffer's ADDRESS, so it has to drop it in step: a later
         // sprite allocated at the same address would otherwise be drawn with the evicted one's
@@ -102,14 +106,16 @@ namespace UI
         // than one tint without either evicting the other on a theme switch.
         static std::map<uint32_t, Sprite *> originMarkCache;
 
+        // Ribbon cache: key = sprite stem. Bounded by the ribbon art (~160 images of 30x30).
+        static std::map<std::string, Sprite *> ribbonSpriteCache;
+
         static bool initialized;
 
         // Generate cache key for Pokemon sprites (supports form ID up to 255)
         static uint32_t makeCacheKey(uint16_t speciesId, uint8_t formId, bool isShiny, bool isIcon)
         {
             // Format: bits 0-15: speciesId, bit 16: isShiny, bit 17: isIcon, bits 18-25: formId
-            return speciesId | (isShiny ? (1 << 16) : 0) | (isIcon ? (1 << 17) : 0) |
-                   (static_cast<uint32_t>(formId) << 18);
+            return speciesId | (isShiny ? (1 << 16) : 0) | (isIcon ? (1 << 17) : 0) | (static_cast<uint32_t>(formId) << 18);
         }
 
         // Legacy cache key for base forms

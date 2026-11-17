@@ -5,6 +5,7 @@
 #include "Pokemon/PersonalInfoTable.h"  // getPersonalInfo -- the cross-game index (gender ratio)
 #include "Pokemon/PersonalInfo3FRLG.h"    // this group's own per-species data
 #include "Pokemon/Experience.h"        // getLevelFromExp / getExpForLevel / getGrowthRate
+#include "Pokemon/PIDSearch.h"         // wurmpleEvolutionToHold / wurmpleEvolutionFromPID
 #include "Utils/Gen3Text.h"            // the Gen 3 character set, shared with Trainer3FRLG + Convert
 
 namespace Names
@@ -19,45 +20,6 @@ namespace Names
 
 namespace Pokemon
 {
-
-    namespace
-    {
-        // Nature stat modifier (order Atk,Def,Spe,SpA,SpD): 0 = -10% (90), 1 = neutral (100), 2 = +10% (110).
-        constexpr int8_t NATURE_STAT_MODIFIERS[25][5] = {
-            {1, 1, 1, 1, 1},
-            {2, 0, 1, 1, 1},
-            {2, 1, 0, 1, 1},
-            {2, 1, 1, 0, 1},
-            {2, 1, 1, 1, 0},
-            {0, 2, 1, 1, 1},
-            {1, 1, 1, 1, 1},
-            {1, 2, 0, 1, 1},
-            {1, 2, 1, 0, 1},
-            {1, 2, 1, 1, 0},
-            {0, 1, 2, 1, 1},
-            {1, 0, 2, 1, 1},
-            {1, 1, 1, 1, 1},
-            {1, 1, 2, 0, 1},
-            {1, 1, 2, 1, 0},
-            {0, 1, 1, 2, 1},
-            {1, 0, 1, 2, 1},
-            {1, 1, 0, 2, 1},
-            {1, 1, 1, 1, 1},
-            {1, 1, 1, 2, 0},
-            {0, 1, 1, 1, 2},
-            {1, 0, 1, 1, 2},
-            {1, 1, 0, 1, 2},
-            {1, 1, 1, 0, 2},
-            {1, 1, 1, 1, 1},
-        };
-        inline int natureMod(uint8_t nature, int statIndex /*0=Atk..4=SpD*/)
-        {
-            if (nature >= 25 || statIndex < 0 || statIndex >= 5)
-                return 100;
-            const int modifier = NATURE_STAT_MODIFIERS[nature][statIndex];
-            return modifier == 0 ? 90 : (modifier == 2 ? 110 : 100);
-        }
-    }
 
     const char *Pokemon3FRLG::species() const noexcept { return Names::getSpeciesName(speciesID()); }
 
@@ -132,8 +94,7 @@ namespace Pokemon
     // when the name is short. Unrepresentable chars end the name; bytes past the terminator are left
     // untouched. Without these setters a created pokemon's OT name + nickname were BLANK, so Gen 3 read the
     // pokemon as traded-in ("Apparently met") and showed no name.
-    static void g3EncodeName(std::byte *destination, size_t offset, const std::u16string &value, size_t maxChars,
-                             uint8_t languageId)
+    static void g3EncodeName(std::byte *destination, size_t offset, const std::u16string &value, size_t maxChars, uint8_t languageId)
     {
         size_t byteCount = 0;
         for (const char16_t character : value)
@@ -167,6 +128,7 @@ namespace Pokemon
     // retrying full-width, which is how the cartridge itself stores such a name.
     bool Pokemon3FRLG::canStoreNickname(const std::u16string &value) const noexcept
     {
+        if (isEgg()) return true; // setNickname stores the egg placeholder, whatever it is given
         const uint8_t languageId = language();
         for (const char16_t character : value)
         {
@@ -176,9 +138,14 @@ namespace Pokemon
         return true;
     }
 
+    // An egg has no name of its own: the games write the Japanese word for egg in every region, and
+    // PKHeX's PK3 Nickname setter writes that placeholder whatever it is given while IsEgg is set.
+    // Storing a real name here would leave an egg no cartridge holds, in the Japanese charset its
+    // language selects. Clear the egg bit before naming a hatched Pokemon.
     void Pokemon3FRLG::setNickname(const std::u16string &value) noexcept
     {
-        g3EncodeName(data.data(), 0x08, value, 10, language()); // nickname: 10 chars @ 0x08 (no isNicknamed flag)
+        const std::u16string storedNickname = isEgg() ? std::u16string(EGG_NICKNAME_JAPANESE) : value;
+        g3EncodeName(data.data(), 0x08, storedNickname, 10, language()); // nickname: 10 chars @ 0x08 (no isNicknamed flag)
         refreshChecksum();
     }
 
@@ -207,7 +174,7 @@ namespace Pokemon
         const int common = (2 * base[index] + individualValues[index] + evValue[index] / 4) * levelValue / 100;
         // HP formula
         if (index == 0) return static_cast<uint16_t>(common + levelValue + 10);
-        return static_cast<uint16_t>((common + 5) * natureMod(nature(), index - 1) / 100);
+        return static_cast<uint16_t>((common + 5) * natureStatPercent(nature(), index - 1) / 100);
     }
 
     uint16_t Pokemon3FRLG::statHPMax() const noexcept { return computeStat(0); }
@@ -231,8 +198,7 @@ namespace Pokemon
         // 0x56 sits past the checksummed region (0x20..0x4F), so no refreshChecksum() is needed.
     }
 
-    uint16_t Pokemon3FRLG::carryCurrentHP(uint16_t storedCur, uint16_t storedMax,
-                                          uint16_t newMax) noexcept
+    uint16_t Pokemon3FRLG::carryCurrentHP(uint16_t storedCur, uint16_t storedMax, uint16_t newMax) noexcept
     {
         // max moved (or was never set) -> refill
         if (storedMax != newMax) return newMax;
@@ -252,6 +218,15 @@ namespace Pokemon
         wr16(0x5E, computeStat(3));
         wr16(0x60, computeStat(4)); // SPE / SPA
         wr16(0x62, computeStat(5)); // SPD
+    }
+
+    void Pokemon3FRLG::setExp(uint32_t value) noexcept
+    {
+        // The level is not stored in a box record; level() derives it from EXP, and the party
+        // level byte is restamped by recalculateStats().
+        wr32(0x24, value);
+        recalculateStats();
+        refreshChecksum();
     }
 
     void Pokemon3FRLG::setLevel(uint8_t levelValue) noexcept
@@ -282,6 +257,8 @@ namespace Pokemon
         // the letter's bits are overwritten on each candidate with a pattern that already yields the
         // wanted letter, so every candidate tested is a letter match and the search costs what it did
         // before. The other 24 bits still come from the walk, so nature/gender/shiny stay uniform.
+        // Wurmple: which line it evolves into is part of the PID too (PKHeX WurmpleUtil), so it is held.
+        const int wantWurmpleEvolution = wurmpleEvolutionToHold(speciesID(), pidValue);
         const bool isUnown = (speciesID() == 201);
         const int wantLetter = isUnown ? static_cast<int>(form()) : -1;
         uint32_t letterPatterns[10] = {}; // 8-bit values v with v % 28 == wantLetter (at most 10)
@@ -307,19 +284,18 @@ namespace Pokemon
             // Stamp in a letter-preserving bit pattern before ANY test -- every constraint below reads
             // the whole PID, so this has to happen first or they would be judging a PID we won't store.
             if (letterPatternCount > 0)
-                pidValue = withUnownFormValue(pidValue,
-                                              letterPatterns[(walk >> 2) % static_cast<uint32_t>(letterPatternCount)]);
+                pidValue = withUnownFormValue(pidValue, letterPatterns[(walk >> 2) % static_cast<uint32_t>(letterPatternCount)]);
             // Cheapest reject first: this LCG's low bit flips every step, so half the walk is
             // discarded by an AND before the nature modulo runs.
             if (wantAbilityBit >= 0 && static_cast<int>(pidValue & 1u) != wantAbilityBit)
                 continue;
             if (wantNature >= 0 && static_cast<int>(pidValue % 25) != wantNature)
                 continue;
+            if (wantWurmpleEvolution >= 0 && wurmpleEvolutionFromPID(pidValue) != wantWurmpleEvolution)
+                continue;
             if (wantGender >= 0)
             {
-                const int genderValue = (genderRatio == 255) ? 2 : (genderRatio == 254) ? 1
-                                            : (genderRatio == 0)     ? 0
-                                                            : ((pidValue & 0xFF) < genderRatio ? 1 : 0);
+                const int genderValue = (genderRatio == 255) ? 2 : (genderRatio == 254) ? 1 : (genderRatio == 0) ? 0 : ((pidValue & 0xFF) < genderRatio ? 1 : 0);
                 if (genderValue != wantGender)
                     continue;
             }

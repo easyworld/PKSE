@@ -1,9 +1,12 @@
+#include <algorithm>
 #include <string>
+#include <vector>
 
 #include "UI/Panels/PartyPokemonPanel.h"
 #include "UI/PKSEFramebuffer.h"
 #include "UI/Common.h"
 #include "UI/SpriteManager.h"
+#include "UI/Panels/UnmappedSlot.h"
 #include "Trainer/Trainer.h"
 #include "Pokemon/Pokemon.h"
 #include "Pokemon/PokemonTypes.h"
@@ -19,21 +22,19 @@ namespace UI
         // Draw a type ICON sprite scaled to `h` px tall at (x, y); returns drawn width (0 if none).
         // Named apart from PKSEFramebuffer::drawTypeBadge deliberately -- that one renders a coloured
         // text pill, this one blits the type's artwork. They are different things, not a duplication.
-        static int drawTypeIcon(PKSEFramebuffer &framebuffer, Sprite *type, int typeIconX, int typeIconY,
-                                int typeIconHeight)
+        static int drawTypeIcon(PKSEFramebuffer &framebuffer, Sprite *type, int typeIconX, int typeIconY, int typeIconHeight)
         {
             if (!type || !type->data)
                 return 0;
             int cardWidth = (type->width * typeIconHeight) / type->height;
-            framebuffer.drawImageScaled(typeIconX, typeIconY, type->width, type->height, cardWidth, typeIconHeight,
-                                        type->data, type->channels);
+            framebuffer.drawImageScaled(typeIconX, typeIconY, type->width, type->height, cardWidth, typeIconHeight, type->data, type->channels);
             return cardWidth;
         }
 
-        void drawPartyPokemon(PKSEFramebuffer &framebuffer, const Trainer::Trainer &trainer, int partyPokemonX,
-                              int partyPokemonY, int partyPokemonWidth, int partyPokemonHeight, int selectedIndex)
+        void drawPartyPokemon(PKSEFramebuffer &framebuffer, const Trainer::Trainer &trainer, int partyPokemonX, int partyPokemonY, int partyPokemonWidth, int partyPokemonHeight, int selectedIndex)
         {
             const auto &party = trainer.party;
+            const std::vector<size_t> unmappedPartySlots = trainer.getUnmappedPartySlots();
 
             framebuffer.drawCard(partyPokemonX, partyPokemonY, partyPokemonWidth, partyPokemonHeight);
             framebuffer.drawText(partyPokemonX + 16, partyPokemonY + 12, "同行宝可梦", Colors::Text, TextStyle::Heading);
@@ -61,19 +62,19 @@ namespace UI
                 constexpr int slotR = 12;
                 if (selected)
                     framebuffer.drawSoftShadow(cardX, cardY, colW, slotH, slotR);
-                framebuffer.drawFilledRoundedRect(cardX, cardY, colW, slotH, slotR,
-                                                  selected ? Colors::Selected : Colors::PanelAlt);
-                framebuffer.drawRoundedRect(cardX, cardY, colW, slotH, slotR,
-                                            selected ? Colors::Accent : Colors::Border, selected ? 2 : 1);
+                framebuffer.drawFilledRoundedRect(cardX, cardY, colW, slotH, slotR, selected ? Colors::Selected : Colors::PanelAlt);
+                framebuffer.drawRoundedRect(cardX, cardY, colW, slotH, slotR, selected ? Colors::Accent : Colors::Border, selected ? 2 : 1);
 
                 constexpr int pad = 14;
-                const Pokemon::Pokemon *pokemon =
-                    (index < static_cast<int>(party.size())) ? party[index].get() : nullptr;
+                // A Gen 1/2 party can hold a kept entry PKSE cannot read; it keeps its slot, and the
+                // Pokemon after it shift down one (partyIndexAtSlot).
+                const int partyIndex = trainer.partyIndexAtSlot(static_cast<size_t>(index));
+                const Pokemon::Pokemon *pokemon = partyIndex >= 0 ? party[partyIndex].get() : nullptr;
 
                 if (!pokemon || pokemon->speciesID() == 0)
                 {
-                    framebuffer.drawText(cardX + pad, cardY + slotH / 2 - 12,
-                                "槽位 " + std::to_string(index + 1) + "：空", Colors::TextDim);
+                    const bool unmapped = std::find(unmappedPartySlots.begin(), unmappedPartySlots.end(), static_cast<size_t>(index)) != unmappedPartySlots.end();
+                    framebuffer.drawText(cardX + pad, cardY + slotH / 2 - 12, "槽位 " + std::to_string(index + 1) + ":  " + (unmapped ? UNMAPPED_SLOT_LABEL : "空"), Colors::TextDim);
                     continue;
                 }
 
@@ -90,7 +91,7 @@ namespace UI
                 framebuffer.measureText(slotNumberText, numW, numH);
                 headerX += numW + 10;
 
-                std::string species = Names::getDisplayName(pokemon->speciesID(), pokemon->form(), pokemon->species());
+                std::string species = Names::getDisplayName(pokemon->speciesID(), pokemon->form(), pokemon->species(), pokemon->getGameGroup());
                 framebuffer.drawText(headerX, headerY, species, Colors::Text);
                 int spriteTextWidth, spH;
                 framebuffer.measureText(species, spriteTextWidth, spH);
@@ -107,7 +108,7 @@ namespace UI
                     framebuffer.drawShinyMark(headerX, headerY, 16, Colors::ShinyStar);
                     headerX += 20;
                 }
-                if (trainer.isPartyPokemonStarter(index))
+                if (trainer.isPartyPokemonStarter(static_cast<size_t>(partyIndex)))
                 {
                     framebuffer.drawSymbol(headerX, headerY, "♥", Colors::PartnerHeart);
                     headerX += 20;
@@ -125,8 +126,7 @@ namespace UI
                     int base, iv, evav, stat;
                 };
                 const StatRow rows[6] = {
-                    {"HP", pokemon->baseHP(), pokemon->ivHP(), usesAwakeningValues ? pokemon->avHP() : pokemon->evHP(),
-                     pokemon->statHPMax()},
+                    {"HP", pokemon->baseHP(), pokemon->ivHP(), usesAwakeningValues ? pokemon->avHP() : pokemon->evHP(), pokemon->statHPMax()},
                     {"攻击", pokemon->baseATK(), pokemon->ivATK(),
                      usesAwakeningValues ? pokemon->avATK() : pokemon->evATK(), pokemon->statATK()},
                     {"防御", pokemon->baseDEF(), pokemon->ivDEF(),
@@ -150,24 +150,32 @@ namespace UI
                 const Color colHdr = selected ? Colors::Text : Colors::TextDim;
                 framebuffer.drawText(cBase, statRowY, "普通形态", colHdr, TextStyle::Caption);
                 framebuffer.drawText(ivColumnX, statRowY, "IV", colHdr, TextStyle::Caption);
-                framebuffer.drawText(evColumnX, statRowY, usesAwakeningValues ? "AV" : "EV", colHdr,
-                                     TextStyle::Caption);
+                framebuffer.drawText(evColumnX, statRowY, usesAwakeningValues ? "AV" : "EV", colHdr, TextStyle::Caption);
                 framebuffer.drawText(cStat, statRowY, "能力值", colHdr, TextStyle::Caption);
                 statRowY += lineH;
 
-                for (const auto &r : rows)
+                for (int statIndex = 0; statIndex < 6; ++statIndex)
                 {
+                    const StatRow &r = rows[statIndex];
                     framebuffer.drawText(labelX, statRowY, r.name, Colors::TextDim, TextStyle::Caption);
                     framebuffer.drawText(cBase, statRowY, std::to_string(r.base), Colors::Text, TextStyle::Caption);
-                    framebuffer.drawText(ivColumnX, statRowY, std::to_string(r.iv), Colors::Text, TextStyle::Caption);
+                    const std::string ivText = std::to_string(r.iv);
+                    framebuffer.drawText(ivColumnX, statRowY, ivText, Colors::Text, TextStyle::Caption);
+                    // The stored IV stays what is shown, as on the details page; "HT" says the game
+                    // plays it at the maximum. Row order matches the Hyper Training bit order.
+                    if (pokemon->isHyperTrained(statIndex))
+                    {
+                        int ivTextWidth, ivTextHeight;
+                        framebuffer.measureText(ivText, ivTextWidth, ivTextHeight, TextStyle::Caption);
+                        framebuffer.drawText(ivColumnX + ivTextWidth + 3, statRowY, "HT", Colors::Accent, TextStyle::Caption);
+                    }
                     framebuffer.drawText(evColumnX, statRowY, std::to_string(r.evav), Colors::Text, TextStyle::Caption);
                     framebuffer.drawText(cStat, statRowY, std::to_string(r.stat), Colors::Accent, TextStyle::Caption);
                     statRowY += lineH;
                 }
 
                 // Type badges (stacked) + sprite (right side)
-                Pokemon::TypePair types = Pokemon::getPokemonTypes(pokemon->speciesID(), pokemon->form(),
-                                                                   pokemon->getGameGroup());
+                Pokemon::TypePair types = Pokemon::getPokemonTypes(pokemon->speciesID(), pokemon->form(), pokemon->getGameGroup());
                 const int typeX = cardX + 286;
                 drawTypeIcon(framebuffer, SpriteManager::getTypeSprite(types.type1), typeX, cardY + 42, 16);
                 if (Pokemon::hasSecondType(types))
@@ -181,9 +189,7 @@ namespace UI
                     const int spriteBoxSize = 96;
                     int spriteX = cardX + colW - pad - spriteBoxSize;
                     int spriteY = cardY + 30;
-                    framebuffer.drawSpriteIdle(spriteX, spriteY, spriteBoxSize, spriteBoxSize, sprite->width,
-                                               sprite->height, sprite->data, sprite->channels,
-                                               static_cast<float>(index) * 1.1f);
+                    framebuffer.drawSpriteIdle(spriteX, spriteY, spriteBoxSize, spriteBoxSize, sprite->width, sprite->height, sprite->data, sprite->channels, static_cast<float>(index) * 1.1f);
                 }
             }
         }

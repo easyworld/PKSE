@@ -4,7 +4,7 @@
  *
  *   crc16ccitt   Gen 4 save blocks (SAV4)  AND  Gen 6 save blocks (BlockInfo6)
  *   crc16Invert  Gen 7 (3DS) save blocks   (BlockInfo7)
- *   crc16NoInvert                          (BlockInfo7b -- Let's Go; unused today)
+ *   crc16NoInvert                          (BlockInfo7b -- Let's Go save blocks)
  *
  * PKHeX Checksums.CRC16_CCITT / CRC16Invert / CRC16NoInvert.
  */
@@ -48,10 +48,7 @@ namespace Utils {
 
         // The first entries of PKHeX's table. If the polynomial above is ever wrong, this is a
         // build failure rather than a save the game silently refuses.
-        static_assert(CRC16_TABLE[0] == 0x0000 && CRC16_TABLE[1] == 0xC0C1 &&
-                      CRC16_TABLE[2] == 0xC181 && CRC16_TABLE[3] == 0x0140 &&
-                      CRC16_TABLE[4] == 0xC301 && CRC16_TABLE[255] == 0x4040,
-                      "CRC-16/ARC table does not match PKHeX's Checksums.crc16");
+        static_assert(CRC16_TABLE[0] == 0x0000 && CRC16_TABLE[1] == 0xC0C1 && CRC16_TABLE[2] == 0xC181 && CRC16_TABLE[3] == 0x0140 && CRC16_TABLE[4] == 0xC301 && CRC16_TABLE[255] == 0x4040, "CRC-16/ARC table does not match PKHeX's Checksums.crc16");
 
         inline uint16_t crc16(const uint8_t* bytes, size_t byteCount, uint16_t initial) noexcept {
             uint32_t checksum = initial;

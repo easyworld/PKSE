@@ -6,6 +6,7 @@
 
 #include "UI/Panels/StoragePanel.h"
 #include "UI/Panels/CarriedSprite.h" // drawLiftedMon -- shared with the Boxes view
+#include "UI/Panels/UnmappedSlot.h"
 #include "UI/TrainerViewScreen.h"
 #include "Trainer/OriginStamp.h" // originStampLabel -- the origin stamp on the detail strip
 #include "UI/Common.h"
@@ -17,10 +18,10 @@
 #include "Names/FormNames.h" // getDisplayName -- variant prefix ("Alolan Raichu", etc.)
 #include "Names/ItemNames.h" // getItemNameFor -- the item that chooses a trade evolution
 #include "Trainer/Trainer.h"
+#include "Save/TitleFolder.h"
 #include "Trainer/Bank.h"
 #include "Pokemon/Pokemon.h"
 #include "Pokemon/Evolution.h" // getTradeEvolutionOffer -- the trade-evolve destination choice
-#include "Save/TitleFolder.h" // localizedGameVersionName -- transfer warning title
 
 using namespace Trainer;
 
@@ -73,9 +74,7 @@ namespace UI
             };
 
             // Draw one Pokemon (sprite + shiny/party markers) centered on a slot disc of radius discR.
-            void drawSlotDisc(TrainerViewScreen &screen, PKSEFramebuffer &framebuffer,
-                              const Pokemon::Pokemon *pokemon, bool savePane, int boxIndex, int slotIndex,
-                              int centerX, int centerY, int discR)
+            void drawSlotDisc(TrainerViewScreen &screen, PKSEFramebuffer &framebuffer, const Pokemon::Pokemon *pokemon, bool savePane, int boxIndex, int slotIndex, int centerX, int centerY, int discR)
             {
                 if (!pokemon || pokemon->speciesID() == 0)
                     return;
@@ -92,8 +91,7 @@ namespace UI
                 {
                     Sprite *sprite = SpriteManager::getIconSprite(pokemon->speciesID(), pokemon->form(), isShiny);
                     if (sprite && sprite->data)
-                        framebuffer.drawImageScaled(centerX - size / 2, centerY - size / 2, sprite->width,
-                                                    sprite->height, size, size, sprite->data, sprite->channels);
+                        framebuffer.drawImageScaled(centerX - size / 2, centerY - size / 2, sprite->width, sprite->height, size, size, sprite->data, sprite->channels);
                 }
 
                 if (isShiny)
@@ -105,8 +103,7 @@ namespace UI
                 {
                     if (screen.trainer.isStarterPokemon(boxIndex, slotIndex))
                     {
-                        framebuffer.drawSymbol(centerX - discR, centerY - discR + 2, "\xE2\x99\xA5",
-                                               Colors::PartnerHeart);
+                        framebuffer.drawSymbol(centerX - discR, centerY - discR + 2, "\xE2\x99\xA5", Colors::PartnerHeart);
                     }
                     else
                     {
@@ -119,8 +116,7 @@ namespace UI
                             framebuffer.drawFilledCircle(boxX, by, 9, Colors::PartyBadge);
                             int textWidth, th;
                             framebuffer.measureText(count, textWidth, th, TextStyle::Caption);
-                            framebuffer.drawText(boxX - textWidth / 2, by - th / 2, count, Colors::PartyBadgeText,
-                                                 TextStyle::Caption);
+                            framebuffer.drawText(boxX - textWidth / 2, by - th / 2, count, Colors::PartyBadgeText, TextStyle::Caption);
                         }
                     }
                 }
@@ -128,11 +124,7 @@ namespace UI
 
             // Draws one storage pane in the HOME box style (rounded card + indigo header band + disc
             // grid), and reports its cell geometry via outGeom.
-            void drawPane(TrainerViewScreen &screen, PKSEFramebuffer &framebuffer,
-                          int panelX, int panelY, int panelWidth, int panelHeight, bool savePane,
-                          int boxIndex, int cursorSlot, bool focused, bool entered,
-                          int cols, int rows, int slotsPerBox,
-                          const std::string &label, int boxCount, PaneGeom &outGeom)
+            void drawPane(TrainerViewScreen &screen, PKSEFramebuffer &framebuffer, int panelX, int panelY, int panelWidth, int panelHeight, bool savePane, int boxIndex, int cursorSlot, bool focused, bool entered, int cols, int rows, int slotsPerBox, const std::string &label, int boxCount, PaneGeom &outGeom)
             {
                 framebuffer.drawFilledRoundedRect(panelX, panelY, panelWidth, panelHeight, 16, Colors::Panel);
 
@@ -150,26 +142,21 @@ namespace UI
                 // this box). cursorSlot == -1 is the "header focused" sentinel.
                 const bool headerFocused = focused && entered && cursorSlot == -1;
                 framebuffer.drawPill(pillX, pillY, pillW, pillH, headerFocused ? Colors::Primary : Colors::Panel);
-                framebuffer.drawText(panelX + (panelWidth - labelWidth) / 2, pillY + (pillH - lh) / 2, label,
-                                     headerFocused ? Colors::PrimaryText : Colors::Text);
+                framebuffer.drawText(panelX + (panelWidth - labelWidth) / 2, pillY + (pillH - lh) / 2, label, headerFocused ? Colors::PrimaryText : Colors::Text);
 
                 const int arrowY = panelY + (headerH - lh) / 2;
                 // left
                 framebuffer.drawSymbol(panelX + 18, arrowY, "\xE2\x97\x80", focused ? Colors::Text : Colors::TextDim);
-                framebuffer.drawSymbol(panelX + panelWidth - 32, arrowY, "\xE2\x96\xB6",
-                                       focused ? Colors::Text : Colors::TextDim); // right
+                framebuffer.drawSymbol(panelX + panelWidth - 32, arrowY, "\xE2\x96\xB6", focused ? Colors::Text : Colors::TextDim); // right
                 // Tappable box arrows (special slot ids -2 = previous box, -3 = next box) and the name pill
                 // (-4 = rename this box). The name target sits between the two arrow zones.
                 screen.storageTouchTargets.push_back({savePane ? 0 : 1, boxIndex, -2, panelX, panelY, 64, headerH});
-                screen.storageTouchTargets.push_back(
-                    {savePane ? 0 : 1, boxIndex, -3, panelX + panelWidth - 64, panelY, 64, headerH});
-                screen.storageTouchTargets.push_back(
-                    {savePane ? 0 : 1, boxIndex, -4, panelX + 64, panelY, panelWidth - 128, headerH});
+                screen.storageTouchTargets.push_back({savePane ? 0 : 1, boxIndex, -3, panelX + panelWidth - 64, panelY, 64, headerH});
+                screen.storageTouchTargets.push_back({savePane ? 0 : 1, boxIndex, -4, panelX + 64, panelY, panelWidth - 128, headerH});
                 std::string counter = std::to_string(boxIndex + 1) + " / " + std::to_string(boxCount);
                 int captionWidth, ch;
                 framebuffer.measureText(counter, captionWidth, ch, TextStyle::Caption);
-                framebuffer.drawText(panelX + panelWidth - 44 - captionWidth, panelY + (headerH - ch) / 2, counter,
-                                     focused ? Colors::Text : Colors::TextDim, TextStyle::Caption);
+                framebuffer.drawText(panelX + panelWidth - 44 - captionWidth, panelY + (headerH - ch) / 2, counter, focused ? Colors::Text : Colors::TextDim, TextStyle::Caption);
 
                 const int gridTop = panelY + headerH + 8;
                 const int gridW = panelWidth - 28, gridH = panelHeight - headerH - 18;
@@ -192,8 +179,7 @@ namespace UI
                 // Pokemon (so they stay readable) with a matching border on top. It spans from the
                 // anchor cell to the cell under the cursor, the way HOME's multi-select highlight does.
                 int selC0 = -1, selR0 = -1, selC1 = -1, selR1 = -1;
-                if (screen.currentlySelecting && entered && screen.selectPane == thisPane &&
-                    screen.selectBox == boxIndex && cursorSlot >= 0)
+                if (screen.currentlySelecting && entered && screen.selectPane == thisPane && screen.selectBox == boxIndex && cursorSlot >= 0)
                 {
                     const int anchorColumn = screen.selectDimensions.first, ay = screen.selectDimensions.second;
                     const int cursorColumn = cursorSlot % cols, cys = cursorSlot / cols;
@@ -202,9 +188,7 @@ namespace UI
                     selR0 = std::min(ay, cys);
                     selR1 = std::max(ay, cys);
                     const Color wash(Colors::CursorMulti.red, Colors::CursorMulti.green, Colors::CursorMulti.blue, 64);
-                    framebuffer.drawFilledRoundedRect(gridX + selC0 * colPitch + 2, gridTop + selR0 * rowPitch + 2,
-                                             (selC1 - selC0 + 1) * colPitch - 4, (selR1 - selR0 + 1) * rowPitch - 4,
-                                             14, wash);
+                    framebuffer.drawFilledRoundedRect(gridX + selC0 * colPitch + 2, gridTop + selR0 * rowPitch + 2, (selC1 - selC0 + 1) * colPitch - 4, (selR1 - selR0 + 1) * rowPitch - 4, 14, wash);
                 }
 
                 for (int slotIndex = 0; slotIndex < slotsPerBox; ++slotIndex)
@@ -214,18 +198,17 @@ namespace UI
                     const int centerX = cellX + colPitch / 2, cy = cellY + rowPitch / 2;
 
                     // Whole-cell touch target (consumed next frame in update()).
-                    screen.storageTouchTargets.push_back(
-                        {thisPane, boxIndex, slotIndex, cellX, cellY, colPitch, rowPitch});
+                    screen.storageTouchTargets.push_back({thisPane, boxIndex, slotIndex, cellX, cellY, colPitch, rowPitch});
 
-                    const Pokemon::Pokemon *pokemon =
-                        savePane ? screen.trainer.boxes[boxIndex][slotIndex].get()
-                                 : (screen.bank ? screen.bank->boxes[boxIndex][slotIndex].get() : nullptr);
+                    const Pokemon::Pokemon *pokemon = savePane ? screen.trainer.boxes[boxIndex][slotIndex].get() : (screen.bank ? screen.bank->boxes[boxIndex][slotIndex].get() : nullptr);
                     const bool empty = !pokemon || pokemon->speciesID() == 0;
 
                     framebuffer.drawFilledCircle(centerX, cy, discR, empty ? Colors::Panel : Colors::PanelAlt);
                     if (empty)
                         framebuffer.drawCircle(centerX, cy, discR, Colors::Border, 1);
 
+                    if (empty && savePane && screen.trainer.isBoxSlotUnmapped(static_cast<size_t>(boxIndex), static_cast<size_t>(slotIndex)))
+                        drawUnmappedSlot(framebuffer, centerX, cy, discR);
                     drawSlotDisc(screen, framebuffer, pokemon, savePane, boxIndex, slotIndex, centerX, cy, discR);
 
                     // Box/Bank search: a box is a grid the player arranged, so matches
@@ -236,22 +219,19 @@ namespace UI
                         if (screen.storageSlotMatchesSearch(thisPane, boxIndex, slotIndex))
                             framebuffer.drawCircle(centerX, cy, discR + 2, Colors::Accent, 3);
                         else
-                            framebuffer.drawFilledCircle(centerX, cy, discR, Color(0, 0, 0, 140));
+                            framebuffer.drawFilledCircle(centerX, cy, discR, Colors::SearchMissShade);
                     }
                 }
 
                 if (selC0 >= 0)
                 {
-                    framebuffer.drawRoundedRect(gridX + selC0 * colPitch + 2, gridTop + selR0 * rowPitch + 2,
-                                       (selC1 - selC0 + 1) * colPitch - 4, (selR1 - selR0 + 1) * rowPitch - 4,
-                                       14, Colors::CursorMulti, 3);
+                    framebuffer.drawRoundedRect(gridX + selC0 * colPitch + 2, gridTop + selR0 * rowPitch + 2, (selC1 - selC0 + 1) * colPitch - 4, (selR1 - selR0 + 1) * rowPitch - 4, 14, Colors::CursorMulti, 3);
                 }
             }
 
             // The carried block plus the pointer cursor, drawn on top of BOTH panes so a group stays
             // fully visible while it travels across the screen and over the pane boundary.
-            void drawCarryAndCursor(TrainerViewScreen &screen, PKSEFramebuffer &framebuffer, const PaneGeom &g,
-                                    int cursorSlot)
+            void drawCarryAndCursor(TrainerViewScreen &screen, PKSEFramebuffer &framebuffer, const PaneGeom &g, int cursorSlot)
             {
                 const Color cursorColor = cursorColorFor(screen.cursorMode);
                 // Gentle vertical bob, a HOME-style pointer wobble done as a sine so it is framerate-independent.
@@ -281,8 +261,7 @@ namespace UI
                     {
                         for (int columnOffset = 0; columnOffset < selectionColumns; ++columnOffset)
                         {
-                            const size_t index = static_cast<size_t>(yIndex) * static_cast<size_t>(selectionColumns) +
-                                                 static_cast<size_t>(columnOffset);
+                            const size_t index = static_cast<size_t>(yIndex) * static_cast<size_t>(selectionColumns) + static_cast<size_t>(columnOffset);
                             if (index >= screen.moveMon.size())
                                 continue;
                             const int cellCenterX = baseX + columnOffset * g.colPitch + g.colPitch / 2;
@@ -290,15 +269,12 @@ namespace UI
                             // Backing tile marks the footprint the block will occupy -- including its
                             // holes, which stay empty when it lands.
                             if (selectionColumns > 1 || selectionRows > 1)
-                                framebuffer.drawFilledRoundedRect(
-                                    cellCenterX - g.colPitch / 2 + 3, cellCenterY - g.rowPitch / 2 + 3, g.colPitch - 6,
-                                    g.rowPitch - 6, 14, Color(tint.red, tint.green, tint.blue, 70));
+                                framebuffer.drawFilledRoundedRect(cellCenterX - g.colPitch / 2 + 3, cellCenterY - g.rowPitch / 2 + 3, g.colPitch - 6, g.rowPitch - 6, 14, Color(tint.red, tint.green, tint.blue, 70));
                             drawLiftedMon(framebuffer, screen.moveMon[index].get(), cellCenterX, cellCenterY, g.discR);
                         }
                     }
                     if (selectionColumns > 1 || selectionRows > 1)
-                        framebuffer.drawRoundedRect(baseX + 3, baseY + 3 + bobOffset, selectionColumns * g.colPitch - 6,
-                                                    selectionRows * g.rowPitch - 6, 14, tint, 3);
+                        framebuffer.drawRoundedRect(baseX + 3, baseY + 3 + bobOffset, selectionColumns * g.colPitch - 6, selectionRows * g.rowPitch - 6, 14, tint, 3);
                 }
 
                 // The cursor itself, in the active mode's colour: its point rests on the top of the
@@ -307,13 +283,11 @@ namespace UI
                 // -- deliberately, the way HOME's cursor does; it is drawn last, so it floats over the
                 // header instead of being clipped by it.
                 const int cellCenterX = g.centerX(cursorSlot), cellCenterY = g.centerY(cursorSlot);
-                framebuffer.drawPointerCursor(cellCenterX, cellCenterY - g.discR - 3 + bobOffset, GRID_CURSOR_HEIGHT,
-                                              cursorColor);
+                framebuffer.drawPointerCursor(cellCenterX, cellCenterY - g.discR - 3 + bobOffset, GRID_CURSOR_HEIGHT, cursorColor);
             }
         }
 
-        void drawStorageView(TrainerViewScreen &screen, PKSEFramebuffer &framebuffer, int storageViewX,
-                             int storageViewY, int storageViewWidth, int storageViewHeight)
+        void drawStorageView(TrainerViewScreen &screen, PKSEFramebuffer &framebuffer, int storageViewX, int storageViewY, int storageViewWidth, int storageViewHeight)
         {
             if (!screen.bank)
             {
@@ -339,27 +313,21 @@ namespace UI
             const bool saveFocused = screen.storageFocusPane == 0;
             const bool bankFocused = screen.storageFocusPane == 1;
 
-            std::string saveLabel = screen.selectedBoxIndex < static_cast<int>(screen.trainer.boxNames.size())
-                                        ? screen.trainer.boxNames[screen.selectedBoxIndex]
-                                        : ("盒子 " + std::to_string(screen.selectedBoxIndex + 1));
+            std::string saveLabel = screen.selectedBoxIndex < static_cast<int>(screen.trainer.boxNames.size()) ? screen.trainer.boxNames[screen.selectedBoxIndex] : ("盒子 " + std::to_string(screen.selectedBoxIndex + 1));
             std::string bankLabel = screen.bank->boxDisplayName(screen.stBankBox);
 
             PaneGeom saveGeom, bankGeom;
 
-            drawPane(screen, framebuffer, storageViewX, storageViewY, paneW, paneH, /*savePane*/ true,
-                     screen.selectedBoxIndex, screen.stSaveSlot, saveFocused, entered,
-                     saveCols, rows, saveSlots, saveLabel, static_cast<int>(screen.trainer.getBoxCount()), saveGeom);
+            drawPane(screen, framebuffer, storageViewX, storageViewY, paneW, paneH, /*savePane*/ true, screen.selectedBoxIndex, screen.stSaveSlot, saveFocused, entered, saveCols, rows, saveSlots, saveLabel, static_cast<int>(screen.trainer.getBoxCount()), saveGeom);
 
             drawPane(screen, framebuffer, storageViewX + paneW + paneGap, storageViewY, paneW, paneH,
-                     /*savePane*/ false, screen.stBankBox, screen.stBankSlot, bankFocused, entered, bankCols, rows,
-                     bankSlots, bankLabel, static_cast<int>(Bank::BANK_BOX_COUNT), bankGeom);
+                     /*savePane*/ false, screen.stBankBox, screen.stBankSlot, bankFocused, entered, bankCols, rows, bankSlots, bankLabel, static_cast<int>(Bank::BANK_BOX_COUNT), bankGeom);
 
             // Cursor + carried block last, over BOTH panes: a group being carried from one side to the
             // other must not be painted over by the destination pane's card.
             if (entered)
             {
-                drawCarryAndCursor(screen, framebuffer, saveFocused ? saveGeom : bankGeom,
-                                   saveFocused ? screen.stSaveSlot : screen.stBankSlot);
+                drawCarryAndCursor(screen, framebuffer, saveFocused ? saveGeom : bankGeom, saveFocused ? screen.stSaveSlot : screen.stBankSlot);
             }
 
             const int infoRowY = storageViewY + paneH + 8;
@@ -367,24 +335,20 @@ namespace UI
 
             if (!entered)
             {
-                framebuffer.drawText(storageViewX + 16, infoRowY + infoH / 2 - 11, "按 A 打开存储界面",
-                                     Colors::TextDim, TextStyle::Body);
+                framebuffer.drawText(storageViewX + 16, infoRowY + infoH / 2 - 11, "按 A 打开存储界面", Colors::TextDim, TextStyle::Body);
                 return;
             }
 
             // Mode swatch (dot) + name.
             const Color modeCol = cursorColorFor(screen.cursorMode);
             framebuffer.drawFilledCircle(storageViewX + 22, infoRowY + infoH / 2, 8, modeCol);
-            framebuffer.drawText(storageViewX + 38, infoRowY + infoH / 2 - 11, modeName(screen.cursorMode),
-                                 Colors::Text, TextStyle::Body);
+            framebuffer.drawText(storageViewX + 38, infoRowY + infoH / 2 - 11, modeName(screen.cursorMode), Colors::Text, TextStyle::Body);
 
             // Right side: how big the group in hand (or being swept out) is, in the mode colour.
             std::string selectionText;
             if (screen.carrying() && screen.carriedCount() > 1)
             {
-                selectionText = std::to_string(screen.carriedCount()) + " 只拿起中（" +
-                                std::to_string(screen.selectDimensions.first) + "×" +
-                                std::to_string(screen.selectDimensions.second) + "）";
+                selectionText = std::to_string(screen.carriedCount()) + " 只拿起中（" + std::to_string(screen.selectDimensions.first) + "×" + std::to_string(screen.selectDimensions.second) + "）";
             }
             else if (screen.currentlySelecting)
             {
@@ -394,8 +358,7 @@ namespace UI
             {
                 int selectionTextWidth, sh;
                 framebuffer.measureText(selectionText, selectionTextWidth, sh);
-                framebuffer.drawText(storageViewX + storageViewWidth - 16 - selectionTextWidth,
-                                     infoRowY + infoH / 2 - 11, selectionText, Colors::CursorMulti, TextStyle::Body);
+                framebuffer.drawText(storageViewX + storageViewWidth - 16 - selectionTextWidth, infoRowY + infoH / 2 - 11, selectionText, Colors::CursorMulti, TextStyle::Body);
             }
 
             // Middle: the held Pokemon, else the one under the focused cursor. When the box-name header
@@ -405,37 +368,30 @@ namespace UI
             const Pokemon::Pokemon *focus = screen.firstCarried();
             if (!focus && focusSlot >= 0)
             {
-                focus = saveFocused ? screen.trainer.boxes[screen.selectedBoxIndex][focusSlot].get()
-                                    : screen.bank->boxes[screen.stBankBox][focusSlot].get();
+                focus = saveFocused ? screen.trainer.boxes[screen.selectedBoxIndex][focusSlot].get() : screen.bank->boxes[screen.stBankBox][focusSlot].get();
             }
 
             const int labelX = storageViewX + 120;
             if (focusSlot == -1 && !holding)
             {
-                framebuffer.drawText(labelX, infoRowY + infoH / 2 - 11, "已选择盒子名称 - 按 A 重命名",
-                                     Colors::TextDim, TextStyle::Body);
+                framebuffer.drawText(labelX, infoRowY + infoH / 2 - 11, "已选择盒子名称 - 按 A 重命名", Colors::TextDim, TextStyle::Body);
             }
             else if (holding && screen.carriedCount() > 1)
             {
                 // A whole group in hand: name the leader and say how many ride with it, rather than
                 // pretending one Pokemon is the whole payload.
-                std::string display =
-                    Names::getDisplayName(focus->speciesID(), focus->form(), std::string(focus->species()));
-                std::string line = "拿起中：" + display + " +" + std::to_string(screen.carriedCount() - 1) +
-                                   (screen.checkPutDownBounds() ? "   按 A 放在此处" : "   此处空间不足");
-                framebuffer.drawText(labelX, infoRowY + infoH / 2 - 11, line,
-                            screen.checkPutDownBounds() ? Colors::Text : Colors::Warning, TextStyle::Body);
+                std::string display = Names::getDisplayName(focus->speciesID(), focus->form(), std::string(focus->species()), focus->getGameGroup());
+                std::string line = "拿起中：" + display + " +" + std::to_string(screen.carriedCount() - 1) + (screen.checkPutDownBounds() ? "   按 A 放在此处" : "   此处空间不足");
+                framebuffer.drawText(labelX, infoRowY + infoH / 2 - 11, line, screen.checkPutDownBounds() ? Colors::Text : Colors::Warning, TextStyle::Body);
             }
             else if (focus && focus->speciesID() != 0)
             {
                 std::string name(focus->species());
                 const bool shiny = focus->isShiny(focus->id32(), name);
-                std::string display = Names::getDisplayName(focus->speciesID(), focus->form(), name);
+                std::string display = Names::getDisplayName(focus->speciesID(), focus->form(), name, focus->getGameGroup());
                 // Level then dex number, matching the box Summary panel and the details page --
                 // the same pokemon should not be spelled two ways in two views of one screen.
-                std::string line = (holding ? "拿起中：" : "") + display +
-                                   "   等级 " + std::to_string(focus->level()) +
-                                   "   No. " + dexNumberLabel(focus->speciesID());
+                std::string line = (holding ? "拿起中：" : "") + display + "   等级 " + std::to_string(focus->level()) + "   编号 " + dexNumberLabel(focus->speciesID());
                 framebuffer.drawText(labelX, infoRowY + infoH / 2 - 11, line, Colors::Text, TextStyle::Body);
                 int labelWidth, lh;
                 framebuffer.measureText(line, labelWidth, lh, TextStyle::Body);
@@ -443,8 +399,7 @@ namespace UI
                 const char *g = focus->genderSymbol();
                 if (g[0] != '\0')
                 {
-                    framebuffer.drawSymbol(markX, infoRowY + infoH / 2 - 11, g,
-                                           (std::string(g) == "\xE2\x99\x82") ? Colors::Blue : Colors::Magenta);
+                    framebuffer.drawSymbol(markX, infoRowY + infoH / 2 - 11, g, (std::string(g) == "\xE2\x99\x82") ? Colors::Blue : Colors::Magenta);
                     markX += 20;
                 }
                 if (shiny)
@@ -462,28 +417,27 @@ namespace UI
                 // pane no longer tells us. Both pass nullptr and stop at the generation.
                 if (selectionText.empty())
                 {
-                    const Trainer::Trainer *originSave =
-                        (!holding && saveFocused) ? &screen.trainer : nullptr;
+                    const Trainer::Trainer *originSave = (!holding && saveFocused) ? &screen.trainer : nullptr;
                     markX += 12;
-                    Sprite *originMark = SpriteManager::getOriginMarkSprite(
-                        Trainer::originMarkFor(*focus), Colors::TextDim);
+                    Sprite *originMark = SpriteManager::getOriginMarkSprite(Trainer::originMarkFor(*focus), Colors::TextDim);
                     if (originMark != nullptr && originMark->data != nullptr)
                     {
                         const int markSize = 18;
-                        framebuffer.drawImageScaled(markX, infoRowY + infoH / 2 - 10, originMark->width,
-                                                    originMark->height, markSize, markSize,
-                                                    originMark->data, originMark->channels);
+                        framebuffer.drawImageScaled(markX, infoRowY + infoH / 2 - 10, originMark->width, originMark->height, markSize, markSize, originMark->data, originMark->channels);
                         markX += markSize + 6;
                     }
                     // Gen 1/2 have no name worth printing -- the mark IS the answer. Gen 3/4/5 have
                     // no mark, so the name is the answer. Gen 6+ get both.
                     if (focus->hasOriginGame())
                     {
-                        framebuffer.drawText(markX, infoRowY + infoH / 2 - 11,
-                                             Trainer::originStampLabel(*focus, originSave),
-                                             Colors::TextDim, TextStyle::Body);
+                        framebuffer.drawText(markX, infoRowY + infoH / 2 - 11, Trainer::originStampLabel(*focus, originSave), Colors::TextDim, TextStyle::Body);
                     }
                 }
+            }
+            else if (!holding && saveFocused && focusSlot >= 0 && screen.trainer.isBoxSlotUnmapped(static_cast<size_t>(screen.selectedBoxIndex), static_cast<size_t>(focusSlot)))
+            {
+                // A kept Gen 1/2 entry PKSE cannot read: named, but there is nothing to open.
+                framebuffer.drawText(labelX, infoRowY + infoH / 2 - 11, std::string(UNMAPPED_SLOT_LABEL) + "，已保留，无法移动", Colors::TextDim, TextStyle::Body);
             }
             else
             {
@@ -495,8 +449,7 @@ namespace UI
         {
             // A small centered popup menu (scrim + card + title + item list). Each row is registered as
             // a touch button (id = item index) so a tap selects + confirms it.
-            void drawPopupMenu(TrainerViewScreen &screen, PKSEFramebuffer &framebuffer, const std::string &title,
-                               const char *const *items, int count, int selectedIndex, uint32_t disabledMask = 0)
+            void drawPopupMenu(TrainerViewScreen &screen, PKSEFramebuffer &framebuffer, const std::string &title, const char *const *items, int count, int selectedIndex, uint32_t disabledMask = 0)
             {
                 // Touch-friendly sizing: 56px rows (TouchTargetMin) and a wide card so rows are easy to tap.
                 constexpr int dialogWidth = 440, rowH = TouchTargetMin;
@@ -507,13 +460,10 @@ namespace UI
                 constexpr int cornerRadius = Dialogs::DIALOG_CORNER_RADIUS; // same card shape as every other modal
                 framebuffer.drawFilledRect(0, 0, framebuffer.getWidth(), framebuffer.getHeight(), Color(0, 0, 0, 130));
                 framebuffer.drawSoftShadow(dialogX, dialogY, dialogWidth, dialogHeight, cornerRadius);
-                framebuffer.drawFilledRoundedRect(dialogX, dialogY, dialogWidth, dialogHeight, cornerRadius,
-                                                  Colors::Panel);
-                framebuffer.drawRoundedRect(dialogX, dialogY, dialogWidth, dialogHeight, cornerRadius, Colors::Border,
-                                            1);
+                framebuffer.drawFilledRoundedRect(dialogX, dialogY, dialogWidth, dialogHeight, cornerRadius, Colors::Panel);
+                framebuffer.drawRoundedRect(dialogX, dialogY, dialogWidth, dialogHeight, cornerRadius, Colors::Border, 1);
                 framebuffer.drawText(dialogX + 22, dialogY + 16, title, Colors::Text, TextStyle::Heading);
-                framebuffer.drawFilledRect(dialogX + cornerRadius, dialogY + headerH - 4,
-                                           dialogWidth - cornerRadius * 2, 2, Colors::Accent);
+                framebuffer.drawFilledRect(dialogX + cornerRadius, dialogY + headerH - 4, dialogWidth - cornerRadius * 2, 2, Colors::Accent);
                 screen.touchButtons.clear();
                 int rectY = dialogY + headerH;
                 for (int index = 0; index < count; ++index)
@@ -525,8 +475,7 @@ namespace UI
                     int textWidth, th;
                     framebuffer.measureText(items[index], textWidth, th, TextStyle::Body);
                     const Color rowColor = disabled ? Colors::Border : (selRow ? Colors::Text : Colors::TextDim);
-                    framebuffer.drawText(dialogX + 28, rectY + (rowH - th) / 2, items[index], rowColor,
-                                         TextStyle::Body);
+                    framebuffer.drawText(dialogX + 28, rectY + (rowH - th) / 2, items[index], rowColor, TextStyle::Body);
                     if (!disabled)
                         // greyed rows aren't tappable
                         screen.touchButtons.push_back({index, dialogX + 10, rectY, dialogWidth - 20, rowH});
@@ -537,19 +486,28 @@ namespace UI
 
         void drawStorageActionMenu(TrainerViewScreen &screen, PKSEFramebuffer &framebuffer)
         {
-            const Pokemon::Pokemon *pokemon =
-                screen.storageSlot(screen.menuPane, screen.menuBox, screen.menuSlot).get();
-            const std::string title =
-                (pokemon && pokemon->speciesID() != 0)
-                    ? Names::getDisplayName(pokemon->speciesID(), pokemon->form(), pokemon->species())
-                    : "宝可梦";
-            static const char *const items[] = {"招式", "编辑", "复制", "放生", "Find\u2026", "取消"};
-            // A party-linked (LGPE) slot can be edited or cloned, but not moved or released -- grey those
-            // two out. (Same lock rule as storageSlotLocked: save pane + a party member points here.)
-            const bool locked = screen.menuPane == 0 &&
-                                screen.trainer.getPartyPosition(screen.menuBox, screen.menuSlot) > 0;
-            const uint32_t disabled = locked ? ((1u << 0) | (1u << 3)) : 0u; // Move (0), Release (3)
-            drawPopupMenu(screen, framebuffer, title, items, 6, screen.storageMenuIndex, disabled);
+            const Pokemon::Pokemon *pokemon = screen.storageSlot(screen.menuPane, screen.menuBox, screen.menuSlot).get();
+            const std::string title = (pokemon && pokemon->speciesID() != 0) ? Names::getDisplayName(pokemon->speciesID(), pokemon->form(), pokemon->species(), pokemon->getGameGroup()) : "宝可梦";
+            // A party-linked (LGPE) or battle-team slot can be edited or cloned, but not released, and
+            // not moved out of Storage -- grey those out.
+            const bool locked = screen.storageSlotLocked(screen.menuPane, screen.menuBox, screen.menuSlot);
+            uint32_t disabledRows = 0;
+            for (int menuRow = 0; menuRow < TrainerViewScreen::STORAGE_MENU_ROW_COUNT; ++menuRow)
+                if (locked && TrainerViewScreen::storageMenuRowNeedsUnlockedSlot(menuRow, screen.selectedMode))
+                    disabledRows |= 1u << menuRow;
+            drawPopupMenu(screen, framebuffer, title, TrainerViewScreen::STORAGE_MENU_LABELS, TrainerViewScreen::STORAGE_MENU_ROW_COUNT, screen.storageMenuIndex, disabledRows);
+        }
+
+        void drawStorageBoxMenu(TrainerViewScreen &screen, PKSEFramebuffer &framebuffer)
+        {
+            std::string title;
+            if (screen.boxMenuPane != 0)
+                title = screen.bank->boxDisplayName(screen.boxMenuBox);
+            else if (screen.boxMenuBox < static_cast<int>(screen.trainer.boxNames.size()))
+                title = screen.trainer.boxNames[screen.boxMenuBox];
+            else
+                title = "盒子 " + std::to_string(screen.boxMenuBox + 1);
+            drawPopupMenu(screen, framebuffer, title, TrainerViewScreen::BOX_MENU_LABELS, TrainerViewScreen::BOX_MENU_ROW_COUNT, screen.boxMenuIndex);
         }
 
         // Options for the block in hand. There is deliberately no "move" entry: a carried group is moved
@@ -571,32 +529,24 @@ namespace UI
             }
             else
             {
-                const Pokemon::Pokemon *pokemon =
-                    screen.storageSlot(screen.releasePane, screen.releaseBox, screen.releaseSlot).get();
-                const std::string subjectName =
-                    (pokemon && pokemon->speciesID() != 0)
-                        ? Names::getDisplayName(pokemon->speciesID(), pokemon->form(), pokemon->species())
-                        : "这只宝可梦";
+                const Pokemon::Pokemon *pokemon = screen.storageSlot(screen.releasePane, screen.releaseBox, screen.releaseSlot).get();
+                const std::string subjectName = (pokemon && pokemon->speciesID() != 0) ? Names::getDisplayName(pokemon->speciesID(), pokemon->form(), pokemon->species(), pokemon->getGameGroup()) : "这只宝可梦";
                 message = "放生" + subjectName + "?";
             }
             constexpr int dialogWidth = 540, h = 226;
             const int dialogX = (framebuffer.getWidth() - dialogWidth) / 2;
             const int dialogY = (framebuffer.getHeight() - h) / 2;
-            int centerY =
-                Dialogs::drawDialogFrame(framebuffer, dialogX, dialogY, dialogWidth, h, "放生", Colors::Red);
+            int centerY = Dialogs::drawDialogFrame(framebuffer, dialogX, dialogY, dialogWidth, h, "放生", Colors::Red);
             framebuffer.drawText(dialogX + 28, centerY, message, Colors::Text);
-            framebuffer.drawText(dialogX + 28, centerY + 34, "此操作无法撤销。", Colors::TextDim,
-                                 TextStyle::Caption);
+            framebuffer.drawText(dialogX + 28, centerY + 34, "此操作无法撤销。", Colors::TextDim, TextStyle::Caption);
 
             // Buttons carry their glyph (B: Cancel, A: Release); Release stays red.
             screen.touchButtons.clear();
             const int boxWidth = 190, bh = TouchTargetMin, by = dialogY + h - bh - 18;
             const int relX = dialogX + dialogWidth - boxWidth - 20;   // right = Release (id 1 -> A)
             const int cancelX = relX - boxWidth - 16; // left  = Cancel  (id 0 -> B)
-            Dialogs::drawEditChoiceButton(screen, framebuffer, cancelX, by, boxWidth, bh, "B", "取消", 0,
-                                          Colors::PanelAlt);
-            Dialogs::drawEditChoiceButton(screen, framebuffer, relX, by, boxWidth, bh, "A", "放生", 1, Colors::Red,
-                                          Colors::White);
+            Dialogs::drawEditChoiceButton(screen, framebuffer, cancelX, by, boxWidth, bh, "B", "取消", 0, Colors::PanelAlt);
+            Dialogs::drawEditChoiceButton(screen, framebuffer, relX, by, boxWidth, bh, "A", "放生", 1, Colors::Red, Colors::White);
         }
 
         // Creator "保留这只新宝可梦吗？" confirm. Three glyph buttons (like the Edit Item dialog),
@@ -607,20 +557,15 @@ namespace UI
             constexpr int dialogWidth = 540, h = 226;
             const int dialogX = (framebuffer.getWidth() - dialogWidth) / 2;
             const int dialogY = (framebuffer.getHeight() - h) / 2;
-            int centerY =
-                Dialogs::drawDialogFrame(framebuffer, dialogX, dialogY, dialogWidth, h, "新建宝可梦", Colors::Primary);
+            int centerY = Dialogs::drawDialogFrame(framebuffer, dialogX, dialogY, dialogWidth, h, "新建宝可梦", Colors::Primary);
             framebuffer.drawText(dialogX + 28, centerY, "保留这只新宝可梦吗？", Colors::Text);
-            framebuffer.drawText(dialogX + 28, centerY + 34, "放弃将移除它；返回可继续编辑。", Colors::TextDim,
-                                 TextStyle::Caption);
+            framebuffer.drawText(dialogX + 28, centerY + 34, "放弃将移除它；返回可继续编辑。", Colors::TextDim, TextStyle::Caption);
 
             screen.touchButtons.clear();
             const int choiceButtonWidth = 160, cbh = TouchTargetMin, cby = dialogY + h - cbh - 18;
-            Dialogs::drawEditChoiceButton(screen, framebuffer, dialogX + 24, cby, choiceButtonWidth, cbh, "B", "返回",
-                                          0, Colors::PanelAlt);
-            Dialogs::drawEditChoiceButton(screen, framebuffer, dialogX + (dialogWidth - choiceButtonWidth) / 2, cby,
-                                          choiceButtonWidth, cbh, "Y", "放弃", 2, Colors::PanelAlt);
-            Dialogs::drawEditChoiceButton(screen, framebuffer, dialogX + dialogWidth - 24 - choiceButtonWidth, cby,
-                                          choiceButtonWidth, cbh, "A", "保留", 1, Colors::PanelAlt);
+            Dialogs::drawEditChoiceButton(screen, framebuffer, dialogX + 24, cby, choiceButtonWidth, cbh, "B", "返回", 0, Colors::PanelAlt);
+            Dialogs::drawEditChoiceButton(screen, framebuffer, dialogX + (dialogWidth - choiceButtonWidth) / 2, cby, choiceButtonWidth, cbh, "Y", "放弃", 2, Colors::PanelAlt);
+            Dialogs::drawEditChoiceButton(screen, framebuffer, dialogX + dialogWidth - 24 - choiceButtonWidth, cby, choiceButtonWidth, cbh, "A", "保留", 1, Colors::PanelAlt);
         }
 
         void drawDetailsDiscardConfirm(TrainerViewScreen &screen, PKSEFramebuffer &framebuffer)
@@ -632,20 +577,15 @@ namespace UI
             constexpr int dialogWidth = 560, h = 226;
             const int dialogX = (framebuffer.getWidth() - dialogWidth) / 2;
             const int dialogY = (framebuffer.getHeight() - h) / 2;
-            int centerY = Dialogs::drawDialogFrame(framebuffer, dialogX, dialogY, dialogWidth, h, "未保存的更改",
-                                                   Colors::Orange);
+            int centerY = Dialogs::drawDialogFrame(framebuffer, dialogX, dialogY, dialogWidth, h, "未保存的更改", Colors::Orange);
             framebuffer.drawText(dialogX + 28, centerY, "这只宝可梦有尚未保存的更改。", Colors::Text);
-            framebuffer.drawText(dialogX + 28, centerY + 34, "放弃将丢失这些更改；返回可继续编辑。",
-                        Colors::TextDim, TextStyle::Caption);
+            framebuffer.drawText(dialogX + 28, centerY + 34, "放弃将丢失这些更改；返回可继续编辑。", Colors::TextDim, TextStyle::Caption);
 
             screen.touchButtons.clear();
             const int choiceButtonWidth = 160, cbh = TouchTargetMin, cby = dialogY + h - cbh - 18;
-            Dialogs::drawEditChoiceButton(screen, framebuffer, dialogX + 24, cby, choiceButtonWidth, cbh, "B", "返回",
-                                          0, Colors::PanelAlt);
-            Dialogs::drawEditChoiceButton(screen, framebuffer, dialogX + (dialogWidth - choiceButtonWidth) / 2, cby,
-                                          choiceButtonWidth, cbh, "Y", "放弃", 2, Colors::PanelAlt);
-            Dialogs::drawEditChoiceButton(screen, framebuffer, dialogX + dialogWidth - 24 - choiceButtonWidth, cby,
-                                          choiceButtonWidth, cbh, "A", "保存", 1, Colors::PanelAlt);
+            Dialogs::drawEditChoiceButton(screen, framebuffer, dialogX + 24, cby, choiceButtonWidth, cbh, "B", "返回", 0, Colors::PanelAlt);
+            Dialogs::drawEditChoiceButton(screen, framebuffer, dialogX + (dialogWidth - choiceButtonWidth) / 2, cby, choiceButtonWidth, cbh, "Y", "放弃", 2, Colors::PanelAlt);
+            Dialogs::drawEditChoiceButton(screen, framebuffer, dialogX + dialogWidth - 24 - choiceButtonWidth, cby, choiceButtonWidth, cbh, "A", "保存", 1, Colors::PanelAlt);
         }
 
         void drawTradeEvolveChoice(TrainerViewScreen &screen, PKSEFramebuffer &framebuffer)
@@ -668,12 +608,9 @@ namespace UI
             const int dialogWidth = 620, dialogHeight = 186 + offer.candidateCount * rowHeight;
             const int dialogX = (framebuffer.getWidth() - dialogWidth) / 2;
             const int dialogY = (framebuffer.getHeight() - dialogHeight) / 2;
-            const int contentY = Dialogs::drawDialogFrame(framebuffer, dialogX, dialogY, dialogWidth,
-                                                          dialogHeight, "交换进化", Colors::Accent);
-            framebuffer.drawText(dialogX + 28, contentY, "它有两种交换进化结果，且未携带任何相关道具。",
-                                 Colors::Text);
-            framebuffer.drawText(dialogX + 28, contentY + 30, "选择它要进化成哪一种。",
-                                 Colors::TextDim, TextStyle::Caption);
+            const int contentY = Dialogs::drawDialogFrame(framebuffer, dialogX, dialogY, dialogWidth, dialogHeight, "交换进化", Colors::Accent);
+            framebuffer.drawText(dialogX + 28, contentY, "它有两种交换进化结果，且未携带任何相关道具。", Colors::Text);
+            framebuffer.drawText(dialogX + 28, contentY + 30, "选择它要进化成哪一种。", Colors::TextDim, TextStyle::Caption);
 
             screen.touchButtons.clear();
             for (int candidateIndex = 0; candidateIndex < offer.candidateCount; ++candidateIndex)
@@ -683,24 +620,17 @@ namespace UI
                 const bool isSelected = (candidateIndex == screen.tradeEvolveChoiceIndex);
                 if (isSelected)
                 {
-                    framebuffer.drawFilledRoundedRect(dialogX + 20, rowY, dialogWidth - 40, rowHeight - 6, 8,
-                                                      Colors::Selected);
-                    framebuffer.drawRoundedRect(dialogX + 20, rowY, dialogWidth - 40, rowHeight - 6, 8, Colors::Accent,
-                                                2);
+                    framebuffer.drawFilledRoundedRect(dialogX + 20, rowY, dialogWidth - 40, rowHeight - 6, 8, Colors::Selected);
+                    framebuffer.drawRoundedRect(dialogX + 20, rowY, dialogWidth - 40, rowHeight - 6, 8, Colors::Accent, 2);
                 }
-                framebuffer.drawText(dialogX + 34, rowY + 12,
-                                     Names::getDisplayName(becomes.destinationSpeciesId, becomes.destinationFormId,
-                                                           Trainer::getSpeciesName(becomes.destinationSpeciesId)),
-                                     isSelected ? Colors::Text : Colors::TextDim);
+                framebuffer.drawText(dialogX + 34, rowY + 12, Names::getDisplayName(becomes.destinationSpeciesId, becomes.destinationFormId, Trainer::getSpeciesName(becomes.destinationSpeciesId)), isSelected ? Colors::Text : Colors::TextDim);
                 // THE ITEM THAT WOULD HAVE CHOSEN IT, named in the pokemon's own game -- Deep Sea
                 // Tooth is a different id in Gen 3 than it is from Gen 4 on. It says why these two
                 // rows exist, which the destination names alone do not.
-                const std::string chosenBy =
-                    std::string("携带") + Names::getItemNameFor(pokemon->getGameGroup(), becomes.requiredItemId);
+                const std::string chosenBy = std::string("with ") + Names::getItemNameFor(pokemon->getGameGroup(), becomes.requiredItemId);
                 int chosenByWidth = 0, chosenByHeight = 0;
                 framebuffer.measureText(chosenBy, chosenByWidth, chosenByHeight, TextStyle::Caption);
-                framebuffer.drawText(dialogX + dialogWidth - 34 - chosenByWidth, rowY + 15, chosenBy,
-                                     Colors::TextDim, TextStyle::Caption);
+                framebuffer.drawText(dialogX + dialogWidth - 34 - chosenByWidth, rowY + 15, chosenBy, Colors::TextDim, TextStyle::Caption);
                 screen.touchButtons.push_back({candidateIndex, dialogX + 20, rowY, dialogWidth - 40, rowHeight - 6});
             }
         }
@@ -715,25 +645,17 @@ namespace UI
             constexpr int dialogWidth = 620, dialogHeight = 244;
             const int dialogX = (framebuffer.getWidth() - dialogWidth) / 2;
             const int dialogY = (framebuffer.getHeight() - dialogHeight) / 2;
-            const int centerY = Dialogs::drawDialogFrame(framebuffer, dialogX, dialogY, dialogWidth,
-                                                         dialogHeight, "交换进化", Colors::Accent);
+            const int centerY = Dialogs::drawDialogFrame(framebuffer, dialogX, dialogY, dialogWidth, dialogHeight, "交换进化", Colors::Accent);
             framebuffer.drawText(dialogX + 28, centerY, "这只宝可梦会在交换时进化。", Colors::Text);
-            framebuffer.drawText(dialogX + 28, centerY + 32,
-                                 "Its game records the other trainer, so PKSE needs one.",
-                                 Colors::TextDim, TextStyle::Caption);
-            framebuffer.drawText(dialogX + 28, centerY + 58,
-                                 "A save you own is a real trainer. Generated invents one.",
-                                 Colors::TextDim, TextStyle::Caption);
+            framebuffer.drawText(dialogX + 28, centerY + 32, "此游戏会记录交换对象，请选择一名训练家。", Colors::TextDim, TextStyle::Caption);
+            framebuffer.drawText(dialogX + 28, centerY + 58, "可从存档读取训练家，也可自动生成。", Colors::TextDim, TextStyle::Caption);
 
             screen.touchButtons.clear();
             const int choiceButtonWidth = 176, buttonHeight = TouchTargetMin;
             const int buttonY = dialogY + dialogHeight - buttonHeight - 18;
-            Dialogs::drawEditChoiceButton(screen, framebuffer, dialogX + 24, buttonY, choiceButtonWidth,
-                                          buttonHeight, "B", "取消", 0, Colors::PanelAlt);
-            Dialogs::drawEditChoiceButton(screen, framebuffer, dialogX + (dialogWidth - choiceButtonWidth) / 2, buttonY,
-                                          choiceButtonWidth, buttonHeight, "Y", "生成", 2, Colors::PanelAlt);
-            Dialogs::drawEditChoiceButton(screen, framebuffer, dialogX + dialogWidth - 24 - choiceButtonWidth, buttonY,
-                                          choiceButtonWidth, buttonHeight, "A", "使用存档", 1, Colors::PanelAlt);
+            Dialogs::drawEditChoiceButton(screen, framebuffer, dialogX + 24, buttonY, choiceButtonWidth, buttonHeight, "B", "取消", 0, Colors::PanelAlt);
+            Dialogs::drawEditChoiceButton(screen, framebuffer, dialogX + (dialogWidth - choiceButtonWidth) / 2, buttonY, choiceButtonWidth, buttonHeight, "Y", "生成", 2, Colors::PanelAlt);
+            Dialogs::drawEditChoiceButton(screen, framebuffer, dialogX + dialogWidth - 24 - choiceButtonWidth, buttonY, choiceButtonWidth, buttonHeight, "A", "使用存档", 1, Colors::PanelAlt);
         }
 
         void drawTradePartnerTitlePicker(TrainerViewScreen &screen, PKSEFramebuffer &framebuffer)
@@ -743,23 +665,18 @@ namespace UI
             // dialog like every other element picker on this page.
             const auto &candidates = screen.tradePartnerTitles.candidates;
             constexpr int rowHeight = 46, maxVisibleRows = 6;
-            const int visibleRows = candidates.empty() ? 1
-                                    : (static_cast<int>(candidates.size()) < maxVisibleRows
-                                           ? static_cast<int>(candidates.size())
-                                           : maxVisibleRows);
+            const int visibleRows = candidates.empty() ? 1 : (static_cast<int>(candidates.size()) < maxVisibleRows ? static_cast<int>(candidates.size()) : maxVisibleRows);
             const int dialogWidth = 620, dialogHeight = 150 + visibleRows * rowHeight;
             const int dialogX = (framebuffer.getWidth() - dialogWidth) / 2;
             const int dialogY = (framebuffer.getHeight() - dialogHeight) / 2;
-            const int contentY = Dialogs::drawDialogFrame(framebuffer, dialogX, dialogY, dialogWidth,
-                                                          dialogHeight, "交换对象", Colors::Accent);
+            const int contentY = Dialogs::drawDialogFrame(framebuffer, dialogX, dialogY, dialogWidth, dialogHeight, "交换对象", Colors::Accent);
 
             screen.touchButtons.clear();
             if (candidates.empty())
             {
                 // An empty list is a real answer -- no other save on this console can trade with
                 // this Pokemon -- and saying so beats an empty panel, which reads as a failure.
-                framebuffer.drawText(dialogX + 28, contentY + 8,
-                                     "这台主机上没有其他存档可以与它交换。", Colors::TextDim);
+                framebuffer.drawText(dialogX + 28, contentY + 8, "这台主机上没有其他存档可以与它交换。", Colors::TextDim);
                 return;
             }
 
@@ -774,19 +691,15 @@ namespace UI
                 const bool isSelected = (candidateIndex == screen.tradePartnerTitles.selectedIndex);
                 if (isSelected)
                 {
-                    framebuffer.drawFilledRoundedRect(dialogX + 20, rowY, dialogWidth - 40, rowHeight - 6, 8,
-                                                      Colors::Selected);
-                    framebuffer.drawRoundedRect(dialogX + 20, rowY, dialogWidth - 40, rowHeight - 6, 8, Colors::Accent,
-                                                2);
+                    framebuffer.drawFilledRoundedRect(dialogX + 20, rowY, dialogWidth - 40, rowHeight - 6, 8, Colors::Selected);
+                    framebuffer.drawRoundedRect(dialogX + 20, rowY, dialogWidth - 40, rowHeight - 6, 8, Colors::Accent, 2);
                 }
-                framebuffer.drawText(dialogX + 34, rowY + 12, entry.label,
-                                     isSelected ? Colors::Text : Colors::TextDim);
+                framebuffer.drawText(dialogX + 34, rowY + 12, entry.label, isSelected ? Colors::Text : Colors::TextDim);
                 // WHOSE SAVE IT IS, always. Two users on one console may own the same title, and
                 // without the name those rows are the same string twice.
                 int userNameWidth = 0, userNameHeight = 0;
                 framebuffer.measureText(entry.userName, userNameWidth, userNameHeight, TextStyle::Caption);
-                framebuffer.drawText(dialogX + dialogWidth - 34 - userNameWidth, rowY + 15, entry.userName,
-                                     Colors::TextDim, TextStyle::Caption);
+                framebuffer.drawText(dialogX + dialogWidth - 34 - userNameWidth, rowY + 15, entry.userName, Colors::TextDim, TextStyle::Caption);
                 screen.touchButtons.push_back({candidateIndex, dialogX + 20, rowY, dialogWidth - 40, rowHeight - 6});
             }
         }
@@ -796,27 +709,22 @@ namespace UI
             // Frame + Cancel/Continue buttons shared by the two lossy-move notices. Only the chrome is
             // shared; each dialog writes its own copy, because they warn about different losses.
             // Returns the content Y to start drawing body text at.
-            int beginMoveConfirm(PKSEFramebuffer &framebuffer, const char *title, Color accent, int &dialogX,
-                                 int &dialogY, int dialogWidth, int dialogHeight)
+            int beginMoveConfirm(PKSEFramebuffer &framebuffer, const char *title, Color accent, int &dialogX, int &dialogY, int dialogWidth, int dialogHeight)
             {
                 dialogX = (framebuffer.getWidth() - dialogWidth) / 2;
                 dialogY = (framebuffer.getHeight() - dialogHeight) / 2;
-                return Dialogs::drawDialogFrame(framebuffer, dialogX, dialogY, dialogWidth, dialogHeight, title,
-                                                accent);
+                return Dialogs::drawDialogFrame(framebuffer, dialogX, dialogY, dialogWidth, dialogHeight, title, accent);
             }
 
-            void endMoveConfirm(TrainerViewScreen &screen, PKSEFramebuffer &framebuffer, int dialogX, int dialogY,
-                                int dialogWidth, int dialogHeight)
+            void endMoveConfirm(TrainerViewScreen &screen, PKSEFramebuffer &framebuffer, int dialogX, int dialogY, int dialogWidth, int dialogHeight)
             {
                 // On-button glyphs (B: Cancel, A: Continue) -- a single button each, no Left/Right selector.
                 screen.touchButtons.clear();
                 const int boxWidth = 190, bh = TouchTargetMin, by = dialogY + dialogHeight - bh - 18;
                 const int contX = dialogX + dialogWidth - boxWidth - 20;   // right = Continue (id 1 -> A)
                 const int cancelX = contX - boxWidth - 16; // left  = Cancel   (id 0 -> B)
-                Dialogs::drawEditChoiceButton(screen, framebuffer, cancelX, by, boxWidth, bh, "B", "取消", 0,
-                                              Colors::PanelAlt);
-                Dialogs::drawEditChoiceButton(screen, framebuffer, contX, by, boxWidth, bh, "A", "继续", 1,
-                                              Colors::PanelAlt);
+                Dialogs::drawEditChoiceButton(screen, framebuffer, cancelX, by, boxWidth, bh, "B", "取消", 0, Colors::PanelAlt);
+                Dialogs::drawEditChoiceButton(screen, framebuffer, contX, by, boxWidth, bh, "A", "继续", 1, Colors::PanelAlt);
             }
         }
 
@@ -836,22 +744,19 @@ namespace UI
             const int dialogHeight = originalTrainerNameDropped ? 356 : 300;
             constexpr int dialogWidth = 580;
             int dialogX = 0, y = 0;
-            int centerY = beginMoveConfirm(framebuffer, "要转换为第三世代格式吗？", Colors::Warning,
-                                           dialogX, y, dialogWidth, dialogHeight);
+            int centerY = beginMoveConfirm(framebuffer, "要转换为第三世代格式吗？", Colors::Warning, dialogX, y, dialogWidth, dialogHeight);
             framebuffer.drawText(dialogX + 28, centerY, "第三世代没有性格字段，因此会重新生成 PID", Colors::Text);
-            framebuffer.drawText(dialogX + 28, centerY + 28, "以保留原性格；转换结果可能会被判定为", Colors::Text);
+            framebuffer.drawText(dialogX + 28, centerY + 28, "以保留原性格。转换后的宝可梦", Colors::Text);
             framebuffer.drawText(dialogX + 28, centerY + 56, "可能会被判定为非法，奖章与证章及", Colors::Text);
             framebuffer.drawText(dialogX + 28, centerY + 84, "携带道具也会被移除。此操作无法撤销。", Colors::Text);
             centerY += 124;
             if (originalTrainerNameDropped)
             {
-                framebuffer.drawText(dialogX + 28, centerY, "第三世代无法写入这名训练家的名字，因此",
-                                     Colors::Warning);
+                framebuffer.drawText(dialogX + 28, centerY, "第三世代无法写入这名训练家的名字，因此", Colors::Warning);
                 framebuffer.drawText(dialogX + 28, centerY + 28, "初训家名字将留空。", Colors::Warning);
                 centerY += 56;
             }
-            framebuffer.drawText(dialogX + 28, centerY, "不建议这样操作，仍要继续吗？", Colors::TextDim,
-                                 TextStyle::Caption);
+            framebuffer.drawText(dialogX + 28, centerY, "不建议这样操作，仍要继续吗？", Colors::TextDim, TextStyle::Caption);
             endMoveConfirm(screen, framebuffer, dialogX, y, dialogWidth, dialogHeight);
         }
 
@@ -867,29 +772,22 @@ namespace UI
             const int dialogHeight = originIsGuess ? 356 : 300;
             constexpr int dialogWidth = 600;
             int dialogX = 0, y = 0;
-            int centerY = beginMoveConfirm(framebuffer, "宝可梦虚拟传送", Colors::Warning,
-                                           dialogX, y, dialogWidth, dialogHeight);
+            int centerY = beginMoveConfirm(framebuffer, "宝可梦虚拟传送", Colors::Warning, dialogX, y, dialogWidth, dialogHeight);
             framebuffer.drawText(dialogX + 28, centerY, "离开第一／第二世代会重新生成个体值、创建", Colors::Text);
-            framebuffer.drawText(dialogX + 28, centerY + 28, "PID、丢失部分经验和能力经验，",
-                                 Colors::Text);
-            framebuffer.drawText(dialogX + 28, centerY + 56, "并赋予隐藏特性。此操作无法撤销。",
-                                 Colors::Text);
+            framebuffer.drawText(dialogX + 28, centerY + 28, "PID、丢失部分经验和能力经验，", Colors::Text);
+            framebuffer.drawText(dialogX + 28, centerY + 56, "并赋予隐藏特性。此操作无法撤销。", Colors::Text);
             centerY += 96;
             if (originIsGuess)
             {
                 // Naming the title we are about to stamp matters more than saying "unknown": the
                 // user can see whether it matches the game the Pokemon actually came from, and
                 // nothing else in PKSE will ever be able to tell them.
-                const std::string originName =
-                    Save::localizedGameVersionName(screen.pendingTransferOriginVersion());
-                framebuffer.drawText(dialogX + 28, centerY, "没有任何信息记录它来自哪款游戏，因此",
-                                     Colors::Warning);
-                framebuffer.drawText(dialogX + 28, centerY + 28, "初训家游戏将设为" + originName + ".",
-                                     Colors::Warning);
+                const std::string originName = Save::localizedGameVersionName(screen.pendingTransferOriginVersion());
+                framebuffer.drawText(dialogX + 28, centerY, "没有任何信息记录它来自哪款游戏，因此", Colors::Warning);
+                framebuffer.drawText(dialogX + 28, centerY + 28, "初训家游戏将设为" + originName + ".", Colors::Warning);
                 centerY += 62;
             }
-            framebuffer.drawText(dialogX + 28, centerY, "要继续传送吗？", Colors::TextDim,
-                                 TextStyle::Caption);
+            framebuffer.drawText(dialogX + 28, centerY, "要继续传送吗？", Colors::TextDim, TextStyle::Caption);
             endMoveConfirm(screen, framebuffer, dialogX, y, dialogWidth, dialogHeight);
         }
 
@@ -899,13 +797,11 @@ namespace UI
         {
             constexpr int dialogWidth = 580, h = 300;
             int dialogX = 0, y = 0;
-            int centerY =
-                beginMoveConfirm(framebuffer, "Let's Go 传送", Colors::Primary, dialogX, y, dialogWidth, h);
+            int centerY = beginMoveConfirm(framebuffer, "Let's Go 传送", Colors::Primary, dialogX, y, dialogWidth, h);
             framebuffer.drawText(dialogX + 28, centerY, "传入或传出 Let's Go 会重置觉醒值／努力值", Colors::Text);
             framebuffer.drawText(dialogX + 28, centerY + 28, "为 0、移除携带道具，并删除它无法合法", Colors::Text);
             framebuffer.drawText(dialogX + 28, centerY + 56, "学会的招式。", Colors::Text);
-            framebuffer.drawText(dialogX + 28, centerY + 96, "要继续传送吗？", Colors::TextDim,
-                                 TextStyle::Caption);
+            framebuffer.drawText(dialogX + 28, centerY + 96, "要继续传送吗？", Colors::TextDim, TextStyle::Caption);
             endMoveConfirm(screen, framebuffer, dialogX, y, dialogWidth, h);
         }
 
@@ -913,8 +809,8 @@ namespace UI
         {
             // The bank has unsaved changes; ask before leaving (HOME-style). Bank saving is separate
             // from the game (X) save, so this is the bank's own persistence decision.
-            static const char *const items[] = {"保存并退出", "放弃更改", "取消"};
-            drawPopupMenu(screen, framebuffer, "保存银行更改吗？", items, 3, screen.storageExitConfirmIndex);
+            const char *const items[] = {screen.storageExitConfirmLabel(TrainerViewScreen::STORAGE_EXIT_ROW_SAVE), screen.storageExitConfirmLabel(TrainerViewScreen::STORAGE_EXIT_ROW_DISCARD), screen.storageExitConfirmLabel(TrainerViewScreen::STORAGE_EXIT_ROW_CANCEL)};
+            drawPopupMenu(screen, framebuffer, "保存银行更改吗？", items, TrainerViewScreen::STORAGE_EXIT_ROW_COUNT, screen.storageExitConfirmIndex);
         }
     }
 }

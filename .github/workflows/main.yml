@@ -10,16 +10,16 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
-    
+
     container:
       image: easyworld/atmosphere-build-env:latest
-    
+
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
       with:
         submodules: recursive
-    
+
     - name: Install Python dependencies
       run: pip install Pillow requests --break-system-packages
 
@@ -32,18 +32,27 @@ jobs:
     - name: Fetch origin marks
       run: python tools/gen_marks.py
 
+    - name: Fetch ribbon and mark icons
+      env:
+        GITHUB_TOKEN: ${{ github.token }}
+      run: python tools/gen_ribbons.py
+
     - name: Build Pokemon sprites
+      env:
+        GITHUB_TOKEN: ${{ github.token }}
       run: SPRITE_MAX_WORKERS=8 python tools/gen_hdsprites.py
 
     - name: Process Pokemon type images
       run: python pokemon_type_image_processor.py
-    
+
     - name: Build project
-      run: make all MAX_JOBS=8
-    
+      run: make -j 4 all
+
     - name: Upload artifact
       uses: actions/upload-artifact@v4
       with:
         name: PKSE
-        path: PKSE.nro
+        path: |
+          PKSE.nro
+          PKSE-dev.nro
         if-no-files-found: error

@@ -3,6 +3,7 @@
 
 #include "Trainer/Trainer8LA.h"
 #include "Pokemon/DexTable8LA.h"       // getStatisticsIndex8LA -- the species+form -> entry lookup
+#include "Pokemon/FormInfo.h"          // isLordForm
 #include "Pokemon/PersonalInfoTable.h" // getPersonalInfo -> per-game presence
 #include "Utils/Logger.h"
 
@@ -98,8 +99,7 @@ namespace Trainer
          * Each slot is exactly SIZE_PARTY8_LA (0x178) bytes of Pokemon data,
          * packed with no inter-slot gap.
          */
-        const std::span<const std::byte> blockSpan(reinterpret_cast<const std::byte *>(block.data.data()),
-                                                   block.data.size());
+        const std::span<const std::byte> blockSpan(reinterpret_cast<const std::byte *>(block.data.data()), block.data.size());
 
         for (size_t slot = 0; slot < MAX_PARTY_SLOTS; ++slot)
         {
@@ -111,8 +111,7 @@ namespace Trainer
             std::span<const std::byte> slotSpan = blockSpan.subspan(offset, SIZE_PARTY8_LA);
 
             bool isEmptySlot = true;
-            for (size_t slotSpanIndex = 0; slotSpanIndex < SIZE_PARTY8_LA && slotSpanIndex < slotSpan.size();
-                 ++slotSpanIndex)
+            for (size_t slotSpanIndex = 0; slotSpanIndex < SIZE_PARTY8_LA && slotSpanIndex < slotSpan.size(); ++slotSpanIndex)
             {
                 if (slotSpan[slotSpanIndex] != std::byte{0})
                 {
@@ -201,9 +200,7 @@ namespace Trainer
          *
          * Total size: 32 boxes * 30 slots * SIZE_STORED8_LA bytes
          */
-        const std::span<const std::byte> blockSpan(
-            reinterpret_cast<const std::byte *>(block.data.data()),
-            block.data.size());
+        const std::span<const std::byte> blockSpan(reinterpret_cast<const std::byte *>(block.data.data()), block.data.size());
 
         for (size_t boxIndex = 0; boxIndex < BOX_COUNT8_LA; ++boxIndex)
         {
@@ -219,8 +216,7 @@ namespace Trainer
                 std::span<const std::byte> slotSpan = blockSpan.subspan(offset, SIZE_STORED8_LA);
 
                 bool isEmptySlot = true;
-                for (size_t slotSpanIndex = 0; slotSpanIndex < SIZE_STORED8_LA && slotSpanIndex < slotSpan.size();
-                     ++slotSpanIndex)
+                for (size_t slotSpanIndex = 0; slotSpanIndex < SIZE_STORED8_LA && slotSpanIndex < slotSpan.size(); ++slotSpanIndex)
                 {
                     if (slotSpan[slotSpanIndex] != std::byte{0})
                     {
@@ -248,9 +244,7 @@ namespace Trainer
             size_t offset = boxIndex * BOX_NAME_LENGTH8_LA;
             if (offset + BOX_NAME_LENGTH8_LA <= block.data.size())
             {
-                std::u16string boxNameU16 = getString(
-                    block.data.data() + offset,
-                    BOX_NAME_LENGTH8_LA);
+                std::u16string boxNameU16 = getString(block.data.data() + offset, BOX_NAME_LENGTH8_LA);
                 std::string boxName = utf16ToUtf8(boxNameU16);
 
                 if (boxName.empty())
@@ -303,29 +297,25 @@ namespace Trainer
                 std::vector<uint8_t> blankSlot;
                 {
                     std::vector<std::byte> zero(SIZE_PARTY8_LA, std::byte{0});
-                    std::byte *encryptedRecord = encryptArray8LA(
-                        std::span<const std::byte>(zero.data(), SIZE_PARTY8_LA), 0);
-                    blankSlot.assign(reinterpret_cast<const uint8_t *>(encryptedRecord),
-                                     reinterpret_cast<const uint8_t *>(encryptedRecord) + SIZE_PARTY8_LA);
+                    std::byte *encryptedRecord = encryptArray8LA(std::span<const std::byte>(zero.data(), SIZE_PARTY8_LA), 0);
+                    blankSlot.assign(reinterpret_cast<const uint8_t *>(encryptedRecord), reinterpret_cast<const uint8_t *>(encryptedRecord) + SIZE_PARTY8_LA);
                     blankSlot.resize(partySlotStride, 0); // 0x178 (no gap for LA)
                     delete[] encryptedRecord;
                 }
 
-                for (size_t partySlotIndex = 0; partySlotIndex < party.size() && partySlotIndex < MAX_PARTY_SLOTS;
-                     ++partySlotIndex)
+                for (size_t partySlotIndex = 0; partySlotIndex < party.size() && partySlotIndex < MAX_PARTY_SLOTS; ++partySlotIndex)
                 {
                     // Calculate offset (packed for LA: stride == SIZE_PARTY8_LA)
                     const size_t offset = partySlotIndex * partySlotStride;
+                    if (slotHoldsLoadedRecord(party[partySlotIndex].get(), &block.data[offset], SIZE_PARTY8_LA, decryptArray8LA))
+                        continue;
 
                     if (party[partySlotIndex] && party[partySlotIndex]->speciesID() != 0)
                     {
                         const ::Pokemon::Pokemon *pokemon = party[partySlotIndex].get();
-                        uint32_t encryptionConstant = readUInt32LittleEndian(
-                            reinterpret_cast<const uint8_t *>(pokemon->getData().data()));
+                        uint32_t encryptionConstant = readUInt32LittleEndian(reinterpret_cast<const uint8_t *>(pokemon->getData().data()));
 
-                        std::span<const std::byte> decryptedSpan(
-                            pokemon->getData().data(),
-                            pokemon->getDataSize());
+                        std::span<const std::byte> decryptedSpan(pokemon->getData().data(), pokemon->getDataSize());
 
                         std::byte *encryptedData = encryptArray8LA(decryptedSpan, encryptionConstant);
 
@@ -337,18 +327,20 @@ namespace Trainer
 
                         delete[] encryptedData;
                     }
-                    else
+                    else if (!slotHoldsGameBlank(&block.data[offset], SIZE_PARTY8_LA, RECORD_SPECIES_OFFSET, decryptArray8LA))
                     {
-                        // Empty slot: write the encrypted blank, NOT zeros (see the header note).
+                        // Empty slot: an already-empty one keeps the game's own bytes; otherwise the
+                        // encrypted blank, NOT zeros (see the header note).
                         std::memcpy(&block.data[offset], blankSlot.data(), partySlotStride);
                     }
                 }
 
-                // Remaining trailing slots are empty -> encrypted blank, not zeros.
+                // Remaining trailing slots are empty too.
                 for (size_t partySlotIndex = party.size(); partySlotIndex < MAX_PARTY_SLOTS; ++partySlotIndex)
                 {
                     const size_t offset = partySlotIndex * partySlotStride;
-                    std::memcpy(&block.data[offset], blankSlot.data(), partySlotStride);
+                    if (!slotHoldsGameBlank(&block.data[offset], SIZE_PARTY8_LA, RECORD_SPECIES_OFFSET, decryptArray8LA))
+                        std::memcpy(&block.data[offset], blankSlot.data(), partySlotStride);
                 }
 
                 break;
@@ -395,8 +387,7 @@ namespace Trainer
                 const size_t offset = boxIndex * BOX_NAME_LENGTH8_LA;
                 if (offset + BOX_NAME_LENGTH8_LA > block.data.size())
                     break;
-                setString(block.data.data() + offset, BOX_NAME_LENGTH8_LA,
-                          utf8ToUtf16(boxNames[boxIndex]), BOX_NAME_LENGTH8_LA / 2 - 1);
+                setString(block.data.data() + offset, BOX_NAME_LENGTH8_LA, utf8ToUtf16(boxNames[boxIndex]), BOX_NAME_LENGTH8_LA / 2 - 1);
             }
             break;
         }
@@ -413,11 +404,13 @@ namespace Trainer
          * (crypto shuffles/XORs the 0x08..0x168 blocks; the 0x10 party tail is irrelevant
          * to a box slot), then copy ONLY the first 0x168 encrypted bytes into the slot.
          *
-         * Empty box slots must be the game's encrypted "blank" (which DECRYPTS to species 0),
-         * NOT literal zeros: the game decrypts every box slot and checks species, so a zeroed
-         * slot decrypts to garbage and renders a BAD EGG. Reuse the game's own blank by copying
-         * an existing empty (species-0) slot; if every box is full, synthesize one from an
-         * all-zero PA8 encrypted with EC 0 and take its first 0x168 bytes.
+         * Every slot is decided from its POSITION in the file, as PKHeX writes only the slot it
+         * sets: bytes that still hold this slot's in-memory record, or an empty slot whose bytes
+         * already read as empty, are left alone; an occupied slot is written; anything else (a
+         * Pokemon moved or removed from here, a zeroed slot) gets a synthesized blank -- an
+         * all-zero PA8 encrypted with EC 0, first 0x168 bytes. Never zeros (the game decrypts every
+         * slot; zeros render a BAD EGG), and never one slot's bytes harvested as "the" blank: after
+         * a Move the first empty slot in memory can still hold the moved Pokemon in the file.
          */
         for (auto &block : blocks)
         {
@@ -429,33 +422,11 @@ namespace Trainer
                     block.data.resize(requiredSize, 0);
                 }
 
-                // Capture a reference "blank" slot (0x168 bytes) that decrypts to species 0.
                 std::vector<uint8_t> blankSlot;
-                for (size_t boxIndex = 0; boxIndex < BOX_COUNT8_LA && blankSlot.empty(); ++boxIndex)
                 {
-                    for (size_t slotIndex = 0; slotIndex < BOX_SLOTS; ++slotIndex)
-                    {
-                        if (boxes[boxIndex][slotIndex] && boxes[boxIndex][slotIndex]->speciesID() == 0)
-                        {
-                            const size_t byteOffset = (boxIndex * BOX_SLOTS + slotIndex) * boxSlotStride;
-                            if (byteOffset + boxSlotStride <= block.data.size())
-                            {
-                                blankSlot.assign(block.data.begin() + byteOffset,
-                                                 block.data.begin() + byteOffset + boxSlotStride);
-                                break;
-                            }
-                        }
-                    }
-                }
-                if (blankSlot.empty())
-                {
-                    // Synthesize: encrypt an all-zero PA8 (party size) with EC 0, then take the
-                    // first SIZE_STORED8_LA (0x168) bytes — a stored-size blank that decrypts to species 0.
                     std::vector<std::byte> zero(SIZE_PARTY8_LA, std::byte{0});
-                    std::byte *encryptedRecord = encryptArray8LA(
-                        std::span<const std::byte>(zero.data(), SIZE_PARTY8_LA), 0);
-                    blankSlot.assign(reinterpret_cast<const uint8_t *>(encryptedRecord),
-                                     reinterpret_cast<const uint8_t *>(encryptedRecord) + SIZE_STORED8_LA);
+                    std::byte *encryptedRecord = encryptArray8LA(std::span<const std::byte>(zero.data(), SIZE_PARTY8_LA), 0);
+                    blankSlot.assign(reinterpret_cast<const uint8_t *>(encryptedRecord), reinterpret_cast<const uint8_t *>(encryptedRecord) + SIZE_STORED8_LA);
                     blankSlot.resize(boxSlotStride, 0); // exactly 0x168 for LA's packed layout
                     delete[] encryptedRecord;
                 }
@@ -464,35 +435,22 @@ namespace Trainer
                 {
                     for (size_t slot = 0; slot < BOX_SLOTS; ++slot)
                     {
-                        // Calculate offset (packed for LA: stride == SIZE_STORED8_LA = 0x168)
                         const size_t offset = (boxIndex * BOX_SLOTS + slot) * boxSlotStride;
+                        const auto &pokemon = boxes[boxIndex][slot];
+                        if (slotHoldsLoadedRecord(pokemon.get(), &block.data[offset], SIZE_STORED8_LA, decryptArray8LA))
+                            continue;
 
-                        // Gate on species, not just the pointer (ghost-slot fix). A slot left holding a
-                        // non-null but blank/species-0 pokemon (e.g. after a bank move) must read as EMPTY
-                        // in-game — re-encrypting a blank writes a bad egg.
-                        if (boxes[boxIndex][slot] && boxes[boxIndex][slot]->speciesID() != 0)
+                        if (pokemon && pokemon->speciesID() != 0)
                         {
-                            const auto &pokemon = boxes[boxIndex][slot];
-
-                            uint32_t encryptionConstant = readUInt32LittleEndian(
-                                reinterpret_cast<const uint8_t *>(pokemon->getData().data()));
-
-                            std::span<const std::byte> decryptedSpan(
-                                pokemon->getData().data(),
-                                pokemon->getDataSize());
-
+                            uint32_t encryptionConstant = readUInt32LittleEndian(reinterpret_cast<const uint8_t *>(pokemon->getData().data()));
+                            std::span<const std::byte> decryptedSpan(pokemon->getData().data(), pokemon->getDataSize());
                             std::byte *encryptedData = encryptArray8LA(decryptedSpan, encryptionConstant);
-
                             // Box slots are STORED-size: copy ONLY the first 0x168 encrypted bytes.
-                            // (No party-stats region and no inter-slot gap for a box slot.)
                             std::memcpy(&block.data[offset], encryptedData, SIZE_STORED8_LA);
-
                             delete[] encryptedData;
                         }
-                        else
+                        else if (!slotHoldsGameBlank(&block.data[offset], SIZE_STORED8_LA, RECORD_SPECIES_OFFSET, decryptArray8LA))
                         {
-                            // Empty/cleared slot: write the game's encrypted blank (0x168), NOT zeros.
-                            // Zeros decrypt to garbage in-game and show as a BAD EGG in every empty slot.
                             std::memcpy(&block.data[offset], blankSlot.data(), boxSlotStride);
                         }
                     }
@@ -510,10 +468,8 @@ namespace Trainer
         // span (matches the party read). The ctor decrypts it straight back to zeros -> a clean
         // species-0, checksum-valid entity. Raw zeros would decrypt to garbage (BAD EGG).
         std::vector<std::byte> zero(SIZE_PARTY8_LA, std::byte{0});
-        std::byte *encryptedRecord = encryptArray8LA(
-            std::span<const std::byte>(zero.data(), SIZE_PARTY8_LA), 0);
-        auto clone = std::make_unique<Pokemon8LA>(
-            std::span<const std::byte>(encryptedRecord, SIZE_PARTY8_LA));
+        std::byte *encryptedRecord = encryptArray8LA(std::span<const std::byte>(zero.data(), SIZE_PARTY8_LA), 0);
+        auto clone = std::make_unique<Pokemon8LA>(std::span<const std::byte>(encryptedRecord, SIZE_PARTY8_LA));
         delete[] encryptedRecord;
         return clone;
     }
@@ -530,7 +486,9 @@ namespace Trainer
     // Research entry (per species), the fields this writes:
     //   0x00 u32 flags -- bit0 has-ever-been-updated, bit1 has-any-report, bit2 perfect,
     //                     bit3 selected-gender-is-female, bit4 selected-shiny, bit5 selected-alpha
-    //   0x0A u16 ObtainedCount   0x50 u8 selected form
+    //   0x0A u16 ObtainedCount   0x0C u16 update counter   0x50 u8 selected form
+    //   0x22/0x24/0x26/0x28/0x2A u16 alpha/large/small/heavy/light caught counts
+    // Global data: 0x06 u16 the next update counter to hand out.
     //
     // Statistics entry (per species+form):
     //   0x00 u32 flags (bit0 = has max size records)   0x04 u8 seen-in-wild   0x05 u8 obtained
@@ -546,11 +504,19 @@ namespace Trainer
         constexpr size_t PLA_STATS_SIZE = 0x18;
         constexpr size_t PLA_BLOCK_SIZE = 0x1E460;
         constexpr uint16_t PLA_MAX_RESEARCH_POINTS = 60000; // PokedexConstants8a
+        constexpr size_t GLOBAL_UPDATE_COUNTER_OFFSET8_LA = 0x06;
+        constexpr size_t RESEARCH_FLAGS_OFFSET8_LA = 0x00;
+        constexpr size_t RESEARCH_CATCH_COUNT_OFFSET8_LA = 0x0A;
+        constexpr size_t RESEARCH_UPDATE_COUNTER_OFFSET8_LA = 0x0C;
+        constexpr size_t RESEARCH_ALPHA_COUNT_OFFSET8_LA = 0x22;
+        constexpr size_t RESEARCH_LARGE_COUNT_OFFSET8_LA = 0x24;
+        constexpr size_t RESEARCH_SMALL_COUNT_OFFSET8_LA = 0x26;
+        constexpr size_t RESEARCH_HEAVY_COUNT_OFFSET8_LA = 0x28;
+        constexpr size_t RESEARCH_LIGHT_COUNT_OFFSET8_LA = 0x2A;
 
         inline uint32_t rdU32(const std::vector<uint8_t> &d, size_t offset)
         {
-            return static_cast<uint32_t>(d[offset]) | (static_cast<uint32_t>(d[offset + 1]) << 8) |
-                   (static_cast<uint32_t>(d[offset + 2]) << 16) | (static_cast<uint32_t>(d[offset + 3]) << 24);
+            return static_cast<uint32_t>(d[offset]) | (static_cast<uint32_t>(d[offset + 1]) << 8) | (static_cast<uint32_t>(d[offset + 2]) << 16) | (static_cast<uint32_t>(d[offset + 3]) << 24);
         }
         inline void wrU32(std::vector<uint8_t> &d, size_t offset, uint32_t value)
         {
@@ -578,6 +544,77 @@ namespace Trainer
         {
             std::memcpy(&d[offset], &floatValue, sizeof floatValue);
         }
+
+        // The species is part of the key so an editor evolution counts the new species, as the
+        // game's own evolution does (PKHeX OnPokeEvolve).
+        uint64_t storedPokemonKey(const ::Pokemon::Pokemon &pokemon)
+        {
+            return (static_cast<uint64_t>(pokemon.speciesID()) << 32) | pokemon.encryptionConstant();
+        }
+    }
+
+    uint16_t Trainer8LA::researchField(const std::vector<uint8_t> &pokedexBytes, uint16_t speciesId, ResearchField8LA field) noexcept
+    {
+        if (speciesId >= ::Pokemon::DEX8LA_MAX_SPECIES || pokedexBytes.size() < PLA_BLOCK_SIZE) return 0;
+        size_t fieldOffset = RESEARCH_CATCH_COUNT_OFFSET8_LA;
+        switch (field)
+        {
+        case ResearchField8LA::CatchCount:
+            fieldOffset = RESEARCH_CATCH_COUNT_OFFSET8_LA;
+            break;
+        case ResearchField8LA::AlphaCount:
+            fieldOffset = RESEARCH_ALPHA_COUNT_OFFSET8_LA;
+            break;
+        case ResearchField8LA::LargeCount:
+            fieldOffset = RESEARCH_LARGE_COUNT_OFFSET8_LA;
+            break;
+        case ResearchField8LA::SmallCount:
+            fieldOffset = RESEARCH_SMALL_COUNT_OFFSET8_LA;
+            break;
+        case ResearchField8LA::HeavyCount:
+            fieldOffset = RESEARCH_HEAVY_COUNT_OFFSET8_LA;
+            break;
+        case ResearchField8LA::LightCount:
+            fieldOffset = RESEARCH_LIGHT_COUNT_OFFSET8_LA;
+            break;
+        case ResearchField8LA::UpdateCounter:
+            fieldOffset = RESEARCH_UPDATE_COUNTER_OFFSET8_LA;
+            break;
+        case ResearchField8LA::Flags:
+            fieldOffset = RESEARCH_FLAGS_OFFSET8_LA;
+            break;
+        }
+        return rdU16(pokedexBytes, PLA_RESEARCH_BASE + static_cast<size_t>(speciesId) * PLA_RESEARCH_SIZE + fieldOffset);
+    }
+
+    uint16_t Trainer8LA::nextResearchUpdateCounter(const std::vector<uint8_t> &pokedexBytes) noexcept
+    {
+        if (pokedexBytes.size() < PLA_BLOCK_SIZE) return 0;
+        return rdU16(pokedexBytes, GLOBAL_UPDATE_COUNTER_OFFSET8_LA);
+    }
+
+    std::map<uint64_t, size_t> Trainer8LA::countStoredPokemon() const
+    {
+        std::map<uint64_t, size_t> pokemonCounts;
+        auto countPokemon = [&](const ::Pokemon::Pokemon *pokemon)
+        {
+            if (pokemon && pokemon->speciesID() != 0)
+            {
+                ++pokemonCounts[storedPokemonKey(*pokemon)];
+            }
+        };
+        for (const auto &pokemon : party)
+        {
+            countPokemon(pokemon.get());
+        }
+        for (const auto &box : boxes)
+        {
+            for (const auto &pokemon : box)
+            {
+                countPokemon(pokemon.get());
+            }
+        }
+        return pokemonCounts;
     }
 
     void Trainer8LA::updatePokedexBlock()
@@ -594,24 +631,97 @@ namespace Trainer
         if (!dex || dex->size() < PLA_BLOCK_SIZE)
         {
             if (dex)
-                logErrorToFile(
-                    "Pokedex: PLA Zukan block is short; skipped",
-                    ("size=" + std::to_string(dex->size()) + " expected=" + std::to_string(PLA_BLOCK_SIZE)).c_str());
+                logErrorToFile("Pokedex: PLA Zukan block is short; skipped", ("size=" + std::to_string(dex->size()) + " expected=" + std::to_string(PLA_BLOCK_SIZE)).c_str());
             return;
         }
         size_t skippedNoEntry = 0;
+        size_t newArrivalCount = 0;
 
-        auto registerMon = [&](const ::Pokemon::Pokemon *pokemon)
+        // PKHeX SetPokeHasBeenUpdated: a species is stamped with the next update counter the first
+        // time its research changes.
+        auto markResearchUpdated = [&](size_t research)
+        {
+            wrU32(*dex, research + 0x00, rdU32(*dex, research + 0x00) | 0x01); // has-ever-been-updated
+            if (rdU16(*dex, research + RESEARCH_UPDATE_COUNTER_OFFSET8_LA) != 0) return;
+            const uint16_t nextUpdateCounter = rdU16(*dex, GLOBAL_UPDATE_COUNTER_OFFSET8_LA);
+            if (nextUpdateCounter < PLA_MAX_RESEARCH_POINTS)
+            {
+                wrU16(*dex, GLOBAL_UPDATE_COUNTER_OFFSET8_LA, static_cast<uint16_t>(nextUpdateCounter + 1));
+            }
+            wrU16(*dex, research + RESEARCH_UPDATE_COUNTER_OFFSET8_LA, nextUpdateCounter);
+        };
+        // PKHeX IncrementResearchTaskProgress: every call stamps the species, whether or not it counts.
+        auto updateResearchTask = [&](size_t research, size_t countOffset, bool shouldCount)
+        {
+            markResearchUpdated(research);
+            if (!shouldCount) return;
+            const uint32_t increasedCount = rdU16(*dex, research + countOffset) + 1u;
+            wrU16(*dex, research + countOffset, static_cast<uint16_t>(increasedCount > PLA_MAX_RESEARCH_POINTS ? PLA_MAX_RESEARCH_POINTS : increasedCount));
+        };
+        // A size task counts only for a species that has it, judged against that task's threshold
+        // (PKHeX IsPokeLarge / IsPokeSmall / IsPokeHeavy / IsPokeLight). A size of 0 was never
+        // recorded rather than tiny, so it counts toward none of them.
+        auto meetsSizeTask = [](uint16_t speciesId, ::Pokemon::SizeResearchTask8LA task, float sizeValue)
+        {
+            if (sizeValue <= 0.0f) return false;
+            uint8_t taskThreshold = 0;
+            if (!::Pokemon::getSizeResearchThreshold8LA(speciesId, task, taskThreshold)) return false;
+            switch (task)
+            {
+            case ::Pokemon::SizeResearchTask8LA::CatchLarge:
+                return sizeValue >= taskThreshold;
+            case ::Pokemon::SizeResearchTask8LA::CatchSmall:
+                return sizeValue <= taskThreshold;
+            case ::Pokemon::SizeResearchTask8LA::CatchHeavy:
+                return sizeValue >= taskThreshold / 10.0;
+            case ::Pokemon::SizeResearchTask8LA::CatchLight:
+                return sizeValue <= taskThreshold / 10.0;
+            }
+            return false;
+        };
+        // PKHeX OnPokeGet, for a Pokemon that was neither caught asleep, in the air, unseen nor at a
+        // time of day: the catch, alpha and four size tasks, in that order.
+        auto updateArrivalResearch = [&](size_t research, uint16_t speciesId, bool alpha, float heightValue, float weightValue)
+        {
+            updateResearchTask(research, RESEARCH_CATCH_COUNT_OFFSET8_LA, true);
+            updateResearchTask(research, RESEARCH_ALPHA_COUNT_OFFSET8_LA, alpha);
+            updateResearchTask(research, RESEARCH_LARGE_COUNT_OFFSET8_LA, meetsSizeTask(speciesId, ::Pokemon::SizeResearchTask8LA::CatchLarge, heightValue));
+            updateResearchTask(research, RESEARCH_SMALL_COUNT_OFFSET8_LA, meetsSizeTask(speciesId, ::Pokemon::SizeResearchTask8LA::CatchSmall, heightValue));
+            updateResearchTask(research, RESEARCH_HEAVY_COUNT_OFFSET8_LA, meetsSizeTask(speciesId, ::Pokemon::SizeResearchTask8LA::CatchHeavy, weightValue));
+            updateResearchTask(research, RESEARCH_LIGHT_COUNT_OFFSET8_LA, meetsSizeTask(speciesId, ::Pokemon::SizeResearchTask8LA::CatchLight, weightValue));
+        };
+
+        auto registerMon = [&](const ::Pokemon::Pokemon *pokemon, bool isNewArrival)
         {
             if (!pokemon || pokemon->isEgg())
                 return;
             const uint16_t species = pokemon->speciesID();
-            if (species == 0 || species > ::Pokemon::DEX8LA_MAX_SPECIES)
+            if (species == 0 || species >= ::Pokemon::DEX8LA_MAX_SPECIES)
                 return;
             const uint8_t form = pokemon->form();
+            // A noble is never obtained in-game, and PKHeX's OnPokeGet registers nothing for one.
+            if (::Pokemon::isLordForm(species, form)) return;
             const ::Pokemon::PersonalInfo &pi = ::Pokemon::getPersonalInfo(species, form);
             // not in this game
             if ((pi.presence & ::Pokemon::PERSONAL_GAME_PLA) == 0) return;
+
+            const size_t research = PLA_RESEARCH_BASE + static_cast<size_t>(species) * PLA_RESEARCH_SIZE;
+            const bool alpha = (pokemon->getGameGroup() == Enums::GameVersion::PLA) && static_cast<const Pokemon8LA *>(pokemon)->isAlpha();
+            const float heightValue = (pokemon->getGameGroup() == Enums::GameVersion::PLA) ? static_cast<const Pokemon8LA *>(pokemon)->heightAbsolute() : 0.0f;
+            const float weightValue = (pokemon->getGameGroup() == Enums::GameVersion::PLA) ? static_cast<const Pokemon8LA *>(pokemon)->weightAbsolute() : 0.0f;
+
+            // "Is this species new?" has to be read before ObtainedCount is touched.
+            const bool wasNew = rdU16(*dex, research + RESEARCH_CATCH_COUNT_OFFSET8_LA) == 0;
+
+            // Research counts a Pokemon once, on arrival: PKHeX runs OnPokeGet as a slot is filled,
+            // and counting everything in storage would add one per Pokemon on every save. Like
+            // OnPokeGet this comes before the statistics lookup, so a species with no statistics entry
+            // (Arceus) is still counted.
+            if (isNewArrival)
+            {
+                updateArrivalResearch(research, species, alpha, heightValue, weightValue);
+                ++newArrivalCount;
+            }
 
             // Statistics entries are reached through the lookup, and plenty of species+form pairs
             // simply have none -- that is a legitimate "no dex slot", not an error.
@@ -622,11 +732,8 @@ namespace Trainer
                 return;
             }
 
-            const size_t research = PLA_RESEARCH_BASE + static_cast<size_t>(species) * PLA_RESEARCH_SIZE;
             const size_t stats = PLA_STATS_BASE + static_cast<size_t>(statIdx) * PLA_STATS_SIZE;
 
-            const bool alpha = (pokemon->getGameGroup() == Enums::GameVersion::PLA) &&
-                               static_cast<const Pokemon8LA *>(pokemon)->isAlpha();
             const bool shiny = pokemon->isShiny(pokemon->id32(), pokemon->species());
             const uint8_t gender = pokemon->gender(); // 0 male, 1 female, 2 genderless
             // Variant shift: shiny +4, alpha +2, female +1. Genderless does NOT shift (PKHeX masks
@@ -640,12 +747,6 @@ namespace Trainer
             // non-alpha slots (shift 0,1,4,5). PKHeX SetPokeObtained.
             if (!alpha)
             {
-                const float heightValue = (pokemon->getGameGroup() == Enums::GameVersion::PLA)
-                                    ? static_cast<const Pokemon8LA *>(pokemon)->heightAbsolute()
-                                    : 0.0f;
-                const float weightValue = (pokemon->getGameGroup() == Enums::GameVersion::PLA)
-                                    ? static_cast<const Pokemon8LA *>(pokemon)->weightAbsolute()
-                                    : 0.0f;
                 if (heightValue > 0.0f && weightValue > 0.0f)
                 {
                     const bool hadNonAlpha = ((*dex)[stats + 0x05] & 0x33) != 0;
@@ -670,21 +771,15 @@ namespace Trainer
                 }
             }
 
-            // "Is this species new?" has to be read before ObtainedCount is touched, for the same reason.
-            const bool wasNew = rdU16(*dex, research + 0x0A) == 0;
-
             (*dex)[stats + 0x04] |= bit; // seen in the wild
             (*dex)[stats + 0x05] |= bit; // obtained
             // 0x06 caught-in-wild is deliberately NOT set: a pokemon that arrived by transfer or was made
             // in the editor was never caught in this game's wild, and that flag feeds catch research.
 
-            // Research entry: bump the obtained counter (the "catch N of these" task) and mark the
-            // species touched. has-any-report (bit1) is deliberately left alone -- that means the
-            // player has REPORTED to Laventon, which has not happened; the game grants it when they do.
+            // Research entry: mark the species touched. has-any-report (bit1) is deliberately left
+            // alone -- that means the player has REPORTED to Laventon, which has not happened; the
+            // game grants it when they do.
             wrU32(*dex, research + 0x00, rdU32(*dex, research + 0x00) | 0x01); // has-ever-been-updated
-            const uint32_t obtained = rdU16(*dex, research + 0x0A) + 1u;
-            wrU16(*dex, research + 0x0A,
-                  static_cast<uint16_t>(obtained > PLA_MAX_RESEARCH_POINTS ? PLA_MAX_RESEARCH_POINTS : obtained));
 
             // Selected variant -- what the dex page shows for this species. Only for a species that had
             // none, so an entry the player already had keeps what it was showing.
@@ -692,10 +787,19 @@ namespace Trainer
             {
                 (*dex)[research + 0x50] = form;
                 uint32_t flags = rdU32(*dex, research + 0x00) & ~0x38u; // clear gender/shiny/alpha
-                // The female bit only means anything where the dex keeps the two sexes as separate
-                // models. Where it does not, male and female share one record and the bit would claim
-                // a variant the page cannot show (PKHeX reads the same PokemonInfoGenders bit 3).
-                if (gender == 1 && ::Pokemon::tracksGenderSeparately8LA(species, form))
+                // PKHeX SetSelectedGenderForm: the Pokemon's own gender, except where the two
+                // genders are one record -- there the obtained flags of this shiny/alpha variant
+                // decide (shift +0 male, +1 female), which the obtain bit set above feeds.
+                bool selectedGender1 = gender == 1;
+                if (::Pokemon::sharesGenderRecord8LA(species, form))
+                {
+                    const uint8_t obtainedFlags = (*dex)[stats + 0x05];
+                    const int variantShift = (shiny ? 4 : 0) + (alpha ? 2 : 0);
+                    const bool maleObtained = (obtainedFlags & (1u << variantShift)) != 0;
+                    const bool femaleObtained = (obtainedFlags & (1u << (variantShift + 1))) != 0;
+                    selectedGender1 = selectedGender1 ? (!maleObtained || femaleObtained) : (!maleObtained && femaleObtained);
+                }
+                if (selectedGender1)
                     flags |= 0x08;
                 if (shiny)
                     flags |= 0x10;
@@ -705,18 +809,38 @@ namespace Trainer
             }
         };
 
+        std::map<uint64_t, size_t> pokemonCounts;
+        auto registerStoredPokemon = [&](const ::Pokemon::Pokemon *pokemon)
+        {
+            if (!pokemon || pokemon->speciesID() == 0) return;
+            const uint64_t pokemonKey = storedPokemonKey(*pokemon);
+            const auto storedCount = storedPokemonCounts.find(pokemonKey);
+            const size_t previousCount = storedCount == storedPokemonCounts.end() ? 0 : storedCount->second;
+            registerMon(pokemon, ++pokemonCounts[pokemonKey] > previousCount);
+        };
         for (const auto &pokemon : party)
-            registerMon(pokemon.get());
+        {
+            registerStoredPokemon(pokemon.get());
+        }
         for (const auto &box : boxes)
+        {
             for (const auto &pokemon : box)
-                registerMon(pokemon.get());
+            {
+                registerStoredPokemon(pokemon.get());
+            }
+        }
+        storedPokemonCounts = std::move(pokemonCounts);
+
+        if (newArrivalCount != 0)
+        {
+            logInfoToFile("Pokedex: new Pokemon counted toward catch research", std::to_string(newArrivalCount).c_str());
+        }
 
         // Not an error -- many species+form pairs genuinely have no statistics slot -- but a sudden
         // jump here would mean the lookup table is wrong, and silence is how that hides.
         if (skippedNoEntry != 0)
         {
-            logInfoToFile("Pokedex: species+form with no PLA statistics entry",
-                          (std::to_string(skippedNoEntry) + " skipped").c_str());
+            logInfoToFile("Pokedex: species+form with no PLA statistics entry", (std::to_string(skippedNoEntry) + " skipped").c_str());
         }
     }
 

@@ -67,6 +67,20 @@ namespace Enums
         return ballId < (sizeof(names) / sizeof(names[0])) ? names[ballId] : "(unknown)";
     }
 
+    inline const char *localizedBallName(uint8_t ballId)
+    {
+        static constexpr const char *names[] = {
+            "（无）", "大师球", "高级球", "超级球", "精灵球", "狩猎球",
+            "捕网球", "潜水球", "巢穴球", "重复球", "计时球", "豪华球",
+            "纪念球", "黑暗球", "治愈球", "先机球", "贵重球", "速度球",
+            "等级球", "诱饵球", "沉重球", "甜蜜球", "友友球", "月亮球",
+            "竞赛球", "梦境球", "究极球", "奇异球", "精灵球", "超级球",
+            "高级球", "飞羽球", "飞翼球", "飞梭球", "沉重球", "超重球",
+            "巨重球", "起源球"};
+        static_assert(sizeof(names) / sizeof(names[0]) == static_cast<uint8_t>(Ball::LAOrigin) + 1);
+        return ballId < sizeof(names) / sizeof(names[0]) ? names[ballId] : "（未知）";
+    }
+
     /// Highest ball id each save format can hold.
     ///
     /// Through Gen 7 this is arithmetic on introductions: a generation keeps every ball the ones

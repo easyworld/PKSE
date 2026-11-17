@@ -60,6 +60,14 @@ namespace Enums
         return languageId < (sizeof(names) / sizeof(names[0])) ? names[languageId] : "-";
     }
 
+    inline const char *localizedLanguageName(uint8_t languageId)
+    {
+        static constexpr const char *names[] = {
+            "-", "日语", "英语", "法语", "意大利语", "德语", "-",
+            "西班牙语", "韩语", "简体中文", "繁体中文", "拉丁美洲西班牙语"};
+        return languageId < sizeof(names) / sizeof(names[0]) ? names[languageId] : "-";
+    }
+
     /**
      * Whether a game in `group` was ever released in `languageId`.
      *

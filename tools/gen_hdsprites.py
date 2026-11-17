@@ -78,6 +78,9 @@ def _get(url, accept=None):
     headers = {"User-Agent": "pkse-gen-hdsprites"}
     if accept:
         headers["Accept"] = accept
+    token = os.environ.get("GITHUB_TOKEN")
+    if token and urllib.parse.urlsplit(url).hostname == "api.github.com":
+        headers["Authorization"] = "Bearer " + token
     req = urllib.request.Request(url, headers=headers)
     for attempt in range(DOWNLOAD_RETRIES + 1):
         try:

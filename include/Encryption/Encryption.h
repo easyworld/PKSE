@@ -14,8 +14,7 @@ namespace Encryption {
 
     // uint8_t, not u_int8_t: the latter is a BSD/glibc spelling that isn't standard C++ and doesn't
     // exist outside those libcs, which broke the host build of the save layer.
-    static const uint8_t StaticXorpad[] =
-    {
+    static const uint8_t StaticXorpad[] = {
         0xA0, 0x92, 0xD1, 0x06, 0x07, 0xDB, 0x32, 0xA1, 0xAE, 0x01, 0xF5, 0xC5, 0x1E, 0x84, 0x4F, 0xE3,
         0x53, 0xCA, 0x37, 0xF4, 0xA7, 0xB0, 0x4D, 0xA0, 0x18, 0xB7, 0xC2, 0x97, 0xDA, 0x5F, 0x53, 0x2B,
         0x75, 0xFA, 0x48, 0x16, 0xF8, 0xD4, 0x8A, 0x6F, 0x61, 0x05, 0xF4, 0xE2, 0xFD, 0x04, 0xB5, 0xA3,
@@ -41,6 +40,13 @@ namespace Encryption {
     };
 
     void cryptStaticXorpadBytes(std::vector<uint8_t> &data, size_t dataLength);
+    /**
+     * Decrypts and parses a SwishCrypto save (Sword/Shield, Legends: Arceus, Scarlet/Violet,
+     * Legends: Z-A). Returns NO blocks -- which is what a trainer's isValid() reports -- unless the
+     * file is longer than its hash, its SHA-256 footer matches (PKHeX SwishCrypto.GetIsHashValid),
+     * and the block parse covers the whole payload. A partial parse is refused rather than loaded,
+     * because the save path re-emits only the blocks it parsed, under a fresh valid hash.
+     */
     std::vector<Save::Block> decrypt(uint8_t* data, size_t dataLength);
     std::vector<uint8_t> encrypt(const std::vector<Save::Block>& blocks);
     void computeHash(const uint8_t* data, size_t dataLength, uint8_t* hash);
@@ -106,8 +112,7 @@ namespace Encryption {
      * ones; encrypting does the reverse. Getting this backwards round-trips correctly inside PKSE
      * -- both directions are permutations -- and diverges only from what the game reads.
      */
-    void shuffleBlocks(std::span<const std::byte> data, std::span<std::byte> result, uint32_t shuffleValue,
-                       size_t blockSize, bool invert);
+    void shuffleBlocks(std::span<const std::byte> data, std::span<std::byte> result, uint32_t shuffleValue, size_t blockSize, bool invert);
 }
 
 #endif

@@ -40,8 +40,7 @@ namespace Pokemon
         std::unique_ptr<Pokemon> clone() const override
         {
             uint32_t encryptionConstant = readUInt32LittleEndian(reinterpret_cast<const uint8_t *>(data.data()));
-            std::byte *encryptedRecord =
-                encryptArray9LZA(std::span<const std::byte>(data.data(), dataSize), encryptionConstant);
+            std::byte *encryptedRecord = encryptArray9LZA(std::span<const std::byte>(data.data(), dataSize), encryptionConstant);
             auto copiedPokemon = std::make_unique<Pokemon9LZA>(std::span<const std::byte>(encryptedRecord, dataSize));
             delete[] encryptedRecord;
             return copiedPokemon;
@@ -54,8 +53,7 @@ namespace Pokemon
         {
             // Z-A stores the same Gen 9 INTERNAL species index as S/V (PKHeX PA9 uses the identical
             // SpeciesConverter.GetNational9) -- convert on read; see Pokemon9SV.h / SpeciesConverter9.h.
-            return gen9InternalToNational(
-                readUInt16LittleEndian(reinterpret_cast<const uint8_t *>(data.data() + 0x08)));
+            return gen9InternalToNational(readUInt16LittleEndian(reinterpret_cast<const uint8_t *>(data.data() + 0x08)));
         }
 
         const char *species() const noexcept override;
@@ -124,11 +122,18 @@ namespace Pokemon
             return readUInt16LittleEndian(reinterpret_cast<const uint8_t *>(data.data() + 0x72 + slot * 2));
         }
 
+        /// An emptied slot carries 35 PP and no PP Ups in Z-A, not 0 (PKHeX PA9.FixMoves).
         void setMove(int slot, uint16_t moveID) noexcept override
         {
             if (slot < 0 || slot > 3)
                 return;
             writeUInt16LittleEndian(reinterpret_cast<uint8_t *>(data.data() + 0x72 + slot * 2), moveID);
+            if (moveID == 0)
+            {
+                constexpr uint8_t emptySlotPowerPoints = 35;
+                setMovePP(slot, emptySlotPowerPoints);
+                setMovePPUps(slot, 0);
+            }
             refreshChecksum();
         }
 
@@ -226,6 +231,7 @@ namespace Pokemon
             data[0x126] = static_cast<std::byte>(value);
             refreshChecksum();
         }
+        uint8_t hyperTrainMinimumLevel() const noexcept override { return 50; }
 
         uint8_t originGame() const noexcept override { return static_cast<uint8_t>(data[0xCE]); }
         void setOriginGame(uint8_t version) noexcept override
@@ -300,10 +306,25 @@ namespace Pokemon
         }
 
         uint8_t metLevel() const noexcept override { return static_cast<uint8_t>(data[0x125]) & 0x7F; }
+        /// Keeps the obedience level (0x11F) valid against the new met level, as PKHeX's
+        /// MiscVerifierHelpers.IsObedienceLevelValid requires: equal to it while the Pokemon is
+        /// untraded (no handling trainer name), and never below it after a trade.
         void setMetLevel(uint8_t value) noexcept override
         {
             uint8_t packedByte = (static_cast<uint8_t>(data[0x125]) & 0x80) | (value & 0x7F);
             data[0x125] = static_cast<std::byte>(packedByte);
+            const uint8_t newMetLevel = static_cast<uint8_t>(value & 0x7F);
+            const bool untraded = data[0xA8] == std::byte{0} && data[0xA9] == std::byte{0};
+            if (untraded || obedienceLevel() < newMetLevel)
+            {
+                data[0x11F] = static_cast<std::byte>(newMetLevel);
+            }
+            refreshChecksum();
+        }
+        uint8_t obedienceLevel() const noexcept { return static_cast<uint8_t>(data[0x11F]); }
+        void setObedienceLevel(uint8_t value) noexcept
+        {
+            data[0x11F] = static_cast<std::byte>(value);
             refreshChecksum();
         }
 
@@ -463,8 +484,7 @@ namespace Pokemon
         void setSpecies(uint16_t species) noexcept override
         {
             // Store the INTERNAL index (inverse of speciesID's read conversion; PKHeX PA9.GetInternal9).
-            writeUInt16LittleEndian(reinterpret_cast<uint8_t *>(data.data() + 0x08),
-                                    gen9NationalToInternal(species));
+            writeUInt16LittleEndian(reinterpret_cast<uint8_t *>(data.data() + 0x08), gen9NationalToInternal(species));
             recalculateStats();
             refreshChecksum();
         }
@@ -475,8 +495,7 @@ namespace Pokemon
             // Maushold and Dudunsparce read their form from EncryptionConstant % 100, so the form byte
             // alone is only half the edit -- left mismatched the Pokemon is illegal, and the games
             // cannot produce that state. A no-op for every other species. See FormInfo.
-            setEncryptionConstant(
-                correctEncryptionConstantForForm(speciesID(), formValue, encryptionConstant()));
+            setEncryptionConstant(correctEncryptionConstantForForm(speciesID(), formValue, encryptionConstant()));
             recalculateStats();
             refreshChecksum();
         }
@@ -568,9 +587,29 @@ namespace Pokemon
         /**
          * Alpha flag -- a whole byte at 0x23 (PA9), not a bit. Z-A keeps Legends: Arceus's Alphas, and
          * its Pokedex entry records "an Alpha of this species was seen" separately from the form flags.
-         * Read-only here: nothing in PKSE creates an Alpha, but a save can already contain one.
          */
         bool isAlpha() const noexcept override { return static_cast<uint8_t>(data[0x23]) != 0; }
+        bool hasAlphaFlag() const noexcept override { return true; }
+
+        /**
+         * A wild Alpha's scale (0x4A) is 255. Height and weight (0x48 / 0x49) must be 0 or equal to
+         * the scale (PKHeX MiscScaleVerifier): the game leaves them 0 and HOME copies the scale into
+         * them, so a nonzero pair follows the scale and a zero pair stays zero.
+         */
+        void setAlpha(bool alpha) noexcept override
+        {
+            data[0x23] = static_cast<std::byte>(alpha ? 1 : 0);
+            if (alpha)
+            {
+                data[0x4A] = static_cast<std::byte>(0xFF);
+                if (static_cast<uint8_t>(data[0x48]) != 0 || static_cast<uint8_t>(data[0x49]) != 0)
+                {
+                    data[0x48] = static_cast<std::byte>(0xFF);
+                    data[0x49] = static_cast<std::byte>(0xFF);
+                }
+            }
+            refreshChecksum();
+        }
 
         /** Fateful-encounter flag -- bit 0 of the gender byte at 0x22 (setGender leaves bit 0 alone). */
         bool isFatefulEncounter() const noexcept override { return (static_cast<uint8_t>(data[0x22]) & 0x01) != 0; }
@@ -593,10 +632,8 @@ namespace Pokemon
 
         bool isShiny(uint32_t trainerID32, std::string species) const noexcept override
         {
-            if (trainerID32 == 0)
-            {
-                return false;
-            }
+            // No guard for an id of 0: PKHeX has none, and that is a real (if rare) trainer id.
+            // Callers skip empty slots, whose all-zero PID would otherwise read as shiny.
             uint32_t xorComponent = (pid() ^ trainerID32);
             uint32_t xorResult = (xorComponent ^ (xorComponent >> 16)) & 0xFFFF;
             return xorResult < 16;

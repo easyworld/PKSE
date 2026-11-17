@@ -109,6 +109,29 @@ namespace Save
         }
     }
 
+    inline std::string localizedOriginGameName(uint8_t version)
+    {
+        const std::string name = Enums::getOriginGameName(version);
+        switch (version)
+        {
+        case 15: return "圆形竞技场／XD";
+        case 16: return "对战革命";
+        case 53: return "Pokémon Champions";
+        case 54: return "风";
+        case 55: return "波";
+        case 34: return "Pokémon GO";
+        case 36: return "蓝（国际版）／绿（日版）";
+        case 37: return "蓝（日版）";
+        case 56: return "火红（Switch）";
+        case 57: return "叶绿（Switch）";
+        default:
+            const auto gameVersion = static_cast<Enums::GameVersion>(version);
+            if (Enums::getGameGroup(gameVersion) != Enums::GameVersion::Invalid)
+                return localizedGameVersionName(gameVersion);
+            return name == "Unknown" ? "未知" : name;
+        }
+    }
+
     /// A display name made safe to use as a directory component. Only '/' can appear in a
     /// GameVersion name, and only for a group; everything else is already filesystem-safe.
     inline std::string directorySafeName(const std::string &displayName)
@@ -142,8 +165,7 @@ namespace Save
     inline std::string titleIdHint(uint64_t titleId)
     {
         char buffer[16];
-        snprintf(buffer, sizeof(buffer), "#%05llX",
-                 static_cast<unsigned long long>((titleId >> 12) & 0xFFFFFull));
+        snprintf(buffer, sizeof(buffer), "#%05llX", static_cast<unsigned long long>((titleId >> 12) & 0xFFFFFull));
         return buffer;
     }
 
@@ -155,7 +177,7 @@ namespace Save
         const uint8_t titleLanguage = Enums::getTitleLanguage(titleId);
         if (titleLanguage == 0)
             return "";
-        return std::string(" (") + Enums::getLanguageName(titleLanguage) + ")";
+        return std::string(" (") + Enums::localizedLanguageName(titleLanguage) + ")";
     }
 
     /// Short name under the picker tile. Carries the localisation when PKSE knows it and an id
@@ -192,8 +214,7 @@ namespace Save
      */
     inline std::string titleFolderName(uint64_t titleId, Enums::GameVersion gameVersion)
     {
-        return "Pokemon " + directorySafeName(Enums::getGameVersionName(gameVersion)) + " " +
-               titleIdText(titleId);
+        return "Pokemon " + directorySafeName(Enums::getGameVersionName(gameVersion)) + " " + titleIdText(titleId);
     }
 
     /**
@@ -231,8 +252,7 @@ namespace Save
      * Kept here, pure and away from the filesystem, so it can be tested off-console -- the same
      * reason Save/RtcFooter.h is its own header.
      */
-    inline bool legacyFolderIsAmbiguous(const InstalledTitle &title,
-                                        const std::vector<InstalledTitle> &installed)
+    inline bool legacyFolderIsAmbiguous(const InstalledTitle &title, const std::vector<InstalledTitle> &installed)
     {
         const std::string legacyName = legacyTitleFolderName(title.gameVersion);
         int couldHaveProducedIt = 0;

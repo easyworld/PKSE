@@ -12,6 +12,7 @@
 #include "UI/ScreenChrome.h"
 #include "UI/ListSearch.h"
 #include "UI/Dialogs/DialogFrame.h"
+#include "Utils/Settings.h"
 
 namespace UI
 {
@@ -30,8 +31,7 @@ namespace UI
 
             bool endsWith(const std::string &text, const std::string &suffix)
             {
-                return text.size() >= suffix.size() &&
-                       text.compare(text.size() - suffix.size(), suffix.size(), suffix) == 0;
+                return text.size() >= suffix.size() && text.compare(text.size() - suffix.size(), suffix.size(), suffix) == 0;
             }
 
             /// Case-insensitive compare, so "Zelda" doesn't sort above "apple" the way ASCII would.
@@ -49,11 +49,44 @@ namespace UI
 
             bool directoryExists(const std::string &path)
             {
+                // An empty path is "nothing remembered", not a folder. libnx resolves it against the
+                // working directory and opens it, so it has to be refused before opendir sees it.
+                if (path.empty())
+                    return false;
                 DIR *d = opendir(path.c_str());
                 if (!d)
                     return false;
                 closedir(d);
                 return true;
+            }
+
+            /// The length of `path` without its trailing slashes, keeping the one a root needs
+            /// ("sdmc:/"). The browser spells one folder both ways -- a start folder is written
+            /// "sdmc:/PKSE/saves/", a folder entered from a listing has no slash -- and a favorite
+            /// must match either.
+            size_t directoryLength(const std::string &path)
+            {
+                size_t trimmedPathLength = path.size();
+                while (trimmedPathLength > 0 && path[trimmedPathLength - 1] == '/' && !(trimmedPathLength >= 2 && path[trimmedPathLength - 2] == ':'))
+                    --trimmedPathLength;
+                return trimmedPathLength;
+            }
+
+            bool sameDirectory(const std::string &firstPath, const std::string &secondPath)
+            {
+                const size_t firstLength = directoryLength(firstPath);
+                return firstLength == directoryLength(secondPath) && firstPath.compare(0, firstLength, secondPath, 0, firstLength) == 0;
+            }
+
+            /// The stored spelling of `directory` when it is a favorite, else nullptr.
+            const std::string *findFavoriteFolder(const std::string &directory)
+            {
+                for (const std::string &favoriteFolder : Utils::favoriteFolders())
+                {
+                    if (sameDirectory(favoriteFolder, directory))
+                        return &favoriteFolder;
+                }
+                return nullptr;
             }
 
             std::string humanSize(uint64_t bytes)
@@ -71,18 +104,20 @@ namespace UI
             }
 
             /// Trim a path from the LEFT so the part that matters -- the folder you are in -- survives.
-            std::string fitPathFromLeft(PKSEFramebuffer &framebuffer, const std::string &path, int maxW)
+            std::string fitPathFromLeft(PKSEFramebuffer &framebuffer, const std::string &path, int maxW, TextStyle pathStyle = TextStyle::Caption)
             {
                 int dialogWidth, h;
-                framebuffer.measureText(path, dialogWidth, h, TextStyle::Caption);
+                framebuffer.measureText(path, dialogWidth, h, pathStyle);
                 if (dialogWidth <= maxW)
                     return path;
-                std::string out = path;
-                while (!out.empty())
+                size_t characterStart = 0;
+                while (characterStart < path.size())
                 {
-                    out.erase(0, 1);
-                    const std::string candidate = "..." + out;
-                    framebuffer.measureText(candidate, dialogWidth, h, TextStyle::Caption);
+                    ++characterStart;
+                    while (characterStart < path.size() && (static_cast<unsigned char>(path[characterStart]) & 0xC0) == 0x80)
+                        ++characterStart;
+                    const std::string candidate = "..." + path.substr(characterStart);
+                    framebuffer.measureText(candidate, dialogWidth, h, pathStyle);
                     if (dialogWidth <= maxW)
                         return candidate;
                 }
@@ -95,12 +130,11 @@ namespace UI
             return directory == SD_ROOT || directory.empty();
         }
 
-        void FileBrowserState::open(const std::string &windowTitle,
-                                    const std::vector<std::string> &startDirs,
-                                    const std::vector<std::string> &exts,
-                                    const std::vector<std::string> &wholeFileNames)
+        void FileBrowserState::open(const std::string &windowTitle, const std::string &filterLabel, const std::vector<std::string> &startDirs, const std::vector<std::string> &exts, const std::vector<std::string> &wholeFileNames)
         {
             title = windowTitle;
+            this->filterLabel = filterLabel;
+            noFilteredFilesMessage = "此处没有" + filterLabel + "。按 X 显示全部文件。";
             extensions.clear();
             for (const auto &e : exts)
                 extensions.push_back(toLower(e));
@@ -108,6 +142,7 @@ namespace UI
             for (const std::string &wholeFileName : wholeFileNames)
                 exactFileNames.push_back(toLower(wholeFileName));
             showAllFiles = false;
+            showFavorites = false;
             chosenPath.clear();
             status.clear();
             returnTo.clear();
@@ -140,6 +175,22 @@ namespace UI
         {
             entries.clear();
             truncated = false;
+
+            // No ".." row and no search: the list is the user's own, short, and leaving it is B.
+            if (showFavorites)
+            {
+                for (const std::string &favoriteFolder : Utils::favoriteFolders())
+                {
+                    Entry favoriteEntry;
+                    favoriteEntry.name = favoriteFolder;
+                    favoriteEntry.isDir = true;
+                    entries.push_back(std::move(favoriteEntry));
+                }
+                entriesBeforeSearch = static_cast<int>(entries.size());
+                returnTo.clear();
+                move(0); // keep the cursor in range after a row was removed
+                return;
+            }
 
             // The ".." row is a real row rather than a B-only gesture, so the browser is usable by touch
             // alone -- there is no on-screen B button inside the card.
@@ -292,6 +343,22 @@ namespace UI
                 goUp();
                 return false;
             }
+            if (showFavorites)
+            {
+                // Checked here rather than left to refresh(): a folder that is gone (another SD
+                // card, a deleted emulator) would otherwise open as an empty listing with the
+                // favorites list gone, and the way back to it would be ZL with nothing said.
+                if (!directoryExists(e.name))
+                {
+                    status = "SD 卡上找不到此文件夹。按 ZR 取消收藏。";
+                    return false;
+                }
+                directory = e.name;
+                showFavorites = false;
+                status.clear();
+                refresh();
+                return false;
+            }
             if (e.isDir)
             {
                 directory = joinPath(directory, e.name);
@@ -305,6 +372,11 @@ namespace UI
 
         bool FileBrowserState::goUp()
         {
+            if (showFavorites)
+            {
+                toggleFavoritesView();
+                return true;
+            }
             if (atRoot())
                 return false;
             std::string directoryPath = directory;
@@ -328,8 +400,42 @@ namespace UI
             return true;
         }
 
-        void drawFileBrowser(FileBrowserState &entryStatus, PKSEFramebuffer &framebuffer,
-                             std::vector<TouchButton> &taps)
+        void FileBrowserState::toggleFavoritesView()
+        {
+            showFavorites = !showFavorites;
+            status.clear();
+            selectedIndex = scroll = 0;
+            refresh();
+        }
+
+        bool FileBrowserState::toggleFavorite()
+        {
+            std::string favoriteCandidate = directory;
+            if (showFavorites)
+            {
+                if (selectedIndex < 0 || selectedIndex >= static_cast<int>(entries.size()))
+                    return false;
+                favoriteCandidate = entries[selectedIndex].name;
+            }
+            else
+            {
+                favoriteCandidate.erase(directoryLength(favoriteCandidate));
+            }
+            if (const std::string *storedFolder = findFavoriteFolder(favoriteCandidate))
+                favoriteCandidate = *storedFolder;
+            const bool isFavorite = Utils::toggleFavoriteFolder(favoriteCandidate);
+            status.clear();
+            if (showFavorites)
+                refresh();
+            return isFavorite;
+        }
+
+        bool FileBrowserState::isCurrentFolderFavorite() const
+        {
+            return findFavoriteFolder(directory) != nullptr;
+        }
+
+        void drawFileBrowser(FileBrowserState &entryStatus, PKSEFramebuffer &framebuffer, std::vector<TouchButton> &taps)
         {
 
             constexpr int rowH = TouchTargetMin;
@@ -346,52 +452,71 @@ namespace UI
 
             framebuffer.drawFilledRect(0, 0, framebuffer.getWidth(), framebuffer.getHeight(), Color(0, 0, 0, 150));
             framebuffer.drawSoftShadow(dialogX, dialogY, dialogWidth, dialogHeight, DIALOG_CORNER_RADIUS);
-            framebuffer.drawFilledRoundedRect(dialogX, dialogY, dialogWidth, dialogHeight, DIALOG_CORNER_RADIUS,
-                                              Colors::Panel);
-            framebuffer.drawRoundedRect(dialogX, dialogY, dialogWidth, dialogHeight, DIALOG_CORNER_RADIUS,
-                                        Colors::Border, 1);
+            framebuffer.drawFilledRoundedRect(dialogX, dialogY, dialogWidth, dialogHeight, DIALOG_CORNER_RADIUS, Colors::Panel);
+            framebuffer.drawRoundedRect(dialogX, dialogY, dialogWidth, dialogHeight, DIALOG_CORNER_RADIUS, Colors::Border, 1);
             framebuffer.drawText(dialogX + 24, dialogY + 14, entryStatus.title, Colors::Text, TextStyle::Heading);
 
-            // Current path, trimmed from the left so the deepest folder stays readable.
-            framebuffer.drawText(dialogX + 24, dialogY + 54,
-                                 fitPathFromLeft(framebuffer, entryStatus.directory, dialogWidth - 220),
-                                 Colors::TextDim, TextStyle::Caption);
+            // Current path, trimmed from the left so the deepest folder stays readable. A favorite
+            // folder carries a star in front of it, which is all ZR changes on screen.
+            if (entryStatus.showFavorites)
             {
-                const std::string mode = entryStatus.showAllFiles ? "全部文件" : "银行文件";
+                framebuffer.drawText(dialogX + 24, dialogY + 54, "收藏的文件夹", Colors::TextDim, TextStyle::Caption);
+            }
+            else
+            {
+                int pathLeft = dialogX + 24;
+                if (entryStatus.isCurrentFolderFavorite())
+                {
+                    const std::string favoriteStar = "\xE2\x98\x85";
+                    int starWidth, starHeight;
+                    framebuffer.measureText(favoriteStar, starWidth, starHeight, TextStyle::Caption);
+                    framebuffer.drawSymbol(pathLeft, dialogY + 54, favoriteStar, Colors::ShinyStar, TextStyle::Caption);
+                    pathLeft += starWidth + 8;
+                }
+                framebuffer.drawText(pathLeft, dialogY + 54, fitPathFromLeft(framebuffer, entryStatus.directory, dialogWidth - 220 - (pathLeft - dialogX - 24)), Colors::TextDim, TextStyle::Caption);
+            }
+            {
+                const std::string mode = entryStatus.showFavorites ? "收藏" : entryStatus.showAllFiles ? "全部文件" : entryStatus.filterLabel;
                 int messageWidth, mh;
                 framebuffer.measureText(mode, messageWidth, mh, TextStyle::Caption);
                 const int panelWidth = messageWidth + 26, ph = 26;
-                framebuffer.drawPill(dialogX + dialogWidth - 24 - panelWidth, dialogY + 50, panelWidth, ph,
-                                     entryStatus.showAllFiles ? Colors::PanelAlt : Colors::AccentDim);
-                framebuffer.drawText(dialogX + dialogWidth - 24 - panelWidth + 13, dialogY + 50 + (ph - mh) / 2, mode,
-                                     Colors::Text, TextStyle::Caption);
+                framebuffer.drawPill(dialogX + dialogWidth - 24 - panelWidth, dialogY + 50, panelWidth, ph, entryStatus.showAllFiles ? Colors::PanelAlt : Colors::AccentDim);
+                framebuffer.drawText(dialogX + dialogWidth - 24 - panelWidth + 13, dialogY + 50 + (ph - mh) / 2, mode, Colors::Text, TextStyle::Caption);
             }
-            framebuffer.drawFilledRect(dialogX + DIALOG_CORNER_RADIUS, dialogY + 84,
-                                       dialogWidth - DIALOG_CORNER_RADIUS * 2, 2, Colors::Accent);
+            framebuffer.drawFilledRect(dialogX + DIALOG_CORNER_RADIUS, dialogY + 84, dialogWidth - DIALOG_CORNER_RADIUS * 2, 2, Colors::Accent);
 
-            drawListSearchBox(framebuffer, dialogX + 24, dialogY + 92, dialogWidth - 48, entryStatus.search,
-                              static_cast<int>(entryStatus.entries.size()), entryStatus.entriesBeforeSearch);
+            drawListSearchBox(framebuffer, dialogX + 24, dialogY + 92, dialogWidth - 48, entryStatus.search, static_cast<int>(entryStatus.entries.size()), entryStatus.entriesBeforeSearch);
 
             taps.clear();
 
             const int listY = dialogY + headerH;
             const int count = static_cast<int>(entryStatus.entries.size());
-            if (count == 0)
+            // ".." is the way back out, not something the folder holds: counted, every message below went
+            // unsaid in any folder but the root.
+            const bool hasParentRow = count > 0 && entryStatus.entries.front().isParent;
+            if (count == (hasParentRow ? 1 : 0))
             {
-                if (entryStatus.search.isFiltering())
+                const int messageY = listY + (hasParentRow ? rowH : 0);
+                if (entryStatus.showFavorites)
                 {
-                    framebuffer.drawText(dialogX + 32, listY + 14, "此处没有符合搜索条件的内容。",
-                                         Colors::TextDim);
-                    framebuffer.drawText(dialogX + 32, listY + 14 + framebuffer.lineHeight(TextStyle::Body) + 4,
-                                "Y：修改搜索，或清除搜索以查看整个文件夹。", Colors::TextDim,
-                                TextStyle::Caption);
-                    return;
+                    framebuffer.drawText(dialogX + 32, messageY + 14, "还没有收藏文件夹。", Colors::TextDim);
+                    framebuffer.drawText(dialogX + 32, messageY + 14 + framebuffer.lineHeight(TextStyle::Body) + 4, "打开文件夹后按 ZR 收藏。", Colors::TextDim, TextStyle::Caption);
                 }
-                const char *message = entryStatus.status.empty()
-                                      ? (entryStatus.showAllFiles ? "此文件夹为空。"
-                                                         : "此处没有银行文件。按 X 显示全部文件。")
-                                      : entryStatus.status.c_str();
-                framebuffer.drawText(dialogX + 32, listY + 16, message, Colors::TextDim, TextStyle::Body);
+                else if (entryStatus.search.isFiltering())
+                {
+                    framebuffer.drawText(dialogX + 32, messageY + 14, "此处没有符合搜索条件的内容。", Colors::TextDim);
+                    framebuffer.drawText(dialogX + 32, messageY + 14 + framebuffer.lineHeight(TextStyle::Body) + 4, "Y: 修改搜索，或清除搜索以查看整个文件夹。", Colors::TextDim, TextStyle::Caption);
+                }
+                else
+                {
+                    const char *message = entryStatus.status.empty() ? (entryStatus.showAllFiles ? "此文件夹为空。" : entryStatus.noFilteredFilesMessage.c_str()) : entryStatus.status.c_str();
+                    framebuffer.drawText(dialogX + 32, messageY + 16, message, Colors::TextDim, TextStyle::Body);
+                }
+            }
+            else if (!entryStatus.status.empty())
+            {
+                // Under the last row, in the strip the footer leaves free, so nothing moves and no row is covered.
+                framebuffer.drawText(dialogX + 24, listY + FileBrowserState::VISIBLE_ROWS * rowH + 4, fitPathFromLeft(framebuffer, entryStatus.status, dialogWidth - 48), Colors::Warning, TextStyle::Caption);
             }
 
             const int last = std::min(count, entryStatus.scroll + FileBrowserState::VISIBLE_ROWS);
@@ -415,31 +540,26 @@ namespace UI
                     framebuffer.drawFileIcon(iconX, iy, iconSize, Colors::TextDim);
 
                 int textWidth, th;
-                const std::string label = e.isParent ? "..  (up one folder)" : e.name;
+                // A favorite is a whole path, so it is trimmed from the left like the header's.
+                const std::string label = e.isParent ? "..（上一级）" : entryStatus.showFavorites ? fitPathFromLeft(framebuffer, e.name, dialogWidth - 62 - 32, TextStyle::Body) : e.name;
                 framebuffer.measureText(label, textWidth, th, TextStyle::Body);
-                framebuffer.drawText(dialogX + 62, rectY + (rowH - th) / 2, label,
-                            selected ? Colors::Text : (e.isDir ? Colors::Text : Colors::TextDim), TextStyle::Body);
+                framebuffer.drawText(dialogX + 62, rectY + (rowH - th) / 2, label, selected ? Colors::Text : (e.isDir ? Colors::Text : Colors::TextDim), TextStyle::Body);
 
                 if (!e.isDir)
                 {
                     const std::string sizeText = humanSize(e.size);
                     int sizeTextWidth, sh;
                     framebuffer.measureText(sizeText, sizeTextWidth, sh, TextStyle::Caption);
-                    framebuffer.drawText(dialogX + dialogWidth - 32 - sizeTextWidth, rectY + (rowH - sh) / 2, sizeText,
-                                         Colors::TextDim, TextStyle::Caption);
+                    framebuffer.drawText(dialogX + dialogWidth - 32 - sizeTextWidth, rectY + (rowH - sh) / 2, sizeText, Colors::TextDim, TextStyle::Caption);
                 }
                 taps.push_back({index, dialogX + 12, rectY, dialogWidth - 24, rowH});
             }
 
-            drawScrollbar(framebuffer, dialogX + dialogWidth - 14, listY, FileBrowserState::VISIBLE_ROWS * rowH,
-                          count * rowH, entryStatus.scroll);
+            drawScrollbar(framebuffer, dialogX + dialogWidth - 14, listY, FileBrowserState::VISIBLE_ROWS * rowH, count * rowH, entryStatus.scroll);
 
             if (entryStatus.truncated)
             {
-                framebuffer.drawText(dialogX + 24, dialogY + dialogHeight - footerH - 24,
-                            "文件夹包含超过 " + std::to_string(FileBrowserState::MAX_DIRECTORY_ENTRIES) +
-                            " 个条目；其余内容未列出。",
-                            Colors::Warning, TextStyle::Caption);
+                framebuffer.drawText(dialogX + 24, dialogY + dialogHeight - footerH - 24, "文件夹包含超过 " + std::to_string(FileBrowserState::MAX_DIRECTORY_ENTRIES) + " 个条目；其余内容未列出。", Colors::Warning, TextStyle::Caption);
             }
 
         }

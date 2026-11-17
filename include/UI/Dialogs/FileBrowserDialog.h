@@ -48,8 +48,19 @@ namespace UI
             int selectedIndex = 0;
             int scroll = 0;            // index of the first visible row
             bool showAllFiles = false; // X toggles: ignore `extensions` and list every file
+            /// ZL toggles: `entries` lists the favorite folders, each row's `name` a whole path,
+            /// instead of `directory`. `directory` is left alone, so leaving the list returns there.
+            bool showFavorites = false;
             bool truncated = false;    // the directory held more entries than MAX_DIRECTORY_ENTRIES
-            std::string status;        // transient note ("无法打开该文件夹。")
+            /// A note the owner or the browser leaves ("无法打开该文件夹。", why a pick was
+            /// refused). Drawn whether or not the folder lists anything: a refusal is about a file
+            /// that is still on screen, so it never arrives in an empty folder.
+            std::string status;
+
+            /// What the filter keeps, as the browser names it ("存档文件", "银行文件"). Only the
+            /// owner knows, and the same dialog opens both.
+            std::string filterLabel;
+            std::string noFilteredFilesMessage; // built from filterLabel once, at open()
 
             /// The search box. Filtering happens in refresh(), so `entries` only ever
             /// holds rows that survive the query and every mover, hit test and draw below stays
@@ -80,19 +91,24 @@ namespace UI
             static constexpr size_t MAX_DIRECTORY_ENTRIES = 4000; // guard against a pathological folder
 
             /// Opens at the first of `startDirs` that exists, falling back to the SD root.
-            void open(const std::string &windowTitle,
-                      const std::vector<std::string> &startDirs,
-                      const std::vector<std::string> &exts,
-                      const std::vector<std::string> &wholeFileNames = {});
+            void open(const std::string &windowTitle, const std::string &filterLabel, const std::vector<std::string> &startDirs, const std::vector<std::string> &exts, const std::vector<std::string> &wholeFileNames = {});
             void close();
 
             void refresh();       // re-list `dir` (also called after every navigation)
             void move(int delta); // move the selection, keeping it and `scroll` in range
             /// A: descend into a folder, or set chosenPath from a file. Returns true if a file was picked.
             bool activate();
-            /// B: go up one level. Returns false at the SD root, where the caller should close instead.
+            /// B: go up one level, or leave the favorites list. Returns false at the SD root, where
+            /// the caller should close instead.
             bool goUp();
             bool atRoot() const;
+
+            /// ZL: show the favorite folders, or go back to the folder that was showing.
+            void toggleFavoritesView();
+            /// ZR: favorite or unfavorite the current folder -- or, in the favorites list, the
+            /// selected one. Saved straight away. Returns true when it is a favorite afterwards.
+            bool toggleFavorite();
+            bool isCurrentFolderFavorite() const;
         };
 
         /// Draws the browser over whatever is behind it and registers its rows as touch buttons.

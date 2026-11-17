@@ -52,8 +52,6 @@ namespace Trainer
     constexpr size_t RSE_BOX_NAME_OFFSET = 0x8344; // Storage; PKHeX SAV3.GetBoxOffset(COUNT_BOX)
     constexpr size_t RSE_BOX_NAME_BYTES = 9;
     constexpr size_t RSE_BOX_NAME_CHARS = 8;
-    /// Every sector's footer carries this, and all 14 must be present for a slot to be usable.
-    constexpr uint32_t RSE_SECTOR_MAGIC = 0x08012025;
 
     class Trainer3RSE : public Trainer
     {
@@ -112,7 +110,10 @@ namespace Trainer
         void updateItemBlock() override;
         void updateTrainerInfoBlock() override;
         uint32_t getMaxMoney() const noexcept override { return 999999; }      // PKHeX SAV3.MaxMoney
-        size_t getMaxTrainerNameLength() const noexcept override { return 7; } // PKHeX SAV3.MaxStringLengthTrainer
+        /// PKHeX SAV3.OT: five characters on a Japanese save, seven elsewhere. The Japanese games never
+        /// write the name field's last two bytes, and that zero pair is how the save's language is told
+        /// apart (PKHeX SAV3 `Japanese`), so a longer name would turn the save international.
+        size_t getMaxTrainerNameLength() const noexcept override { return languageId == static_cast<uint8_t>(Enums::LanguageID::Japanese) ? 5 : 7; }
         int getMaxTrainerNameDigits() const noexcept override { return -1; }   // no digit cap before generation 4
 
         std::unique_ptr<::Pokemon::Pokemon> createBlankPokemon() const override;
@@ -148,11 +149,8 @@ namespace Trainer
 
         /// Apply every edit into the raw save and refresh the sector checksums, then hand back the
         /// bytes to write. The order matters: the block writers all mutate sector DATA, so every one
-        /// of them has to run before the checksums are stamped over the result.
-        ///
-        /// Ruby/Sapphire/Emerald are the only Gen 3 games PKSE opens as a loose file, so unlike
-        /// FireRed -- which arrives with a title id and is written by saveTrainerInfoFRLG -- this one
-        /// is reached through saveExternalSave, which needs the whole image in one call.
+        /// of them has to run before the checksums are stamped over the result. Reached through
+        /// saveExternalSave, which needs the whole image in one call.
         const std::vector<uint8_t> &serialize();
     };
 }

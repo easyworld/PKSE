@@ -38,6 +38,7 @@ namespace UI
     SpriteManager::EvictFn SpriteManager::evictCallback = nullptr;
     std::map<uint8_t, Sprite *> SpriteManager::typeSpriteCache;
 std::map<uint32_t, Sprite *> SpriteManager::originMarkCache;
+    std::map<std::string, Sprite *> SpriteManager::ribbonSpriteCache;
     bool SpriteManager::initialized = false;
 
     void SpriteManager::setEvictCallback(EvictFn callback) { evictCallback = callback; }
@@ -112,6 +113,10 @@ std::map<uint32_t, Sprite *> SpriteManager::originMarkCache;
             delete pair.second;
         typeSpriteCache.clear();
 
+        for (auto &pair : ribbonSpriteCache)
+            delete pair.second;
+        ribbonSpriteCache.clear();
+
         initialized = false;
         logInfoToFile("SpriteManager cleanup complete");
     }
@@ -166,9 +171,7 @@ std::map<uint32_t, Sprite *> SpriteManager::originMarkCache;
         // getFormSpriteId() cannot reach them. It returns "" for everything else.
         std::string suffix = isShiny ? "s" : "";
         const char *named = Pokemon::getFormSpriteName(speciesId, formId);
-        std::string spriteStem = (named && named[0] != '\0')
-                              ? std::string(named)
-                              : std::to_string(Pokemon::getFormSpriteId(speciesId, formId));
+        std::string spriteStem = (named && named[0] != '\0') ? std::string(named) : std::to_string(Pokemon::getFormSpriteId(speciesId, formId));
 
         // Prefer the HD render (transparent HOME PNG) for this sprite id, then
         // fall back to the bundled 96px sprite.
@@ -226,10 +229,7 @@ std::map<uint32_t, Sprite *> SpriteManager::originMarkCache;
         if (stem == nullptr)
             return nullptr; // Gen 3/4/5 and anything the games never marked
 
-        const uint32_t key = static_cast<uint32_t>(mark) |
-                             (static_cast<uint32_t>(markColor.red) << 8) |
-                             (static_cast<uint32_t>(markColor.green) << 16) |
-                             (static_cast<uint32_t>(markColor.blue) << 24);
+        const uint32_t key = static_cast<uint32_t>(mark) | (static_cast<uint32_t>(markColor.red) << 8) | (static_cast<uint32_t>(markColor.green) << 16) | (static_cast<uint32_t>(markColor.blue) << 24);
         auto iterator = originMarkCache.find(key);
         if (iterator != originMarkCache.end())
             return iterator->second;
@@ -266,6 +266,20 @@ std::map<uint32_t, Sprite *> SpriteManager::originMarkCache;
         delete source;
         originMarkCache[key] = tinted; // a failed load is cached too, so romfs is asked once
         return tinted;
+    }
+
+    Sprite *SpriteManager::getRibbonSprite(const std::string &spriteStem)
+    {
+        if (!initialized)
+            init();
+
+        auto iterator = ribbonSpriteCache.find(spriteStem);
+        if (iterator != ribbonSpriteCache.end())
+            return iterator->second;
+
+        Sprite *sprite = loadSprite("sprites/ribbons/" + spriteStem + ".png");
+        ribbonSpriteCache[spriteStem] = sprite; // a failed load is cached too, so romfs is asked once
+        return sprite;
     }
 
     Sprite *SpriteManager::getTypeSprite(uint8_t typeId)

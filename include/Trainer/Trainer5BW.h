@@ -2,7 +2,7 @@
  * Trainer5BW.h - the Black and White save container.
  *
  * AFTER GEN 4 THIS IS A RELIEF. No partitions, no counters, no "which half is newer". A Gen 5
- * save is a flat list of fixed blocks (BlockEntryNDSs.h, generated from PKHeX), each carrying a
+ * save is a flat list of fixed blocks (Blocks5BW.h, generated from PKHeX), each carrying a
  * CRC16-CCITT over its own data. Round-tripping an unedited save is therefore trivially exact --
  * there is nothing to choose and nothing to bump.
  *
@@ -75,6 +75,9 @@ namespace Trainer
         /// 0x14 bytes = 10 UTF-16 units, so 9 characters plus a terminator fit.
         size_t getMaxBoxNameLength() const noexcept override { return 9; }
         bool itemsAreIdIndexed() const noexcept override { return false; }
+        size_t getItemPouchCapacity(int pouch) const override { return (pouch >= 0 && pouch < POUCH_COUNT5_BW) ? POUCHES5_BW[pouch].slots : 0; }
+        int getItemMaxCount(int pouch) const override { return (pouch >= 0 && pouch < POUCH_COUNT5_BW) ? POUCHES5_BW[pouch].maxCount : 0; }
+        const char *getItemPouchName(int pouch) const override { return (pouch >= 0 && pouch < POUCH_COUNT5_BW) ? POUCHES5_BW[pouch].name : nullptr; }
         bool compactStorage() override { return false; }
         bool canStoreBoxName(const std::string &name) const override;
 

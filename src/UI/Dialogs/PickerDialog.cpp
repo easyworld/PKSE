@@ -1,20 +1,24 @@
+#include <algorithm>
 #include <cstdint>
 #include <string>
+#include <vector>
 
 #include "UI/Dialogs/PickerDialog.h"
+#include "UI/Dialogs/KeyboardDialog.h"
 #include "UI/TrainerViewScreen.h"
 #include "UI/Common.h"
 #include "UI/ScreenChrome.h" // drawScrollbar
 #include "UI/ListSearch.h"   // the shared search box
 #include "UI/PKSEFramebuffer.h"
 #include "Trainer/Trainer.h"     // getNatureName / getAbilityName
+#include "Trainer/Inventory.h"   // InventoryItem -- what a pocket holds
 #include "Names/MoveNames.h"     // getMoveName / getMoveCount
 #include "Names/ItemNames.h"     // getItemNameFor -- every generation numbers items differently
 #include "Pokemon/Gen1Tables.h"  // getItemNameGen1
+#include "Pokemon/Gen2Tables.h"  // getItemNameGen2
 #include "Enums/Ball.h"          // getBallName + MAX_BALL_GEN7 (Hisui-ball disambiguation)
 #include "Enums/LanguageID.h"    // getLanguageName
-#include "Enums/GameVersion.h"   // getGameVersionName (Origin picker)
-#include "Save/TitleFolder.h"    // localizedGameVersionName
+#include "Save/TitleFolder.h"
 #include "Names/LocationNames.h" // getMetLocationName (Met Location picker)
 #include "Names/FormNames.h"     // getFormName (Form picker)
 
@@ -43,6 +47,8 @@ namespace UI
                 return static_cast<int>(Names::getItemCountG3());
             case PickerKind::ItemG1:
                 return static_cast<int>(::Pokemon::MAX_ITEM_GEN1) + 1;
+            case PickerKind::ItemG2:
+                return static_cast<int>(::Pokemon::MAX_ITEM_GEN2) + 1;
             case PickerKind::Level:
                 return 100;
             case PickerKind::Friendship:
@@ -68,6 +74,7 @@ namespace UI
             // Pouch lists are supplied through pickerOrder, so the caller sets pickerCount.
             case PickerKind::PouchItem:
             case PickerKind::PouchItemG1:
+            case PickerKind::PouchItemG2:
             case PickerKind::PouchItemG3:
                 return 0;
             }
@@ -90,6 +97,8 @@ namespace UI
                 return Names::getItemNameG3(static_cast<uint16_t>(index));
             case PickerKind::ItemG1:
                 return ::Pokemon::getItemNameGen1(static_cast<uint8_t>(index));
+            case PickerKind::ItemG2:
+                return ::Pokemon::getItemNameGen2(static_cast<uint8_t>(index));
             case PickerKind::Level:
             {
                 static std::string text;
@@ -103,15 +112,15 @@ namespace UI
                 return text.c_str();
             }
             case PickerKind::Ball:
-                return Enums::getBallName(static_cast<uint8_t>(index));
+                return Enums::localizedBallName(static_cast<uint8_t>(index));
             case PickerKind::Ability:
                 return getAbilityName(static_cast<uint16_t>(index));
             case PickerKind::Language:
-                return Enums::getLanguageName(static_cast<uint8_t>(index));
+                return Enums::localizedLanguageName(static_cast<uint8_t>(index));
             case PickerKind::Origin:
             {
                 static std::string text;
-                text = Save::localizedGameVersionName(static_cast<Enums::GameVersion>(index));
+                text = Save::localizedOriginGameName(static_cast<uint8_t>(index));
                 return text.c_str();
             }
             case PickerKind::MetLevel:
@@ -134,6 +143,8 @@ namespace UI
                 return Names::getItemNameG3(static_cast<uint16_t>(index));
             case PickerKind::PouchItemG1:
                 return ::Pokemon::getItemNameGen1(static_cast<uint8_t>(index));
+            case PickerKind::PouchItemG2:
+                return ::Pokemon::getItemNameGen2(static_cast<uint8_t>(index));
             }
             return "?";
         }
@@ -150,6 +161,7 @@ namespace UI
                 return "选择招式";
             case PickerKind::Item:
             case PickerKind::ItemG1:
+            case PickerKind::ItemG2:
             case PickerKind::ItemG3:
                 return "选择携带道具";
             case PickerKind::Level:
@@ -176,6 +188,7 @@ namespace UI
                 return "选择种类";
             case PickerKind::PouchItem:
             case PickerKind::PouchItemG1:
+            case PickerKind::PouchItemG2:
             case PickerKind::PouchItemG3:
                 return "向口袋添加道具";
             }
@@ -188,8 +201,7 @@ namespace UI
                 return Names::getMetLocationName(screen.pickerMetVersion, static_cast<uint16_t>(value));
             if (kind == PickerKind::Form)
             {
-                const char *formName = Names::getFormName(screen.pickerFormSpecies,
-                                                          static_cast<uint8_t>(value));
+                const char *formName = Names::getFormName(screen.pickerFormSpecies, static_cast<uint8_t>(value), screen.pickerFormGroup);
                 if (formName[0] != '\0')
                     return formName;
                 return value == 0 ? std::string("普通形态") : ("形态 " + std::to_string(value));
@@ -214,11 +226,16 @@ namespace UI
                 }
                 if (listMixesNumberings)
                 {
-                    return std::string(Enums::getBallName(static_cast<uint8_t>(value))) + " (Hisui)";
+                    return std::string(Enums::localizedBallName(static_cast<uint8_t>(value))) + "（洗翠）";
                 }
             }
             const char *label = pickerOptionLabel(kind, value);
             return label != nullptr ? std::string(label) : std::string();
+        }
+
+        static bool isPouchPickerKind(PickerKind kind)
+        {
+            return kind == PickerKind::PouchItem || kind == PickerKind::PouchItemG1 || kind == PickerKind::PouchItemG2 || kind == PickerKind::PouchItemG3;
         }
 
         void drawPickerDialog(TrainerViewScreen &screen, PKSEFramebuffer &framebuffer)
@@ -243,27 +260,27 @@ namespace UI
 
             // Title + position caption. A pouch picker opened to change an existing item's type says so
             // rather than "向口袋添加道具".
-            const char *title = (screen.itemPickerReplace &&
-                                 (kind == PickerKind::PouchItem || kind == PickerKind::PouchItemG3))
-                                    ? "更换道具"
-                                    : pickerTitle(kind);
+            const char *title = (screen.itemPickerReplace && (kind == PickerKind::PouchItem || kind == PickerKind::PouchItemG2 || kind == PickerKind::PouchItemG3)) ? "更换道具" : pickerTitle(kind);
             framebuffer.drawText(panelX + 20, py + 16, title, Colors::Text, TextStyle::Heading);
             {
-                std::string position = std::to_string(matchCount == 0 ? 0 : selectedIndex + 1) +
-                                  " / " + std::to_string(matchCount);
+                std::string position = std::to_string(matchCount == 0 ? 0 : selectedIndex + 1) + " / " + std::to_string(matchCount);
                 int previewWidth, phi;
                 framebuffer.measureText(position, previewWidth, phi, TextStyle::Caption);
-                framebuffer.drawText(panelX + panelWidth - 20 - previewWidth, py + 22, position, Colors::TextDim,
-                                     TextStyle::Caption);
+                framebuffer.drawText(panelX + panelWidth - 20 - previewWidth, py + 22, position, Colors::TextDim, TextStyle::Caption);
             }
             framebuffer.drawHDivider(panelX + 20, py + 52, panelWidth - 40);
 
-            drawListSearchBox(framebuffer, panelX + 12, py + 60, panelWidth - 24, screen.pickerSearch,
-                              matchCount, screen.pickerCount);
+            drawListSearchBox(framebuffer, panelX + 12, py + 60, panelWidth - 24, screen.pickerSearch, matchCount, screen.pickerCount);
 
             // Scrollable list window centered on the selection.
             const int rowH = 40;
-            const int listTop = py + 60 + listSearchBoxHeight() + 4, listBottom = py + ph - 48;
+            constexpr int panelFooterHeight = 48;
+            const int listTop = py + 60 + listSearchBoxHeight() + 4;
+            int listBottom = py + ph - panelFooterHeight;
+            // While the keyboard types this picker's query, only the rows above it can be seen -- so
+            // the window centres the selection among those, not among rows hidden under the keyboard.
+            if (const KeyboardState *keyboard = activeKeyboard())
+                listBottom = std::min(listBottom, keyboard->cardTop() - 8);
             int visible = (listBottom - listTop) / rowH;
             if (visible < 1)
                 visible = 1;
@@ -289,32 +306,32 @@ namespace UI
                 const int row = screen.pickerRowForVisibleIndex(entryIndex); // row in the full list
                 if (row < 0)
                     continue;
-                const int value = (reorder && row < static_cast<int>(screen.pickerOrder.size()))
-                                    ? screen.pickerOrder[row]
-                                    : row;
+                const int value = (reorder && row < static_cast<int>(screen.pickerOrder.size())) ? screen.pickerOrder[row] : row;
                 const int rectY = listTop + index * rowH;
                 const bool isSelected = (entryIndex == selectedIndex);
                 if (isSelected)
                 {
-                    framebuffer.drawFilledRoundedRect(panelX + 12, rectY, panelWidth - 24, rowH - 4, 8,
-                                                      Colors::Selected);
+                    framebuffer.drawFilledRoundedRect(panelX + 12, rectY, panelWidth - 24, rowH - 4, 8, Colors::Selected);
                     framebuffer.drawRoundedRect(panelX + 12, rectY, panelWidth - 24, rowH - 4, 8, Colors::Accent, 2);
                 }
                 const bool legal = reorder && row < screen.pickerLegalCount;
                 const Color rowColor = legal ? Color(120, 210, 130) : (isSelected ? Colors::Text : Colors::TextDim);
                 const std::string label = pickerRowLabel(screen, kind, value);
-                framebuffer.drawText(panelX + 28, rectY + (rowH - 4 - framebuffer.lineHeight(TextStyle::Body)) / 2,
-                                     label, rowColor);
+                framebuffer.drawText(panelX + 28, rectY + (rowH - 4 - framebuffer.lineHeight(TextStyle::Body)) / 2, label, rowColor);
                 // id = option row
                 screen.touchButtons.push_back({entryIndex, panelX + 12, rectY, panelWidth - 24, rowH - 4});
             }
+
+            // Add Item and Change Item To leave out every item the pocket already holds, since adding one
+            // again could only duplicate it. Left unsaid, an item the player holds reads as missing.
+            const std::vector<InventoryItem> *pouch = (isPouchPickerKind(kind) && screen.selectedCategory >= 0 && screen.selectedCategory < static_cast<int>(screen.trainer.items.size())) ? &screen.trainer.items[screen.selectedCategory] : nullptr;
+            const bool pouchHoldsItems = pouch != nullptr && std::any_of(pouch->begin(), pouch->end(), [](const InventoryItem &pouchItem) { return pouchItem.count > 0; });
 
             if (matchCount == 0)
             {
                 framebuffer.drawText(panelX + 28, listTop + 8, "没有符合搜索条件的内容。", Colors::TextDim);
                 int emptyStateY = listTop + 8 + framebuffer.lineHeight(TextStyle::Body) + 4;
-                framebuffer.drawText(panelX + 28, emptyStateY, "Y：修改搜索，或清除搜索以查看整个列表。",
-                            Colors::TextDim, TextStyle::Caption);
+                framebuffer.drawText(panelX + 28, emptyStateY, "Y: 修改搜索，或清除搜索以查看整个列表。", Colors::TextDim, TextStyle::Caption);
                 emptyStateY += framebuffer.lineHeight(TextStyle::Caption) + 10;
 
                 // The met list is IN-WORLD PLACES only. Who an egg came FROM -- "Nursery Couple",
@@ -327,23 +344,37 @@ namespace UI
                     const Names::LocationTable eggSources = Names::getEggSourceLocationTable(screen.pickerMetVersion);
                     const char *matchedSource = nullptr;
                     for (uint16_t sourceIndex = 0; sourceIndex < eggSources.count && !matchedSource; ++sourceIndex)
-                        if (eggSources.names[sourceIndex][0] != '\0' &&
-                            screen.pickerSearch.matches(eggSources.names[sourceIndex]))
+                        if (eggSources.names[sourceIndex][0] != '\0' && screen.pickerSearch.matches(eggSources.names[sourceIndex]))
                             matchedSource = eggSources.names[sourceIndex];
                     if (matchedSource)
                     {
-                        framebuffer.drawText(panelX + 28, emptyStateY,
-                                    std::string("\"") + matchedSource + "\" is where an EGG came from, not a place.",
-                                    Colors::Accent, TextStyle::Caption);
-                        framebuffer.drawText(panelX + 28, emptyStateY + framebuffer.lineHeight(TextStyle::Caption) + 4,
-                                    "请在蛋获得地点一栏中设置它。", Colors::Accent, TextStyle::Caption);
+                        framebuffer.drawText(panelX + 28, emptyStateY, std::string("“") + matchedSource + "”表示蛋的来源。", Colors::Accent, TextStyle::Caption);
+                        framebuffer.drawText(panelX + 28, emptyStateY + framebuffer.lineHeight(TextStyle::Caption) + 4, "请在蛋获得地点一栏中设置它。", Colors::Accent, TextStyle::Caption);
+                    }
+                }
+
+                if (pouch != nullptr)
+                {
+                    const auto matchedPouchItem = std::find_if(pouch->begin(), pouch->end(), [&](const InventoryItem &pouchItem) {
+                            return pouchItem.count > 0 && screen.pickerSearch.matches(pickerOptionLabel(kind, pouchItem.itemId));
+                        });
+                    if (matchedPouchItem != pouch->end())
+                    {
+                        framebuffer.drawText(panelX + 28, emptyStateY, std::string("“") + pickerOptionLabel(kind, matchedPouchItem->itemId) + "”已在此口袋中（×" + std::to_string(matchedPouchItem->count) + "）。", Colors::Accent, TextStyle::Caption);
+                        framebuffer.drawText(panelX + 28, emptyStateY + framebuffer.lineHeight(TextStyle::Caption) + 4, "可在口袋列表中修改其数量。", Colors::Accent, TextStyle::Caption);
                     }
                 }
             }
 
             // Scrollbar on the panel's right edge (same thumb as everywhere else) when the list overflows.
-            drawScrollbar(framebuffer, panelX + panelWidth - 14, listTop, visible * rowH, matchCount * rowH,
-                          first * rowH);
+            drawScrollbar(framebuffer, panelX + panelWidth - 14, listTop, visible * rowH, matchCount * rowH, first * rowH);
+
+            if (pouchHoldsItems)
+            {
+                const int footerTextY = framebuffer.textYCenteredOn(py + ph - panelFooterHeight / 2, TextStyle::Caption);
+                framebuffer.drawText(panelX + 28, footerTextY, "列表仅显示此口袋中尚未持有的道具。", Colors::TextDim, TextStyle::Caption);
+            }
+
 
             // No hint strip in the card. The screen's nav bar is the ONE place controls are listed; a
             // second copy right above it is two rows of buttons for one dialog, saying different things.
